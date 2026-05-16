@@ -9,6 +9,7 @@ const navItems = [
   { href: "/bdcs", label: "BDCs" },
   { href: "/companies", label: "Portfolio Companies" },
   { href: "/borrowers", label: "Borrowers" },
+  { href: "/sponsors", label: "Sponsors" },
   { href: "/market", label: "Market Trends" },
   { href: "/non-accruals", label: "Non-Accruals" },
   { href: "/credit-lens", label: "Credit Lens" },

@@ -81,7 +81,7 @@ export default function BorrowersIndexPage() {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                {["Borrower", "Industry", "Holders", "Latest FV", "Latest period"].map((h) => (
+                {["Borrower", "Category / Industry", "Sponsor", "Holders", "Latest FV", "Latest period"].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap"
@@ -110,8 +110,11 @@ export default function BorrowersIndexPage() {
                       {b.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>
-                    {b.industry || "—"}
+                  <td className="px-4 py-3 text-xs" style={{ color: b.category ? "#a5b4fc" : "#9ca3af" }}>
+                    {b.category || b.industry || "—"}
+                  </td>
+                  <td className="px-4 py-3 text-xs" style={{ color: b.sponsors ? "#d8b4fe" : "#6b6b88" }}>
+                    {b.sponsors ? b.sponsors.split(";")[0].trim() + (b.sponsors.includes(";") ? " +" : "") : "—"}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     <span

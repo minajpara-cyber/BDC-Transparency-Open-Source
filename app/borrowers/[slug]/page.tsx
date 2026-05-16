@@ -105,7 +105,34 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
               Cross-held · {b.n_holders} BDCs
             </span>
           )}
-          {b.industry && (
+          {b.category && (
+            <span className="text-xs px-2 py-1 rounded border" style={{
+              color: "#a5b4fc",
+              background: "rgba(99,102,241,0.10)",
+              borderColor: "rgba(99,102,241,0.3)",
+            }}>
+              {b.category}
+            </span>
+          )}
+          {b.segment && (
+            <span className="text-xs px-2 py-1 rounded border" style={{
+              color: "#d1d5db",
+              background: "#1a1a28",
+              borderColor: "#2d2d50",
+            }}>
+              {b.segment}
+            </span>
+          )}
+          {b.system_type && (
+            <span className="text-xs px-2 py-1 rounded border" style={{
+              color: "#d1d5db",
+              background: "#1a1a28",
+              borderColor: "#2d2d50",
+            }}>
+              {b.system_type}
+            </span>
+          )}
+          {!b.category && b.industry && (
             <span className="text-xs px-2 py-1 rounded border" style={{
               color: "#d1d5db",
               background: "#1a1a28",
@@ -116,6 +143,21 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
           )}
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{b.name}</h1>
+        {b.sponsors && (
+          <div className="text-sm mt-1 flex items-center gap-2 flex-wrap" style={{ color: "#d8b4fe" }}>
+            <span style={{ color: "#8b8ba8" }}>Sponsor{b.sponsors.includes(";") ? "s" : ""}:</span>
+            {b.sponsors.split(";").map((sp) => {
+              const name = sp.trim();
+              const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+              return (
+                <Link key={name} href={`/sponsors/${slug}`}
+                      className="font-medium hover:text-white transition-colors">
+                  {name}
+                </Link>
+              );
+            })}
+          </div>
+        )}
         <p className="text-sm" style={{ color: "#9ca3af" }}>
           {tickers.length} holder{tickers.length === 1 ? "" : "s"} · {periods.length} quarter{periods.length === 1 ? "" : "s"} of history
           · {periods[0]} → {periods[periods.length - 1]}
