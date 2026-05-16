@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Building2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Building2, LineChart } from "lucide-react";
 import AlertBadge from "@/components/AlertBadge";
 import StatCard from "@/components/StatCard";
 import { bdcs } from "@/data/bdcs";
+import { bdcsHistory } from "@/data/bdcs_history";
 import { portfolioCompanies } from "@/data/companies";
 
 interface PageProps {
@@ -32,6 +33,8 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const pikHoldings = holdings.filter((h) => h.holder.status === "PIK");
 
   const softwareRisk = bdc.softwareExposure >= 50 ? "Critical" : bdc.softwareExposure >= 25 ? "High" : bdc.softwareExposure >= 15 ? "Medium" : "Low";
+
+  const hasTimeline = bdcsHistory.some((r) => r.ticker === bdc.ticker);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -69,6 +72,25 @@ export default async function BDCDetailPage({ params }: PageProps) {
           </div>
         )}
       </div>
+
+      {/* Time-series CTA */}
+      {hasTimeline && (
+        <Link
+          href={`/bdcs/${bdc.slug}/timeline`}
+          className="group inline-flex items-center gap-2 mb-6 px-4 py-2.5 rounded-lg border transition-colors"
+          style={{
+            background: "rgba(99,102,241,0.08)",
+            borderColor: "rgba(99,102,241,0.3)",
+            color: "#a5b4fc",
+          }}
+        >
+          <LineChart size={14} />
+          <span className="text-sm font-medium">View {bdc.ticker} through time →</span>
+          <span className="text-xs" style={{ color: "#8b8ba8" }}>
+            Quarter-by-quarter portfolio composition
+          </span>
+        </Link>
+      )}
 
       {/* Description */}
       <div className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
