@@ -10,6 +10,7 @@ const navItems = [
   { href: "/companies", label: "Portfolio Companies" },
   { href: "/market", label: "Market Trends" },
   { href: "/non-accruals", label: "Non-Accruals" },
+  { href: "/credit-lens", label: "Credit Lens" },
   { href: "/about", label: "About" },
 ];
 

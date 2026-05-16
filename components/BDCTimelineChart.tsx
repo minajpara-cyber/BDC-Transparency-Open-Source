@@ -94,9 +94,10 @@ export default function BDCTimelineChart({ rows, modRows, ticker }: Props) {
                 fontSize: 12,
               }}
               labelStyle={{ color: "#d1d5db" }}
-              formatter={(value: number, name: string) => {
-                if (name === "Positions") return [value.toString(), name];
-                return [fmtBn(value), name];
+              formatter={(value, name) => {
+                const v = Number(value);
+                if (name === "Positions") return [v.toString(), name as string];
+                return [fmtBn(v), name as string];
               }}
             />
             <Legend wrapperStyle={{ fontSize: 12, color: "#8b8ba8" }} />
@@ -164,9 +165,13 @@ export default function BDCTimelineChart({ rows, modRows, ticker }: Props) {
                   fontSize: 12,
                 }}
                 labelStyle={{ color: "#d1d5db" }}
-                formatter={(value: number, name: string) =>
-                  name === "Cured (PIK → cash)" ? [Math.abs(value).toString(), name] : [value.toString(), name]
-                }
+                formatter={(value, name) => {
+                  const v = Number(value);
+                  const n = name as string;
+                  return n === "Cured (PIK → cash)"
+                    ? [Math.abs(v).toString(), n]
+                    : [v.toString(), n];
+                }}
               />
               <Legend wrapperStyle={{ fontSize: 12, color: "#8b8ba8" }} />
               <Bar dataKey="new_minimal"  name="New mod — minimal"  stackId="a" fill="#fde68a" />
@@ -218,7 +223,7 @@ export default function BDCTimelineChart({ rows, modRows, ticker }: Props) {
                   fontSize: 12,
                 }}
                 labelStyle={{ color: "#d1d5db" }}
-                formatter={(value: number) => fmtPct(value)}
+                formatter={(value) => fmtPct(Number(value))}
               />
               <Legend wrapperStyle={{ fontSize: 12, color: "#8b8ba8" }} />
               <Line
