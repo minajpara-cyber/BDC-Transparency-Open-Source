@@ -13,6 +13,7 @@ const navItems = [
   { href: "/market", label: "Market Trends" },
   { href: "/non-accruals", label: "Non-Accruals" },
   { href: "/credit", label: "Credit" },
+  { href: "/vintage", label: "Vintage" },
   { href: "/about", label: "About" },
 ];
 

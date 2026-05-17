@@ -15,6 +15,7 @@ import { modificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
 import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
+import { vintageRows } from "@/data/vintage_analysis";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -681,6 +682,101 @@ export default async function BDCDetailPage({ params }: PageProps) {
           </div>
         </section>
       )}
+
+      {/* Vintage Performance — this BDC's per-vintage curves vs the industry average */}
+      {(() => {
+        const bdcVintage = vintageRows.filter((r) => r.ticker === bdc.ticker && !r.is_partial);
+        const industryVintage = vintageRows.filter((r) => r.ticker === "industry" && !r.is_partial);
+        if (bdcVintage.length === 0) return null;
+
+        // Pick the cumulative ever-NA % at each of years 1..5 per vintage, for
+        // both this BDC and the industry baseline. "−" if the vintage hasn't aged that far.
+        const vintageYears = Array.from(new Set(bdcVintage.map((r) => r.vintage_year))).sort();
+        const ageYears = [1, 2, 3, 4, 5];
+
+        const pickMetric = (
+          rows: typeof bdcVintage,
+          vy: number,
+          age: number,
+          metric: "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive",
+        ): number | null => {
+          const r = rows.find((x) => x.vintage_year === vy && x.age_quarters === age * 4);
+          return r ? (r[metric] as number) : null;
+        };
+
+        const deltaCell = (bdcV: number | null, indV: number | null) => {
+          if (bdcV === null || indV === null) {
+            return <td className="px-3 py-2 text-xs" style={{ color: "#444" }}>—</td>;
+          }
+          const diff = bdcV - indV;
+          const color = diff > 0.25 ? "#ef4444" : diff < -0.25 ? "#22c55e" : "#9ca3af";
+          const arrow = diff > 0.25 ? "↑" : diff < -0.25 ? "↓" : "≈";
+          return (
+            <td className="px-3 py-2">
+              <div className="text-sm font-semibold" style={{ color: "#d1d5db" }}>{bdcV.toFixed(2)}%</div>
+              <div className="text-xs" style={{ color }}>
+                {arrow} {Math.abs(diff).toFixed(2)}pp vs ind. {indV.toFixed(2)}%
+              </div>
+            </td>
+          );
+        };
+
+        return (
+          <section className="mt-8">
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <h2 className="text-lg font-semibold text-white">{bdc.ticker} vintage performance vs industry</h2>
+              <span className="text-xs px-2 py-0.5 rounded border" style={{
+                color: "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)",
+              }}>
+                {vintageYears.length} vintage{vintageYears.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
+              Cumulative <span className="text-white">cost-weighted % ever non-accrual</span> at standard ages for each
+              acquisition cohort, compared to the industry average. Green = this BDC&apos;s vintage performed better than peers;
+              red = worse. Vintages predating our parser coverage are omitted.
+            </p>
+
+            <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                    <tr>
+                      <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Vintage</th>
+                      <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Cohort</th>
+                      {ageYears.map((y) => (
+                        <th key={y} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>NA at Y{y}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vintageYears.map((vy, i) => {
+                      const cohort = bdcVintage.find((r) => r.vintage_year === vy);
+                      return (
+                        <tr key={vy} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
+                          <td className="px-3 py-2 font-semibold text-white">{vy}</td>
+                          <td className="px-3 py-2 text-xs" style={{ color: "#9ca3af" }}>
+                            {cohort ? `${cohort.n_loans_cohort} loans · $${cohort.cohort_entry_cost_b.toFixed(1)}B` : "—"}
+                          </td>
+                          {ageYears.map((yr) => {
+                            const bdcV = pickMetric(bdcVintage, vy, yr, "pct_ever_na");
+                            const indV = pickMetric(industryVintage, vy, yr, "pct_ever_na");
+                            return <td key={yr} className="p-0">{deltaCell(bdcV, indV)}</td>;
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="text-xs mt-3" style={{ color: "#6b6b88" }}>
+              See <Link href="/vintage" className="text-indigo-400 hover:underline">/vintage</Link> for the industry-wide curves and methodology.
+            </div>
+          </section>
+        );
+      })()}
     </div>
   );
 }
