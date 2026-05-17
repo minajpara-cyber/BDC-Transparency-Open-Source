@@ -1,5 +1,8 @@
 // Server component: a wide BDC×quarter heatmap rendered as an HTML table.
 // Cells are colored by metric magnitude using a green→yellow→red scale.
+// Each ticker label in the row header links to /bdcs/{slug} so users can
+// jump straight from a credit cell to that BDC's detail page.
+import Link from "next/link";
 
 interface Cell {
   value: number | null;  // null = missing (no filing that quarter)
@@ -120,12 +123,18 @@ export default function CreditHeatmap({
                 <td
                   className="px-3 py-2 font-mono font-semibold sticky left-0 z-10"
                   style={{
-                    color: "#a5b4fc",
                     background: ri % 2 === 0 ? "#111118" : "#0f0f16",
                     borderRight: "1px solid #1e1e2e",
                   }}
                 >
-                  {ticker}
+                  <Link
+                    href={`/bdcs/${ticker.toLowerCase()}`}
+                    className="hover:text-white transition-colors"
+                    style={{ color: "#a5b4fc" }}
+                    title={`Open ${ticker} detail`}
+                  >
+                    {ticker}
+                  </Link>
                 </td>
                 {periods.map((p) => {
                   const cell = cellMap.get(`${ticker}|${p}`);

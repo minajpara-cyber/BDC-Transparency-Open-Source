@@ -3,8 +3,10 @@ import { ArrowLeft, AlertTriangle } from "lucide-react";
 import CreditHeatmap from "@/components/CreditHeatmap";
 import CreditLensChart, { IndustryPoint } from "@/components/CreditLensChart";
 import AssetCompositionChart from "@/components/AssetCompositionChart";
+import SeverityStackedBars from "@/components/SeverityStackedBars";
 import { creditQuality, CreditQuality } from "@/data/credit_quality";
 import { modificationRate, ModificationRate } from "@/data/modification_rate";
+import { pikModifications } from "@/data/pik_modifications";
 import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
 
@@ -264,6 +266,30 @@ export default function CreditPage() {
   const lt90Line = buildIndustrySeries("pct_below_90");
   const modPctLine = buildModIndustrySeries();
 
+  // Modifications-by-severity: industry-aggregated counts per quarter.
+  const sevByPeriod = new Map<string, { minimal: number; moderate: number; severe: number }>();
+  for (const r of pikModifications) {
+    if (!isReliable(r.ticker, r.period_end)) continue;
+    if (!sevByPeriod.has(r.period_end))
+      sevByPeriod.set(r.period_end, { minimal: 0, moderate: 0, severe: 0 });
+    const s = sevByPeriod.get(r.period_end)!;
+    s.minimal  += r.new_minimal;
+    s.moderate += r.new_moderate;
+    s.severe   += r.new_severe;
+  }
+  const severityIndustry = Array.from(sevByPeriod.entries())
+    .map(([period_end, s]) => ({ period_end, ...s }))
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+
+  // Per-(ticker, period) severity rows for the recent table (latest 8 quarters).
+  const recentPeriods = Array.from(new Set(pikModifications.map((r) => r.period_end)))
+    .sort()
+    .slice(-8);
+  const severityTableRows = pikModifications
+    .filter((r) => recentPeriods.includes(r.period_end) && isReliable(r.ticker, r.period_end))
+    .filter((r) => r.new_minimal + r.new_moderate + r.new_severe > 0)
+    .sort((a, b) => (b.period_end.localeCompare(a.period_end)) || (b.new_severe - a.new_severe));
+
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Link
@@ -301,12 +327,12 @@ export default function CreditPage() {
       <div className="rounded-xl border mb-8 p-3 flex items-center gap-3 flex-wrap text-xs" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <span style={{ color: "#8b8ba8" }}>Jump to:</span>
         {[
-          ["#composition", "Asset mix"],
-          ["#spread", "Spread"],
           ["#na", "Non-accrual"],
           ["#below-95", "Below 95¢"],
           ["#below-90", "Below 90¢"],
           ["#mods", "Loan modifications"],
+          ["#composition", "Asset mix"],
+          ["#spread", "Spread"],
         ].map(([href, label]) => (
           <a
             key={href}
@@ -334,88 +360,6 @@ export default function CreditPage() {
           level, so its non-accrual column is also flagged.
         </div>
       </div>
-
-      {/* Section A — Asset composition */}
-      <section id="composition" className="mb-12 scroll-mt-6">
-        <h2 className="text-lg font-semibold text-white mb-3">
-          Asset composition <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            · 1st lien / 2nd lien / equity / other, as % of amortized cost
-          </span>
-        </h2>
-        <CreditHeatmap
-          title="% of cost in FIRST LIEN debt"
-          description="Senior-secured first-lien exposure as a share of total amortized cost. Higher = more conservative. Cells colored 0% → 60% → 80% → ≥95%."
-          periods={periods}
-          tickers={tickers}
-          cellMap={firstLienMap}
-          thresholds={[60, 80, 95]}
-        />
-        <div className="mt-4">
-          <CreditHeatmap
-            title="% of cost in EQUITY (common, preferred, warrants)"
-            description="Equity exposure across each book. Cells colored 0% → 3% → 8% → ≥15%."
-            periods={periods}
-            tickers={tickers}
-            cellMap={equityMap}
-            thresholds={[3, 8, 15]}
-          />
-        </div>
-        <div className="mt-4">
-          <AssetCompositionChart
-            data={industryComposition}
-            title="Industry composition mix over time"
-            subtitle="Position-weighted average composition across reliable BDCs each quarter (stacked-area, normalized to 100%)."
-          />
-        </div>
-      </section>
-
-      {/* Section B — Spread */}
-      <section id="spread" className="mb-12 scroll-mt-6">
-        <h2 className="text-lg font-semibold text-white mb-3">
-          Weighted-average spread <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            · book vs new originations, basis points
-          </span>
-        </h2>
-        <CreditHeatmap
-          title="Book weighted-avg spread (bps)"
-          description={"Cost-weighted spread of the whole book each quarter. Parsed from the SOI's reference-rate-and-spread text (e.g. 'SOFR + 5.75%' → 575 bps). " +
-            "Cells colored 400 → 525 → 625 → ≥750 bps. Most direct-lending term loans live in the 500-650 range."}
-          periods={periods}
-          tickers={tickers}
-          cellMap={bookSpreadMap}
-          thresholds={[525, 625, 750]}
-          unit=" bps"
-        />
-        <div className="mt-4">
-          <CreditHeatmap
-            title="Weighted-avg spread on NEW loans this quarter (bps)"
-            description="Same calc, but only on loans whose first observation in our dataset is this quarter (i.e., new originations / new commitments). Cells colored 400 → 525 → 625 → ≥750 bps."
-            periods={periods}
-            tickers={tickers}
-            cellMap={newSpreadMap}
-            thresholds={[525, 625, 750]}
-            unit=" bps"
-          />
-        </div>
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
-          <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-            <div className="text-sm font-semibold text-white mb-1">Industry book spread (bps)</div>
-            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average of book spread across reporting BDCs each quarter.</p>
-            <CreditLensChart data={bookSpreadLine} yLabel="Book spread (bps)" unit="" color="#22c55e" />
-          </div>
-          <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-            <div className="text-sm font-semibold text-white mb-1">Industry new-loan spread (bps)</div>
-            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average of new-loan spreads across reporting BDCs each quarter. The new-loan series leads the book — gives the cleanest read on spread compression / widening in primary direct lending.</p>
-            <CreditLensChart data={newSpreadLine} yLabel="New-loan spread (bps)" unit="" color="#a855f7" />
-          </div>
-        </div>
-        <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
-          Spread extracted from ref_rate_spread / ref_rate_combined / coupon_rate fields in the SOI.
-          Floating-rate loans give a clean spread; fixed-rate notes fall through to coupon as a proxy
-          (overstates spread, understates fixed-rate originations). Positions without parseable spread
-          text are excluded from the weighted average.
-        </p>
-      </section>
 
       {/* Section 1 — Non-accrual */}
       <section id="na" className="mb-12 scroll-mt-6">
@@ -491,18 +435,177 @@ export default function CreditPage() {
           cellMap={modMap}
           thresholds={[2, 5, 10]}
         />
-        <div className="rounded-xl border p-4 mt-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="text-sm font-semibold text-white mb-1">Industry rate of new modifications (cost-weighted)</div>
-          <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
-            (Sum of new-modification cost across reporting BDCs) / (sum of eligible-loan cost across reporting BDCs) each quarter.
-          </p>
-          <CreditLensChart data={modPctLine} yLabel="% modified by cost" color="#f97316" />
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
+          <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+            <div className="text-sm font-semibold text-white mb-1">Industry rate of new modifications (cost-weighted)</div>
+            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
+              (Sum of new-modification cost across reporting BDCs) / (sum of eligible-loan cost across reporting BDCs) each quarter.
+            </p>
+            <CreditLensChart data={modPctLine} yLabel="% modified by cost" color="#f97316" />
+          </div>
+          <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+            <div className="text-sm font-semibold text-white mb-1">Industry new modifications by severity</div>
+            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
+              Stacked count of new cash → PIK modifications each quarter, bucketed by PIK severity
+              (minimal &lt;20% / moderate 20–50% / severe ≥50% or all-PIK of total coupon).
+            </p>
+            <SeverityStackedBars data={severityIndustry} />
+          </div>
+        </div>
+
+        {/* Recent severity table */}
+        <div
+          className="rounded-xl border overflow-hidden mt-4"
+          style={{ background: "#111118", borderColor: "#1e1e2e" }}
+        >
+          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+            <h3 className="font-semibold text-white text-sm">Recent modifications by severity (last 8 quarters)</h3>
+            <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
+              Per-BDC counts of new cash → PIK flips this quarter, by severity bucket. Rows sorted by quarter then severity.
+            </p>
+          </div>
+          <div className="overflow-x-auto" style={{ maxHeight: 380 }}>
+            <table className="w-full text-sm">
+              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e", position: "sticky", top: 0, zIndex: 1 }}>
+                <tr>
+                  {["Quarter", "BDC", "New mods", "Severe", "Moderate", "Minimal", "Cured", "Net"].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap"
+                      style={{ color: "#8b8ba8" }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {severityTableRows.map((r, i) => (
+                  <tr
+                    key={`${r.ticker}-${r.period_end}-${i}`}
+                    className="border-t"
+                    style={{
+                      borderColor: "#1a1a28",
+                      background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                    }}
+                  >
+                    <td className="px-4 py-2.5 text-xs font-mono" style={{ color: "#d1d5db" }}>{r.period_end}</td>
+                    <td className="px-4 py-2.5">
+                      <Link href={`/bdcs/${r.ticker.toLowerCase()}`} className="text-xs font-mono font-semibold hover:text-white" style={{ color: "#a5b4fc" }}>
+                        {r.ticker}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2.5 text-sm font-semibold text-white">{r.new_mods}</td>
+                    <td className="px-4 py-2.5 text-sm font-semibold" style={{ color: r.new_severe > 0 ? "#dc2626" : "#6b6b88" }}>
+                      {r.new_severe || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-sm" style={{ color: r.new_moderate > 0 ? "#f97316" : "#6b6b88" }}>
+                      {r.new_moderate || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-sm" style={{ color: r.new_minimal > 0 ? "#fde68a" : "#6b6b88" }}>
+                      {r.new_minimal || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-sm" style={{ color: r.cured > 0 ? "#22c55e" : "#6b6b88" }}>
+                      {r.cured || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-sm font-semibold" style={{
+                      color: r.net > 0 ? "#ef4444" : r.net < 0 ? "#22c55e" : "#9ca3af",
+                    }}>
+                      {r.net > 0 ? "+" : ""}{r.net}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
           Note on origination: we can only flag a loan as &quot;modified&quot; once we&apos;ve observed
           it in cash-pay state in a prior quarter. Loans that entered our dataset already PIK are not
           counted as modifications — they could either have originated PIK or been modified before we
           had coverage. As back-book parsing improves, more of these will resolve into modifications.
+        </p>
+      </section>
+
+      {/* Section 5 — Asset composition (moved below modifications) */}
+      <section id="composition" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Asset composition <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · 1st lien / 2nd lien / equity / other, as % of amortized cost
+          </span>
+        </h2>
+        <CreditHeatmap
+          title="% of cost in FIRST LIEN debt"
+          description="Senior-secured first-lien exposure as a share of total amortized cost. Higher = more conservative. Cells colored 0% → 60% → 80% → ≥95%."
+          periods={periods}
+          tickers={tickers}
+          cellMap={firstLienMap}
+          thresholds={[60, 80, 95]}
+        />
+        <div className="mt-4">
+          <CreditHeatmap
+            title="% of cost in EQUITY (common, preferred, warrants)"
+            description="Equity exposure across each book. Cells colored 0% → 3% → 8% → ≥15%."
+            periods={periods}
+            tickers={tickers}
+            cellMap={equityMap}
+            thresholds={[3, 8, 15]}
+          />
+        </div>
+        <div className="mt-4">
+          <AssetCompositionChart
+            data={industryComposition}
+            title="Industry composition mix over time"
+            subtitle="Position-weighted average composition across reliable BDCs each quarter (stacked-area, normalized to 100%)."
+          />
+        </div>
+      </section>
+
+      {/* Section 6 — Spread (moved below modifications) */}
+      <section id="spread" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Weighted-average spread <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · book vs new originations, basis points
+          </span>
+        </h2>
+        <CreditHeatmap
+          title="Book weighted-avg spread (bps)"
+          description={"Cost-weighted spread of the whole book each quarter. Parsed from the SOI's reference-rate-and-spread text (e.g. 'SOFR + 5.75%' → 575 bps). " +
+            "Cells colored 400 → 525 → 625 → ≥750 bps. Most direct-lending term loans live in the 500-650 range."}
+          periods={periods}
+          tickers={tickers}
+          cellMap={bookSpreadMap}
+          thresholds={[525, 625, 750]}
+          unit=" bps"
+        />
+        <div className="mt-4">
+          <CreditHeatmap
+            title="Weighted-avg spread on NEW loans this quarter (bps)"
+            description="Same calc, but only on loans whose first observation in our dataset is this quarter (i.e., new originations / new commitments). Cells colored 400 → 525 → 625 → ≥750 bps."
+            periods={periods}
+            tickers={tickers}
+            cellMap={newSpreadMap}
+            thresholds={[525, 625, 750]}
+            unit=" bps"
+          />
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
+          <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+            <div className="text-sm font-semibold text-white mb-1">Industry book spread (bps)</div>
+            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average of book spread across reporting BDCs each quarter.</p>
+            <CreditLensChart data={bookSpreadLine} yLabel="Book spread (bps)" unit="" color="#22c55e" />
+          </div>
+          <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+            <div className="text-sm font-semibold text-white mb-1">Industry new-loan spread (bps)</div>
+            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average of new-loan spreads across reporting BDCs each quarter. The new-loan series leads the book — gives the cleanest read on spread compression / widening in primary direct lending.</p>
+            <CreditLensChart data={newSpreadLine} yLabel="New-loan spread (bps)" unit="" color="#a855f7" />
+          </div>
+        </div>
+        <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
+          Spread extracted from ref_rate_spread / ref_rate_combined / coupon_rate fields in the SOI.
+          Floating-rate loans give a clean spread; fixed-rate notes fall through to coupon as a proxy
+          (overstates spread, understates fixed-rate originations). Positions without parseable spread
+          text are excluded from the weighted average.
         </p>
       </section>
 

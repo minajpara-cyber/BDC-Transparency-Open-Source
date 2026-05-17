@@ -3,9 +3,17 @@ import Link from "next/link";
 import { ArrowLeft, ExternalLink, Building2, LineChart } from "lucide-react";
 import AlertBadge from "@/components/AlertBadge";
 import StatCard from "@/components/StatCard";
+import AssetCompositionChart from "@/components/AssetCompositionChart";
+import SeverityStackedBars from "@/components/SeverityStackedBars";
+import CreditLensChart from "@/components/CreditLensChart";
 import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { portfolioCompanies } from "@/data/companies";
+import { creditQuality } from "@/data/credit_quality";
+import { modificationRate } from "@/data/modification_rate";
+import { pikModifications } from "@/data/pik_modifications";
+import { assetComposition } from "@/data/asset_composition";
+import { spreadAnalysis } from "@/data/spread_analysis";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -35,6 +43,77 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const softwareRisk = bdc.softwareExposure >= 50 ? "Critical" : bdc.softwareExposure >= 25 ? "High" : bdc.softwareExposure >= 15 ? "Medium" : "Low";
 
   const hasTimeline = bdcsHistory.some((r) => r.ticker === bdc.ticker);
+
+  // ---- Build per-BDC credit slices from our parsed data ---------------------
+  const cqRows = creditQuality
+    .filter((r) => r.ticker === bdc.ticker)
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+  const cqLatest = cqRows[cqRows.length - 1];
+  const cqPrior  = cqRows[cqRows.length - 2];
+  const hasCredit = !!cqLatest;
+
+  const acRows = assetComposition
+    .filter((r) => r.ticker === bdc.ticker)
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+  const acLatest = acRows[acRows.length - 1];
+
+  const spRows = spreadAnalysis
+    .filter((r) => r.ticker === bdc.ticker)
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+  const spLatest = spRows[spRows.length - 1];
+  const spPrior  = spRows[spRows.length - 2];
+
+  const modRows = pikModifications
+    .filter((r) => r.ticker === bdc.ticker)
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+  const modRateRows = modificationRate
+    .filter((r) => r.ticker === bdc.ticker)
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+
+  // Lines for charts
+  const naLine = cqRows.map((r) => ({ period_end: r.period_end, value: r.pct_non_accrual, coverage: 1 }));
+  const pikLine = cqRows.map((r) => ({ period_end: r.period_end, value: r.pct_pik_total, coverage: 1 }));
+  const lt95Line = cqRows.map((r) => ({ period_end: r.period_end, value: r.pct_below_95, coverage: 1 }));
+  const bookSpreadLine = spRows
+    .filter((r) => r.avg_spread_book_bps !== null)
+    .map((r) => ({ period_end: r.period_end, value: r.avg_spread_book_bps as number, coverage: 1 }));
+  const newSpreadLine = spRows
+    .filter((r) => r.avg_spread_new_bps !== null)
+    .map((r) => ({ period_end: r.period_end, value: r.avg_spread_new_bps as number, coverage: 1 }));
+
+  // Composition stacked-area data (collapse "other" buckets)
+  const compositionLine = acRows.map((r) => ({
+    period_end: r.period_end,
+    pct_first_lien:  r.pct_first_lien,
+    pct_second_lien: r.pct_second_lien,
+    pct_unsecured:   r.pct_unsecured,
+    pct_subordinated: r.pct_subordinated,
+    pct_structured_jv: r.pct_structured_jv,
+    pct_equity:      r.pct_equity,
+    pct_other:       r.pct_other_secured + r.pct_abf + r.pct_cash + r.pct_other + r.pct_unclassified,
+  }));
+
+  // Severity stacked bars: per-quarter counts (latest 12 quarters)
+  const sevSeries = modRows.slice(-12).map((r) => ({
+    period_end: r.period_end,
+    minimal: r.new_minimal,
+    moderate: r.new_moderate,
+    severe: r.new_severe,
+  }));
+
+  // Helpers
+  const fmtDelta = (curr?: number, prev?: number, decimals = 2) => {
+    if (curr === undefined || prev === undefined || prev === null) return undefined;
+    const d = curr - prev;
+    const sign = d >= 0 ? "+" : "";
+    return `${sign}${d.toFixed(decimals)} pp Q/Q`;
+  };
+  const fmtDeltaBps = (curr?: number | null, prev?: number | null) => {
+    if (curr === null || curr === undefined || prev === null || prev === undefined) return undefined;
+    const d = curr - prev;
+    const sign = d >= 0 ? "+" : "";
+    return `${sign}${d} bps Q/Q`;
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -90,6 +169,190 @@ export default async function BDCDetailPage({ params }: PageProps) {
             Quarter-by-quarter portfolio composition
           </span>
         </Link>
+      )}
+
+      {/* Credit analysis (parsed SOI data) */}
+      {hasCredit && (
+        <section className="mb-8">
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
+            <h2 className="text-lg font-semibold text-white">Credit analysis</h2>
+            <span className="text-xs px-2 py-0.5 rounded border" style={{
+              color: "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)",
+            }}>
+              Latest: {cqLatest.period_end}
+            </span>
+            <Link href="/credit" className="text-xs hover:text-white transition-colors" style={{ color: "#8b8ba8" }}>
+              See cross-BDC view on /credit →
+            </Link>
+          </div>
+
+          {/* Stat strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            <StatCard
+              label="Non-accrual % (cost)"
+              value={`${cqLatest.pct_non_accrual.toFixed(2)}%`}
+              color={cqLatest.pct_non_accrual >= 3 ? "#ef4444" : cqLatest.pct_non_accrual >= 1 ? "#eab308" : "#22c55e"}
+              trend={cqPrior && cqLatest.pct_non_accrual > cqPrior.pct_non_accrual ? "up" : cqPrior && cqLatest.pct_non_accrual < cqPrior.pct_non_accrual ? "down" : undefined}
+              trendLabel={cqPrior ? fmtDelta(cqLatest.pct_non_accrual, cqPrior.pct_non_accrual) : undefined}
+            />
+            <StatCard
+              label="PIK % (cost)"
+              value={`${cqLatest.pct_pik_total.toFixed(2)}%`}
+              color={cqLatest.pct_pik_total >= 15 ? "#f97316" : cqLatest.pct_pik_total >= 5 ? "#eab308" : "#9ca3af"}
+              trend={cqPrior && cqLatest.pct_pik_total > cqPrior.pct_pik_total ? "up" : cqPrior && cqLatest.pct_pik_total < cqPrior.pct_pik_total ? "down" : undefined}
+              trendLabel={cqPrior ? fmtDelta(cqLatest.pct_pik_total, cqPrior.pct_pik_total) : undefined}
+            />
+            <StatCard
+              label="% below 95¢ of par"
+              value={`${cqLatest.pct_below_95.toFixed(1)}%`}
+              color={cqLatest.pct_below_95 >= 15 ? "#ef4444" : cqLatest.pct_below_95 >= 5 ? "#eab308" : "#9ca3af"}
+              trend={cqPrior && cqLatest.pct_below_95 > cqPrior.pct_below_95 ? "up" : cqPrior && cqLatest.pct_below_95 < cqPrior.pct_below_95 ? "down" : undefined}
+              trendLabel={cqPrior ? fmtDelta(cqLatest.pct_below_95, cqPrior.pct_below_95, 1) : undefined}
+            />
+            {spLatest?.avg_spread_book_bps !== undefined && spLatest.avg_spread_book_bps !== null && (
+              <StatCard
+                label="Book spread"
+                value={`${spLatest.avg_spread_book_bps} bps`}
+                color="#22c55e"
+                trend={spPrior?.avg_spread_book_bps !== undefined && spPrior.avg_spread_book_bps !== null
+                  && (spLatest.avg_spread_book_bps > spPrior.avg_spread_book_bps ? "up" : spLatest.avg_spread_book_bps < spPrior.avg_spread_book_bps ? "down" : undefined) || undefined}
+                trendLabel={spPrior ? fmtDeltaBps(spLatest.avg_spread_book_bps, spPrior.avg_spread_book_bps) : undefined}
+              />
+            )}
+            {spLatest?.avg_spread_new_bps !== undefined && spLatest.avg_spread_new_bps !== null && (
+              <StatCard
+                label="New-loan spread"
+                value={`${spLatest.avg_spread_new_bps} bps`}
+                color="#a855f7"
+                sub={spLatest.n_new ? `${spLatest.n_new} new loans` : undefined}
+              />
+            )}
+            {acLatest && (
+              <StatCard
+                label="% first lien"
+                value={`${acLatest.pct_first_lien.toFixed(1)}%`}
+                color={acLatest.pct_first_lien >= 80 ? "#22c55e" : acLatest.pct_first_lien >= 60 ? "#eab308" : "#f97316"}
+                sub={`${acLatest.pct_equity.toFixed(1)}% equity`}
+              />
+            )}
+          </div>
+
+          {/* Two-up: NA% trend + Below-95 trend */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+            <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <div className="text-sm font-semibold text-white mb-1">Non-accrual & PIK trajectory</div>
+              <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>% of cost on non-accrual (red) and any-PIK (orange).</p>
+              <div style={{ height: 220 }}>
+                <CreditLensChart data={naLine} yLabel="% NA at cost" color="#ef4444" height={220} />
+              </div>
+              <div style={{ height: 220, marginTop: 8 }}>
+                <CreditLensChart data={pikLine} yLabel="% PIK at cost" color="#f97316" height={220} />
+              </div>
+            </div>
+            <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <div className="text-sm font-semibold text-white mb-1">Markdown stress</div>
+              <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>% of cost where FV / par &lt; 0.95.</p>
+              <div style={{ height: 220 }}>
+                <CreditLensChart data={lt95Line} yLabel="% below 95¢" color="#ef4444" height={220} />
+              </div>
+              {(bookSpreadLine.length > 0 || newSpreadLine.length > 0) && (
+                <>
+                  <div className="text-sm font-semibold text-white mb-1 mt-3">Spread trajectory (bps)</div>
+                  <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Book spread (green) vs new-loan spread (purple).</p>
+                  <div style={{ height: 220 }}>
+                    {bookSpreadLine.length > 0 && (
+                      <CreditLensChart data={bookSpreadLine} yLabel="bps" unit="" color="#22c55e" height={220} />
+                    )}
+                  </div>
+                  {newSpreadLine.length > 0 && (
+                    <div style={{ height: 220, marginTop: 8 }}>
+                      <CreditLensChart data={newSpreadLine} yLabel="new bps" unit="" color="#a855f7" height={220} />
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Two-up: asset composition + modifications by severity */}
+          {(compositionLine.length > 0 || sevSeries.length > 0) && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
+              {compositionLine.length > 0 && (
+                <AssetCompositionChart
+                  data={compositionLine}
+                  title="Asset composition over time"
+                  subtitle="% of cost in each asset class, stacked to 100% per quarter."
+                />
+              )}
+              {sevSeries.length > 0 && (
+                <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+                  <div className="text-sm font-semibold text-white mb-1">Modifications by severity (last 12 quarters)</div>
+                  <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
+                    Count of new cash → PIK flips per quarter, bucketed by PIK severity.
+                  </p>
+                  <SeverityStackedBars data={sevSeries} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Recent quarters table */}
+          <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+            <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+              <h3 className="font-semibold text-white text-sm">Recent quarters — credit snapshot</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                  <tr>
+                    {["Quarter", "Positions", "NA %", "PIK %", "Below 95¢", "Below 90¢", "Book bps", "New bps", "% 1st lien"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap" style={{ color: "#8b8ba8" }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...cqRows].reverse().slice(0, 12).map((r, i) => {
+                    const sp = spRows.find((x) => x.period_end === r.period_end);
+                    const ac = acRows.find((x) => x.period_end === r.period_end);
+                    return (
+                      <tr
+                        key={r.period_end}
+                        className="border-t"
+                        style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}
+                      >
+                        <td className="px-4 py-2.5 font-mono text-xs text-white">{r.period_end}</td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: "#d1d5db" }}>{r.n_positions.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_non_accrual >= 3 ? "#ef4444" : r.pct_non_accrual >= 1 ? "#eab308" : "#9ca3af" }}>
+                          {r.pct_non_accrual.toFixed(2)}%
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_pik_total >= 15 ? "#f97316" : r.pct_pik_total >= 5 ? "#eab308" : "#9ca3af" }}>
+                          {r.pct_pik_total.toFixed(2)}%
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_below_95 >= 15 ? "#ef4444" : "#9ca3af" }}>
+                          {r.pct_below_95.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_below_90 >= 10 ? "#ef4444" : "#9ca3af" }}>
+                          {r.pct_below_90.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: "#22c55e" }}>
+                          {sp?.avg_spread_book_bps ?? "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: "#a855f7" }}>
+                          {sp?.avg_spread_new_bps ?? "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: "#9ca3af" }}>
+                          {ac ? `${ac.pct_first_lien.toFixed(1)}%` : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Description */}
