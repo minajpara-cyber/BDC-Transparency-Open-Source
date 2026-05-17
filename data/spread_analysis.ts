@@ -142,7 +142,7 @@ export const spreadAnalysis: SpreadRow[] = [
   {"ticker": "OBDC", "period_end": "2022-06-30", "avg_spread_book_bps": 665, "avg_spread_new_bps": 665, "n_positions_priced": 223, "n_new": 223},
   {"ticker": "OCIC", "period_end": "2022-06-30", "avg_spread_book_bps": 566, "avg_spread_new_bps": 566, "n_positions_priced": 256, "n_new": 256},
   {"ticker": "OCIC", "period_end": "2022-09-30", "avg_spread_book_bps": 575, "avg_spread_new_bps": 612, "n_positions_priced": 281, "n_new": 32},
-  {"ticker": "OCIC", "period_end": "2022-12-31", "avg_spread_book_bps": 603, "avg_spread_new_bps": 621, "n_positions_priced": 132, "n_new": 25},
+  {"ticker": "OCIC", "period_end": "2022-12-31", "avg_spread_book_bps": 388, "avg_spread_new_bps": 404, "n_positions_priced": 77, "n_new": 22},
   {"ticker": "OCSL", "period_end": "2021-06-30", "avg_spread_book_bps": 166, "avg_spread_new_bps": 166, "n_positions_priced": 1, "n_new": 1},
   {"ticker": "OCSL", "period_end": "2021-09-30", "avg_spread_book_bps": 166, "avg_spread_new_bps": null, "n_positions_priced": 1, "n_new": 0},
   {"ticker": "OCSL", "period_end": "2021-12-31", "avg_spread_book_bps": 166, "avg_spread_new_bps": null, "n_positions_priced": 2, "n_new": 0},

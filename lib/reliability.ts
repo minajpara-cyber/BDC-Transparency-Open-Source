@@ -15,11 +15,7 @@ export const COVERAGE_CAVEATS: CoverageCaveat[] = [
   { ticker: "MFIC", until: "2025-11-30", reason: "MFIC SOI lacks per-position non-accrual footnotes" },
   // Non-traded BDCs — coverage starts when the issuer adopted XBRL tagging.
   { ticker: "BCRED", until: "2024-08-31", reason: "BCRED adopted XBRL tagging in Nov 2024; older filings not parsed" },
-  // OCIC is currently UNRELIABLE on aggregate FV — the OBDC-derived parser
-  // double-counts BOCIC SLF sub-fund rows. Per-position data is captured;
-  // headline FV / NA% rollups are not. Hide the whole series until the
-  // sub-fund de-dup is wired up.
-  { ticker: "OCIC",  until: "2099-12-31", reason: "OCIC: parser double-counts sub-fund SOI rows; aggregate FV is inflated" },
+  { ticker: "OCIC",  until: "2022-05-31", reason: "OCIC pre-XBRL filings not parsed" },
   { ticker: "ADS",   until: "2022-08-31", reason: "ADS modern XBRL parser only covers 2022-11 onward" },
 ];
 
