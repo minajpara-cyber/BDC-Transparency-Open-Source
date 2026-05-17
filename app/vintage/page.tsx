@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import VintageChart, { VintageSeries } from "@/components/VintageChart";
 import { vintageRows, VintageRow } from "@/data/vintage_analysis";
 
@@ -74,11 +74,20 @@ interface MatrixCell {
   n_loans: number;
 }
 
+interface MatrixData {
+  tickers: string[];
+  vintages: number[];
+  cells: Map<string, MatrixCell>;          // key = `${ticker}|${vintage}`
+  bdcTotal: Map<string, number>;           // per BDC: cohort-weighted aggregate metric
+  industryByVintage: Map<number, number>;  // per vintage: industry's latest reading
+  industryTotal: number;                   // industry cohort-weighted across vintages
+}
+
 function buildMatrix(
   bdcRows: VintageRow[],
   industryRows: VintageRow[],
   metric: Metric,
-): { tickers: string[]; vintages: number[]; cells: Map<string, MatrixCell> } {
+): MatrixData {
   const cells = new Map<string, MatrixCell>();
 
   // Group BDC rows by (ticker, vintage) and take the latest age observed.
@@ -93,7 +102,7 @@ function buildMatrix(
   const tickerSet = new Set<string>();
   const vintageSet = new Set<number>();
 
-  for (const [key, bdcR] of latestByPair) {
+  for (const [, bdcR] of latestByPair) {
     // Industry baseline at the SAME (vintage, age_quarters)
     const indR = industryRows.find(
       (i) => i.vintage_year === bdcR.vintage_year && i.age_quarters === bdcR.age_quarters && !i.is_partial,
@@ -101,7 +110,7 @@ function buildMatrix(
     if (!indR) continue;
     const bdcVal = bdcR[metric] as number;
     const indVal = indR[metric] as number;
-    cells.set(key, {
+    cells.set(`${bdcR.ticker}|${bdcR.vintage_year}`, {
       bdcVal,
       indVal,
       delta: bdcVal - indVal,
@@ -113,17 +122,92 @@ function buildMatrix(
     vintageSet.add(bdcR.vintage_year);
   }
 
+  // Per-BDC total: cohort-weighted aggregate of the metric across all this
+  // BDC's vintages. For cumulative metrics (ever_na, ever_b80) the weight is
+  // entry-cost; for the point-in-time snapshot (curr <90) we'd ideally weight
+  // by alive_cost, but cohort_entry_cost is a reasonable scale proxy and keeps
+  // the totals comparable to the per-cell values.
+  const bdcTotal = new Map<string, number>();
+  for (const ticker of tickerSet) {
+    let num = 0;
+    let den = 0;
+    for (const vy of vintageSet) {
+      const c = cells.get(`${ticker}|${vy}`);
+      if (!c) continue;
+      num += (c.bdcVal / 100) * c.cohort_b;
+      den += c.cohort_b;
+    }
+    if (den > 0) bdcTotal.set(ticker, (num / den) * 100);
+  }
+
+  // Industry row per vintage: industry's metric at its LATEST observable age
+  // for that vintage (i.e., the freshest industry snapshot, vintage by vintage).
+  const industryByVintage = new Map<number, number>();
+  const industryLatest = new Map<number, VintageRow>();
+  for (const r of industryRows) {
+    if (r.is_partial) continue;
+    const prev = industryLatest.get(r.vintage_year);
+    if (!prev || r.age_quarters > prev.age_quarters) industryLatest.set(r.vintage_year, r);
+  }
+  for (const vy of vintageSet) {
+    const r = industryLatest.get(vy);
+    if (r) industryByVintage.set(vy, r[metric] as number);
+  }
+
+  // Industry overall total: cohort-weighted across vintages
+  let indNum = 0;
+  let indDen = 0;
+  for (const vy of vintageSet) {
+    const r = industryLatest.get(vy);
+    if (!r) continue;
+    indNum += ((r[metric] as number) / 100) * r.cohort_entry_cost_b;
+    indDen += r.cohort_entry_cost_b;
+  }
+  const industryTotal = indDen > 0 ? (indNum / indDen) * 100 : 0;
+
   return {
     tickers: Array.from(tickerSet).sort(),
     vintages: Array.from(vintageSet).sort(),
     cells,
+    bdcTotal,
+    industryByVintage,
+    industryTotal,
   };
+}
+
+// Color helpers — picks a tinted background and a text color given a metric
+// value, in either "absolute" (color by level) or "relative" (color by delta vs
+// industry, where negative delta is good since lower NA% is better).
+type ViewMode = "absolute" | "relative";
+
+function absLevelColor(value: number, metric: Metric): { bg: string; fg: string } {
+  // Thresholds tuned per metric so the colors mean roughly the same thing
+  // across the three views (good / amber / bad).
+  const t = metric === "pct_b90_alive"
+    ? { greenMax: 3, yellowMax: 7, orangeMax: 12 }
+    : metric === "pct_ever_b80"
+      ? { greenMax: 1.5, yellowMax: 4, orangeMax: 8 }
+      : { greenMax: 0.75, yellowMax: 2, orangeMax: 4 };
+  if (value < t.greenMax) return { bg: "rgba(34,197,94,0.10)",  fg: "#22c55e" };
+  if (value < t.yellowMax) return { bg: "rgba(234,179,8,0.08)", fg: "#eab308" };
+  if (value < t.orangeMax) return { bg: "rgba(249,115,22,0.10)", fg: "#f97316" };
+  return { bg: "rgba(239,68,68,0.14)", fg: "#ef4444" };
+}
+
+function relDeltaColor(delta: number): { bg: string; fg: string } {
+  // delta = bdc - industry. Lower NA% is better, so negative delta = good.
+  const directed = -delta;
+  const saturate = Math.min(Math.abs(directed) / 2.0, 1.0);
+  if (directed > 0.25) return { bg: `rgba(34,197,94,${0.08 + 0.18 * saturate})`,  fg: "#22c55e" };
+  if (directed < -0.25) return { bg: `rgba(239,68,68,${0.08 + 0.18 * saturate})`, fg: "#ef4444" };
+  return { bg: "transparent", fg: "#9ca3af" };
 }
 
 export default function VintagePage() {
   const [includePartial, setIncludePartial] = useState(false);
   const [matrixMetric, setMatrixMetric] = useState<Metric>("pct_ever_na");
-  const [matrixSortVintage, setMatrixSortVintage] = useState<number | null>(null);
+  const [matrixView, setMatrixView] = useState<ViewMode>("absolute");
+  const [matrixSortKey, setMatrixSortKey] = useState<number | "total" | null>("total");
   const [matrixSortDir, setMatrixSortDir] = useState<"asc" | "desc">("asc");
 
   const industryRows = useMemo(
@@ -151,27 +235,54 @@ export default function VintagePage() {
     [bdcRows, industryRows, matrixMetric],
   );
 
-  // Sort tickers: by selected vintage's delta (asc = best performers first) when
-  // a column header is clicked, otherwise alphabetical.
+  // Sort tickers by clicked column (vintage year or "total"). Default = sort by
+  // overall total ascending (best aggregate performer first).
   const sortedTickers = useMemo(() => {
     const ts = [...matrix.tickers];
-    if (matrixSortVintage === null) return ts;
+    if (matrixSortKey === null) return ts;
     return ts.sort((a, b) => {
-      const ca = matrix.cells.get(`${a}|${matrixSortVintage}`);
-      const cb = matrix.cells.get(`${b}|${matrixSortVintage}`);
-      const va = ca?.delta ?? Number.POSITIVE_INFINITY;
-      const vb = cb?.delta ?? Number.POSITIVE_INFINITY;
+      const va = matrixSortKey === "total"
+        ? (matrix.bdcTotal.get(a) ?? Number.POSITIVE_INFINITY)
+        : (matrix.cells.get(`${a}|${matrixSortKey}`)?.bdcVal ?? Number.POSITIVE_INFINITY);
+      const vb = matrixSortKey === "total"
+        ? (matrix.bdcTotal.get(b) ?? Number.POSITIVE_INFINITY)
+        : (matrix.cells.get(`${b}|${matrixSortKey}`)?.bdcVal ?? Number.POSITIVE_INFINITY);
       return matrixSortDir === "asc" ? va - vb : vb - va;
     });
-  }, [matrix, matrixSortVintage, matrixSortDir]);
+  }, [matrix, matrixSortKey, matrixSortDir]);
 
-  const onSortClick = (vy: number) => {
-    if (matrixSortVintage === vy) {
+  const onSortClick = (key: number | "total") => {
+    if (matrixSortKey === key) {
       setMatrixSortDir(matrixSortDir === "asc" ? "desc" : "asc");
     } else {
-      setMatrixSortVintage(vy);
+      setMatrixSortKey(key);
       setMatrixSortDir("asc");
     }
+  };
+
+  // Cell renderer: one centered % per cell, no second-line annotation. Color
+  // and value depend on the active view mode.
+  const renderCell = (cell: MatrixCell | undefined): React.ReactElement => {
+    if (!cell) {
+      return <td className="px-3 py-2.5 text-center text-xs" style={{ color: "#444" }}>—</td>;
+    }
+    const isAbs = matrixView === "absolute";
+    const value = isAbs ? cell.bdcVal : cell.delta;
+    const { bg, fg } = isAbs
+      ? absLevelColor(cell.bdcVal, matrixMetric)
+      : relDeltaColor(cell.delta);
+    const displayed = isAbs
+      ? `${value.toFixed(2)}%`
+      : `${value > 0 ? "+" : ""}${value.toFixed(2)}pp`;
+    return (
+      <td
+        className="px-3 py-2.5 text-center font-semibold tabular-nums"
+        style={{ background: bg, color: fg, fontSize: "0.95rem" }}
+        title={`Age ${cell.age_years.toFixed(2)}y · cohort ${cell.n_loans} loans / $${cell.cohort_b.toFixed(2)}B · industry ${cell.indVal.toFixed(2)}%`}
+      >
+        {displayed}
+      </td>
+    );
   };
 
   return (
@@ -296,99 +407,163 @@ export default function VintagePage() {
 
       {/* BDC × Vintage performance matrix */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-        <div className="px-5 py-4 border-b flex flex-wrap items-baseline justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
-          <div>
-            <h2 className="font-semibold text-white">BDC × Vintage Performance vs Peers</h2>
-            <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              Each cell: this BDC&apos;s cumulative metric at the latest age its cohort has reached, with the delta vs the
-              industry average at the SAME age (apples-to-apples). Greener = outperforms peers; redder = underperforms.
-              Click a vintage column header to sort by relative performance.
-            </p>
-          </div>
-          {/* Metric toggle */}
-          <div className="flex gap-1.5 text-xs">
-            {(Object.keys(METRIC_META) as Metric[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMatrixMetric(m)}
-                className="px-2.5 py-1 rounded border transition-all"
-                style={{
-                  background: matrixMetric === m ? "rgba(99,102,241,0.15)" : "#111118",
-                  borderColor: matrixMetric === m ? "#6366f1" : "#2d2d45",
-                  color: matrixMetric === m ? "#a5b4fc" : "#9ca3af",
-                  whiteSpace: "nowrap",
-                }}
-                title={METRIC_META[m].sub}
-              >
-                {m === "pct_ever_na" ? "Ever NA" : m === "pct_ever_b80" ? "Ever <80¢" : "Curr. <90¢"}
-              </button>
-            ))}
+        <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+          <h2 className="font-semibold text-white">BDC × Vintage Performance</h2>
+          <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
+            Rows = BDCs, columns = vintage years. Each cell is the BDC&apos;s metric at the latest age its cohort has reached.
+            The <span className="text-white">Industry Average</span> row at the bottom is the cohort-weighted baseline per
+            vintage; the <span className="text-white">Total</span> column on the right aggregates each BDC&apos;s metric
+            across all its vintages (weighted by cohort size).
+          </p>
+
+          {/* Two rows of toggles: metric (which credit signal) + view (absolute level vs delta vs industry) */}
+          <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="uppercase tracking-wider mr-1" style={{ color: "#6b6b88" }}>Metric</span>
+              {(Object.keys(METRIC_META) as Metric[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMatrixMetric(m)}
+                  className="px-2.5 py-1 rounded border transition-all"
+                  style={{
+                    background: matrixMetric === m ? "rgba(99,102,241,0.15)" : "#111118",
+                    borderColor: matrixMetric === m ? "#6366f1" : "#2d2d45",
+                    color: matrixMetric === m ? "#a5b4fc" : "#9ca3af",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={METRIC_META[m].sub}
+                >
+                  {m === "pct_ever_na" ? "Ever NA" : m === "pct_ever_b80" ? "Ever <80¢" : "Curr. <90¢"}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="uppercase tracking-wider mr-1" style={{ color: "#6b6b88" }}>View</span>
+              {([
+                { id: "absolute" as ViewMode, label: "Absolute %", hint: "Each cell is the BDC's actual metric value" },
+                { id: "relative" as ViewMode, label: "Relative (vs ind.)", hint: "Each cell is the BDC's delta in percentage points vs the industry average at the same age" },
+              ]).map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => setMatrixView(opt.id)}
+                  className="px-2.5 py-1 rounded border transition-all"
+                  style={{
+                    background: matrixView === opt.id ? "rgba(99,102,241,0.15)" : "#111118",
+                    borderColor: matrixView === opt.id ? "#6366f1" : "#2d2d45",
+                    color: matrixView === opt.id ? "#a5b4fc" : "#9ca3af",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={opt.hint}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
                 <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>BDC</th>
                 {matrix.vintages.map((vy) => {
-                  const active = matrixSortVintage === vy;
+                  const active = matrixSortKey === vy;
                   return (
-                    <th key={vy} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                    <th key={vy} className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
                       <button
                         onClick={() => onSortClick(vy)}
-                        className="flex items-center gap-1 hover:text-white transition-colors"
+                        className="hover:text-white transition-colors mx-auto"
                         style={{ color: active ? "#a5b4fc" : "#8b8ba8" }}
                       >
-                        Vintage {vy} {active ? (matrixSortDir === "asc" ? "↑" : "↓") : "↕"}
+                        {vy} {active ? (matrixSortDir === "asc" ? "↑" : "↓") : ""}
                       </button>
                     </th>
                   );
                 })}
+                <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-nowrap border-l" style={{ borderColor: "#1e1e2e" }}>
+                  <button
+                    onClick={() => onSortClick("total")}
+                    className="hover:text-white transition-colors mx-auto"
+                    style={{ color: matrixSortKey === "total" ? "#a5b4fc" : "#8b8ba8" }}
+                    title="Cohort-weighted aggregate metric across all this BDC's vintages"
+                  >
+                    Total {matrixSortKey === "total" ? (matrixSortDir === "asc" ? "↑" : "↓") : ""}
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>
-              {sortedTickers.map((ticker, i) => (
-                <tr key={ticker} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
-                  <td className="px-3 py-2">
-                    <a href={`/bdcs/${ticker.toLowerCase()}`}>
-                      <span className="px-2 py-0.5 rounded text-xs font-mono font-bold hover:opacity-80 cursor-pointer" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.2)" }}>
-                        {ticker}
-                      </span>
-                    </a>
-                  </td>
-                  {matrix.vintages.map((vy) => {
-                    const cell = matrix.cells.get(`${ticker}|${vy}`);
-                    if (!cell) return <td key={vy} className="px-3 py-2 text-xs" style={{ color: "#444" }}>&mdash;</td>;
-                    // Color the cell background by relative performance.
-                    // Outperformance (BDC better than industry) = green tint; under = red.
-                    // For Ever-NA / Ever-<80, lower is better.
-                    // For Curr-<90, lower is better too.
-                    const lowerIsBetter = true;
-                    const directedDelta = lowerIsBetter ? -cell.delta : cell.delta;
-                    const intensity = Math.min(Math.abs(directedDelta) / 2.0, 1.0); // saturate at 2pp
-                    const bg = directedDelta > 0
-                      ? `rgba(34,197,94,${0.06 + 0.18 * intensity})`
-                      : directedDelta < 0
-                        ? `rgba(239,68,68,${0.06 + 0.18 * intensity})`
-                        : "transparent";
-                    const arrowColor = directedDelta > 0.25 ? "#22c55e" : directedDelta < -0.25 ? "#ef4444" : "#9ca3af";
-                    const arrow = directedDelta > 0.25 ? "↓" : directedDelta < -0.25 ? "↑" : "≈";
-                    return (
-                      <td key={vy} className="px-3 py-2" style={{ background: bg }} title={`Age ${cell.age_years.toFixed(2)}y · cohort ${cell.n_loans} loans / $${cell.cohort_b.toFixed(2)}B · industry ${cell.indVal.toFixed(2)}%`}>
-                        <div className="text-sm font-semibold" style={{ color: "#d1d5db" }}>{cell.bdcVal.toFixed(2)}%</div>
-                        <div className="text-xs" style={{ color: arrowColor }}>
-                          {arrow} {Math.abs(cell.delta).toFixed(2)}pp vs {cell.indVal.toFixed(2)}%
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+              {sortedTickers.map((ticker, i) => {
+                const total = matrix.bdcTotal.get(ticker);
+                const totalDelta = total != null ? total - matrix.industryTotal : null;
+                const isAbs = matrixView === "absolute";
+                const totalStyle = total == null
+                  ? { bg: "transparent", fg: "#444" }
+                  : isAbs
+                    ? absLevelColor(total, matrixMetric)
+                    : relDeltaColor(totalDelta ?? 0);
+                const totalText = total == null
+                  ? "—"
+                  : isAbs
+                    ? `${total.toFixed(2)}%`
+                    : `${(totalDelta ?? 0) > 0 ? "+" : ""}${(totalDelta ?? 0).toFixed(2)}pp`;
+                return (
+                  <tr key={ticker} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
+                    <td className="px-3 py-2.5">
+                      <a href={`/bdcs/${ticker.toLowerCase()}`}>
+                        <span className="px-2 py-0.5 rounded text-xs font-mono font-bold hover:opacity-80 cursor-pointer" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.2)" }}>
+                          {ticker}
+                        </span>
+                      </a>
+                    </td>
+                    {matrix.vintages.map((vy) => (
+                      <React.Fragment key={vy}>{renderCell(matrix.cells.get(`${ticker}|${vy}`))}</React.Fragment>
+                    ))}
+                    <td className="px-3 py-2.5 text-center font-semibold tabular-nums border-l" style={{
+                      background: totalStyle.bg,
+                      color: totalStyle.fg,
+                      borderColor: "#1e1e2e",
+                      fontSize: "0.95rem",
+                    }}
+                    title={total != null ? `Cohort-weighted across all of ${ticker}'s vintages · industry total ${matrix.industryTotal.toFixed(2)}%` : undefined}
+                    >
+                      {totalText}
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {/* Industry Average row — always shows ABSOLUTE values regardless of mode,
+                  since it IS the baseline that "relative" is relative to. */}
+              <tr className="border-t-2" style={{ borderColor: "#2d2d45", background: "#0f0f16" }}>
+                <td className="px-3 py-2.5">
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#a5b4fc" }}>
+                    Industry avg
+                  </span>
+                </td>
+                {matrix.vintages.map((vy) => {
+                  const v = matrix.industryByVintage.get(vy);
+                  if (v == null) return <td key={vy} className="px-3 py-2.5 text-center text-xs" style={{ color: "#444" }}>—</td>;
+                  return (
+                    <td key={vy} className="px-3 py-2.5 text-center font-semibold tabular-nums"
+                        style={{ color: "#d1d5db", fontSize: "0.95rem" }}
+                        title={`Industry baseline for vintage ${vy} (latest observable age)`}>
+                      {v.toFixed(2)}%
+                    </td>
+                  );
+                })}
+                <td className="px-3 py-2.5 text-center font-semibold tabular-nums border-l"
+                    style={{ color: "#d1d5db", fontSize: "0.95rem", borderColor: "#1e1e2e" }}
+                    title="Industry cohort-weighted across all vintages">
+                  {matrix.industryTotal.toFixed(2)}%
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
         <div className="px-5 py-3 text-xs border-t" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
-          Hover any cell for cohort size + age. Click a BDC ticker to drill into its full credit page. {sortedTickers.length} BDCs · {matrix.vintages.length} vintages
+          Hover any cell for cohort size + age. {sortedTickers.length} BDCs · {matrix.vintages.length} vintages · industry baseline always shown in absolute %.
         </div>
       </div>
 
