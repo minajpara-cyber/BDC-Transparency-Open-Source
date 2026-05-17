@@ -788,6 +788,29 @@ export const bdcs: BDC[] = [
     aum: 450,
     slug: "asif",
   },
+  {
+    ticker: "ADS",
+    name: "Apollo Debt Solutions BDC",
+    manager: "Apollo Global Management",
+    type: "Non-Traded",
+    totalAssets: 27.5,
+    nav: 22.51,
+    navPerShare: 22.51,
+    softwareExposure: 8.0,
+    techExposure: 12.0,
+    portfolioCompanies: 230,
+    portfolioFairValue: 25.3,
+    nonAccrualRate: 1.0,
+    pikRate: 8.0,
+    focus: "Senior Secured Direct Lending",
+    description:
+      "Apollo Debt Solutions BDC (ADS) is a perpetual-life, non-traded BDC managed by Apollo Global Management. It primarily originates senior secured loans to U.S. upper-middle-market companies, leveraging Apollo's $700B+ credit platform.",
+    topSectors: ["Aerospace & Defense", "Healthcare", "Business Services", "Software"],
+    loanType: "Senior Secured First-Lien",
+    founded: 2022,
+    aum: 700,
+    slug: "ads",
+  },
 ];
 
 export const nonTradedBDCs = bdcs.filter((b) => b.type === "Non-Traded");
