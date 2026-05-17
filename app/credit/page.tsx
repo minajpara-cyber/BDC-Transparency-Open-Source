@@ -2,8 +2,11 @@ import Link from "next/link";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import CreditHeatmap from "@/components/CreditHeatmap";
 import CreditLensChart, { IndustryPoint } from "@/components/CreditLensChart";
+import AssetCompositionChart from "@/components/AssetCompositionChart";
 import { creditQuality, CreditQuality } from "@/data/credit_quality";
 import { modificationRate, ModificationRate } from "@/data/modification_rate";
+import { assetComposition } from "@/data/asset_composition";
+import { spreadAnalysis } from "@/data/spread_analysis";
 
 // Known parser-coverage caveats — cells from these (ticker, period_end<=cutoff)
 // combinations show in muted/italic style and are excluded from industry charts.
@@ -108,15 +111,148 @@ function buildModIndustrySeries(): IndustryPoint[] {
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
 
+// ----- Asset composition + spread helpers ------------------------------------
+
+/** Heatmap cell map for % first lien per BDC. */
+function buildFirstLienCellMap() {
+  const m = new Map<string, { value: number | null; reliable?: boolean }>();
+  for (const r of assetComposition) {
+    m.set(`${r.ticker}|${r.period_end}`, {
+      value: r.pct_first_lien,
+      reliable: isReliable(r.ticker, r.period_end),
+    });
+  }
+  return m;
+}
+
+/** Heatmap cell map for % equity per BDC. */
+function buildEquityCellMap() {
+  const m = new Map<string, { value: number | null; reliable?: boolean }>();
+  for (const r of assetComposition) {
+    m.set(`${r.ticker}|${r.period_end}`, {
+      value: r.pct_equity,
+      reliable: isReliable(r.ticker, r.period_end),
+    });
+  }
+  return m;
+}
+
+/** Per-BDC stacked-composition time series rolled to the chart's bucket model. */
+function buildCompositionSeries(ticker: string) {
+  return assetComposition
+    .filter((r) => r.ticker === ticker)
+    .sort((a, b) => a.period_end.localeCompare(b.period_end))
+    .map((r) => ({
+      period_end: r.period_end,
+      pct_first_lien: r.pct_first_lien,
+      pct_second_lien: r.pct_second_lien,
+      pct_unsecured: r.pct_unsecured,
+      pct_subordinated: r.pct_subordinated,
+      pct_structured_jv: r.pct_structured_jv,
+      pct_equity: r.pct_equity,
+      pct_other: r.pct_other_secured + r.pct_abf + r.pct_cash + r.pct_other + r.pct_unclassified,
+    }));
+}
+
+/** Industry stacked-composition: cost-weighted average across BDCs. We don't
+ *  have absolute dollar weights in asset_composition, so use n_positions from
+ *  creditQuality as a proxy weight per BDC per quarter. */
+function buildIndustryComposition() {
+  const weightLookup = new Map<string, number>();
+  for (const r of creditQuality) {
+    weightLookup.set(`${r.ticker}|${r.period_end}`, r.n_positions);
+  }
+  const byPeriod = new Map<string, {
+    weight: number; first: number; second: number; unsec: number; sub: number;
+    sjv: number; eq: number; other: number;
+  }>();
+  for (const r of assetComposition) {
+    if (!isReliable(r.ticker, r.period_end)) continue;
+    const w = weightLookup.get(`${r.ticker}|${r.period_end}`) ?? 1;
+    if (!byPeriod.has(r.period_end))
+      byPeriod.set(r.period_end, { weight: 0, first: 0, second: 0, unsec: 0, sub: 0, sjv: 0, eq: 0, other: 0 });
+    const s = byPeriod.get(r.period_end)!;
+    s.weight += w;
+    s.first += w * r.pct_first_lien;
+    s.second += w * r.pct_second_lien;
+    s.unsec += w * r.pct_unsecured;
+    s.sub += w * r.pct_subordinated;
+    s.sjv += w * r.pct_structured_jv;
+    s.eq += w * r.pct_equity;
+    s.other += w * (r.pct_other_secured + r.pct_abf + r.pct_cash + r.pct_other + r.pct_unclassified);
+  }
+  return Array.from(byPeriod.entries())
+    .map(([period_end, s]) => ({
+      period_end,
+      pct_first_lien: s.weight ? s.first / s.weight : 0,
+      pct_second_lien: s.weight ? s.second / s.weight : 0,
+      pct_unsecured: s.weight ? s.unsec / s.weight : 0,
+      pct_subordinated: s.weight ? s.sub / s.weight : 0,
+      pct_structured_jv: s.weight ? s.sjv / s.weight : 0,
+      pct_equity: s.weight ? s.eq / s.weight : 0,
+      pct_other: s.weight ? s.other / s.weight : 0,
+    }))
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+}
+
+/** Heatmap cell map for book / new-loan spread (bps). */
+function buildSpreadCellMap(field: "avg_spread_book_bps" | "avg_spread_new_bps") {
+  const m = new Map<string, { value: number | null; reliable?: boolean }>();
+  for (const r of spreadAnalysis) {
+    m.set(`${r.ticker}|${r.period_end}`, {
+      value: r[field] as number | null,
+      reliable: isReliable(r.ticker, r.period_end),
+    });
+  }
+  return m;
+}
+
+/** Industry-aggregate weighted-avg spread across BDCs each quarter.
+ *  Weighted by the parsed-position count (n_positions_priced or n_new). */
+function buildSpreadIndustry(field: "avg_spread_book_bps" | "avg_spread_new_bps",
+                              weightField: "n_positions_priced" | "n_new"): IndustryPoint[] {
+  const byPeriod = new Map<string, { num: number; den: number; coverage: number }>();
+  for (const r of spreadAnalysis) {
+    if (!isReliable(r.ticker, r.period_end)) continue;
+    const v = r[field];
+    const w = r[weightField];
+    if (v === null || v === undefined || !w) continue;
+    if (!byPeriod.has(r.period_end))
+      byPeriod.set(r.period_end, { num: 0, den: 0, coverage: 0 });
+    const s = byPeriod.get(r.period_end)!;
+    s.num += (v as number) * w;
+    s.den += w;
+    s.coverage += 1;
+  }
+  return Array.from(byPeriod.entries())
+    .map(([period_end, s]) => ({
+      period_end,
+      value: s.den ? s.num / s.den : 0,
+      coverage: s.coverage,
+    }))
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+}
+
 // ----- page -------------------------------------------------------------------
 
-export default function CreditLensPage() {
-  // Axes — union of period_ends across both datasets, ascending.
+export default function CreditPage() {
+  // Axes — union of period_ends across all datasets, ascending.
   const periodSet = new Set<string>();
   creditQuality.forEach((r: CreditQuality) => periodSet.add(r.period_end));
   modificationRate.forEach((r: ModificationRate) => periodSet.add(r.period_end));
+  assetComposition.forEach((r) => periodSet.add(r.period_end));
+  spreadAnalysis.forEach((r) => periodSet.add(r.period_end));
   const periods = Array.from(periodSet).sort();
   const tickers = Array.from(new Set(creditQuality.map((r) => r.ticker))).sort();
+
+  const firstLienMap = buildFirstLienCellMap();
+  const equityMap    = buildEquityCellMap();
+  const bookSpreadMap = buildSpreadCellMap("avg_spread_book_bps");
+  const newSpreadMap  = buildSpreadCellMap("avg_spread_new_bps");
+
+  const industryComposition = buildIndustryComposition();
+  const bookSpreadLine = buildSpreadIndustry("avg_spread_book_bps", "n_positions_priced");
+  const newSpreadLine  = buildSpreadIndustry("avg_spread_new_bps",  "n_new");
 
   const naMap   = buildCreditCellMap("pct_non_accrual");
   const lt95Map = buildCreditCellMap("pct_below_95");
@@ -145,7 +281,7 @@ export default function CreditLensPage() {
             color: "#fca5a5",
             border: "1px solid rgba(239,68,68,0.3)",
           }}>
-            Credit Lens
+            Credit
           </span>
           <span className="text-xs px-2 py-1 rounded border" style={{
             color: "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)",
@@ -153,10 +289,11 @@ export default function CreditLensPage() {
             Time Series · Beta
           </span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Cross-BDC credit quality through time</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Cross-BDC credit through time</h1>
         <p className="text-sm" style={{ color: "#9ca3af" }}>
-          BDCs as rows, quarter-ends as columns. Each cell is the metric expressed as a percent;
-          companion line charts show the industry-wide aggregate (position-weighted across BDCs).
+          BDCs as rows, quarter-ends as columns. Each cell is the metric expressed as a percent (or
+          basis points for spreads); companion charts show the industry-wide aggregate
+          (position-weighted across BDCs).
         </p>
       </div>
 
@@ -164,6 +301,8 @@ export default function CreditLensPage() {
       <div className="rounded-xl border mb-8 p-3 flex items-center gap-3 flex-wrap text-xs" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <span style={{ color: "#8b8ba8" }}>Jump to:</span>
         {[
+          ["#composition", "Asset mix"],
+          ["#spread", "Spread"],
           ["#na", "Non-accrual"],
           ["#below-95", "Below 95¢"],
           ["#below-90", "Below 90¢"],
@@ -195,6 +334,88 @@ export default function CreditLensPage() {
           level, so its non-accrual column is also flagged.
         </div>
       </div>
+
+      {/* Section A — Asset composition */}
+      <section id="composition" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Asset composition <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · 1st lien / 2nd lien / equity / other, as % of amortized cost
+          </span>
+        </h2>
+        <CreditHeatmap
+          title="% of cost in FIRST LIEN debt"
+          description="Senior-secured first-lien exposure as a share of total amortized cost. Higher = more conservative. Cells colored 0% → 60% → 80% → ≥95%."
+          periods={periods}
+          tickers={tickers}
+          cellMap={firstLienMap}
+          thresholds={[60, 80, 95]}
+        />
+        <div className="mt-4">
+          <CreditHeatmap
+            title="% of cost in EQUITY (common, preferred, warrants)"
+            description="Equity exposure across each book. Cells colored 0% → 3% → 8% → ≥15%."
+            periods={periods}
+            tickers={tickers}
+            cellMap={equityMap}
+            thresholds={[3, 8, 15]}
+          />
+        </div>
+        <div className="mt-4">
+          <AssetCompositionChart
+            data={industryComposition}
+            title="Industry composition mix over time"
+            subtitle="Position-weighted average composition across reliable BDCs each quarter (stacked-area, normalized to 100%)."
+          />
+        </div>
+      </section>
+
+      {/* Section B — Spread */}
+      <section id="spread" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Weighted-average spread <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · book vs new originations, basis points
+          </span>
+        </h2>
+        <CreditHeatmap
+          title="Book weighted-avg spread (bps)"
+          description={"Cost-weighted spread of the whole book each quarter. Parsed from the SOI's reference-rate-and-spread text (e.g. 'SOFR + 5.75%' → 575 bps). " +
+            "Cells colored 400 → 525 → 625 → ≥750 bps. Most direct-lending term loans live in the 500-650 range."}
+          periods={periods}
+          tickers={tickers}
+          cellMap={bookSpreadMap}
+          thresholds={[525, 625, 750]}
+          unit=" bps"
+        />
+        <div className="mt-4">
+          <CreditHeatmap
+            title="Weighted-avg spread on NEW loans this quarter (bps)"
+            description="Same calc, but only on loans whose first observation in our dataset is this quarter (i.e., new originations / new commitments). Cells colored 400 → 525 → 625 → ≥750 bps."
+            periods={periods}
+            tickers={tickers}
+            cellMap={newSpreadMap}
+            thresholds={[525, 625, 750]}
+            unit=" bps"
+          />
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
+          <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+            <div className="text-sm font-semibold text-white mb-1">Industry book spread (bps)</div>
+            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average of book spread across reporting BDCs each quarter.</p>
+            <CreditLensChart data={bookSpreadLine} yLabel="Book spread (bps)" unit="" color="#22c55e" />
+          </div>
+          <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+            <div className="text-sm font-semibold text-white mb-1">Industry new-loan spread (bps)</div>
+            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average of new-loan spreads across reporting BDCs each quarter. The new-loan series leads the book — gives the cleanest read on spread compression / widening in primary direct lending.</p>
+            <CreditLensChart data={newSpreadLine} yLabel="New-loan spread (bps)" unit="" color="#a855f7" />
+          </div>
+        </div>
+        <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
+          Spread extracted from ref_rate_spread / ref_rate_combined / coupon_rate fields in the SOI.
+          Floating-rate loans give a clean spread; fixed-rate notes fall through to coupon as a proxy
+          (overstates spread, understates fixed-rate originations). Positions without parseable spread
+          text are excluded from the weighted average.
+        </p>
+      </section>
 
       {/* Section 1 — Non-accrual */}
       <section id="na" className="mb-12 scroll-mt-6">

@@ -12,7 +12,7 @@ const navItems = [
   { href: "/sponsors", label: "Sponsors" },
   { href: "/market", label: "Market Trends" },
   { href: "/non-accruals", label: "Non-Accruals" },
-  { href: "/credit-lens", label: "Credit Lens" },
+  { href: "/credit", label: "Credit" },
   { href: "/about", label: "About" },
 ];
 

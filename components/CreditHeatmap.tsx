@@ -144,10 +144,10 @@ export default function CreditHeatmap({
                       title={
                         v === null
                           ? "no filing"
-                          : `${ticker} · ${p}: ${v.toFixed(2)}${unit}${reliable ? "" : "  (partial coverage)"}`
+                          : `${ticker} · ${p}: ${unit.toLowerCase().includes("bps") ? Math.round(v) : v.toFixed(2)}${unit}${reliable ? "" : "  (partial coverage)"}`
                       }
                     >
-                      {v === null ? "—" : v.toFixed(1)}
+                      {v === null ? "—" : (unit.toLowerCase().includes("bps") ? Math.round(v).toString() : v.toFixed(1))}
                     </td>
                   );
                 })}
