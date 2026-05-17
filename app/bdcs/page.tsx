@@ -1,9 +1,9 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import AlertBadge from "@/components/AlertBadge";
-import { bdcs } from "@/data/bdcs";
+import { enrichedBDCs, BDCEnriched } from "@/lib/enrichBDC";
 
 type FilterType = "All" | "Traded" | "Non-Traded";
 
@@ -12,6 +12,14 @@ export default function BDCsPage() {
   const [typeFilter, setTypeFilter] = useState<FilterType>("All");
   const [sortKey, setSortKey] = useState<string>("softwareExposure");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const bdcs: BDCEnriched[] = useMemo(() => enrichedBDCs(), []);
+  const parsedCount = bdcs.filter((b) => b.parsed).length;
+  const latestParsed = bdcs
+    .filter((b) => b.asOf)
+    .map((b) => b.asOf as string)
+    .sort()
+    .at(-1);
 
   const handleSort = (key: string) => {
     if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -34,6 +42,34 @@ export default function BDCsPage() {
       return sortDir === "desc" ? String(bVal ?? "").localeCompare(String(aVal ?? "")) : String(aVal ?? "").localeCompare(String(bVal ?? ""));
     });
 
+  const DeltaChip = ({
+    delta,
+    fmt,
+    invert = false,
+  }: {
+    delta: number | null | undefined;
+    fmt: (v: number) => string;
+    invert?: boolean;   // for $FV growth where + is good
+  }) => {
+    if (delta == null || !isFinite(delta)) return null;
+    const eps = 1e-4;
+    const isUp = delta > eps;
+    const isDown = delta < -eps;
+    const good = invert ? isUp : isDown;
+    const bad = invert ? isDown : isUp;
+    const color = good ? "#22c55e" : bad ? "#ef4444" : "#6b6b88";
+    const bg = good ? "rgba(34,197,94,0.10)" : bad ? "rgba(239,68,68,0.10)" : "rgba(107,107,136,0.10)";
+    return (
+      <span
+        title="QoQ change vs prior quarter"
+        className="px-1 py-0.5 rounded text-xs font-mono"
+        style={{ color, background: bg, border: `1px solid ${color}33` }}
+      >
+        {fmt(delta)}
+      </span>
+    );
+  };
+
   const SortBtn = ({ k, label }: { k: string; label: string }) => (
     <button
       className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider hover:text-white transition-colors whitespace-nowrap"
@@ -49,7 +85,8 @@ export default function BDCsPage() {
       <div className="mb-7">
         <h1 className="text-2xl font-bold text-white mb-2">Business Development Companies</h1>
         <p className="text-sm" style={{ color: "#8b8ba8" }}>
-          {bdcs.length} BDCs tracked · Ranked by software exposure · Data from SEC Schedule of Investments
+          {bdcs.length} BDCs tracked · {parsedCount} with FV / non-accrual / PIK overlaid from our SEC SOI parsers
+          {latestParsed && ` · latest as of ${latestParsed}`}
         </p>
       </div>
 
@@ -119,6 +156,7 @@ export default function BDCsPage() {
                 <th className="px-4 py-3 text-right"><SortBtn k="nonAccrualRate" label="Non-Accrual" /></th>
                 <th className="px-4 py-3 text-right"><SortBtn k="pikRate" label="PIK Rate" /></th>
                 <th className="px-4 py-3 text-right"><SortBtn k="portfolioCompanies" label="Companies" /></th>
+                <th className="px-4 py-3 text-right" style={{ color: "#8b8ba8", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>As of</th>
                 <th className="px-4 py-3 text-center" style={{ color: "#8b8ba8", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>Risk</th>
               </tr>
             </thead>
@@ -156,7 +194,10 @@ export default function BDCsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-white font-medium">
-                      ${bdc.portfolioFairValue.toFixed(1)}B
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span>${bdc.portfolioFairValue.toFixed(2)}B</span>
+                        <DeltaChip delta={bdc.delta_fv_b} fmt={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}B`} invert />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -172,14 +213,27 @@ export default function BDCsPage() {
                         <span className="text-sm font-semibold text-white">{bdc.softwareExposure.toFixed(1)}%</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: naColor }}>
-                      {bdc.nonAccrualRate.toFixed(1)}%
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className="text-sm font-semibold" style={{ color: naColor }}>
+                          {bdc.nonAccrualRate.toFixed(2)}%
+                        </span>
+                        <DeltaChip delta={bdc.delta_na_pct} fmt={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}pp`} />
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: pikColor }}>
-                      {bdc.pikRate.toFixed(1)}%
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className="text-sm font-semibold" style={{ color: pikColor }}>
+                          {bdc.pikRate.toFixed(2)}%
+                        </span>
+                        <DeltaChip delta={bdc.delta_pik_pct} fmt={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}pp`} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right text-sm" style={{ color: "#9ca3af" }}>
                       {bdc.portfolioCompanies.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right text-xs" style={{ color: bdc.asOf ? "#a5b4fc" : "#6b6b88" }}>
+                      {bdc.asOf ?? <span style={{ color: "#6b6b88" }}>static</span>}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <AlertBadge severity={risk as "Critical" | "High" | "Medium" | "Low"} label />
