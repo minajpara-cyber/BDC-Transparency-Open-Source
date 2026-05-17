@@ -5,7 +5,7 @@ import AlertBadge from "@/components/AlertBadge";
 import StatCard from "@/components/StatCard";
 import AssetCompositionChart from "@/components/AssetCompositionChart";
 import SeverityStackedBars from "@/components/SeverityStackedBars";
-import CreditLensChart from "@/components/CreditLensChart";
+import ComparisonChart, { ComparisonPoint } from "@/components/ComparisonChart";
 import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { portfolioCompanies } from "@/data/companies";
@@ -70,16 +70,80 @@ export default async function BDCDetailPage({ params }: PageProps) {
     .filter((r) => r.ticker === bdc.ticker)
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 
-  // Lines for charts
-  const naLine = cqRows.map((r) => ({ period_end: r.period_end, value: r.pct_non_accrual, coverage: 1 }));
-  const pikLine = cqRows.map((r) => ({ period_end: r.period_end, value: r.pct_pik_total, coverage: 1 }));
-  const lt95Line = cqRows.map((r) => ({ period_end: r.period_end, value: r.pct_below_95, coverage: 1 }));
-  const bookSpreadLine = spRows
-    .filter((r) => r.avg_spread_book_bps !== null)
-    .map((r) => ({ period_end: r.period_end, value: r.avg_spread_book_bps as number, coverage: 1 }));
-  const newSpreadLine = spRows
-    .filter((r) => r.avg_spread_new_bps !== null)
-    .map((r) => ({ period_end: r.period_end, value: r.avg_spread_new_bps as number, coverage: 1 }));
+  // -------- Industry comparison series ---------------------------------------
+  // Same coverage caveats used on /credit — exclude unreliable BDC/quarter combos.
+  const COVERAGE_CAVEATS: Array<{ ticker: string; until: string }> = [
+    { ticker: "FSK", until: "2022-05-31" },
+    { ticker: "OBDC", until: "2022-05-31" },
+    { ticker: "MFIC", until: "2025-11-30" },
+  ];
+  const isReliable = (t: string, p: string) =>
+    !COVERAGE_CAVEATS.some((c) => c.ticker === t && p <= c.until);
+
+  // Industry weighted-avg series for credit-quality metrics (position-weighted).
+  function buildIndustryCQ(field: "pct_non_accrual" | "pct_pik_total" | "pct_below_95") {
+    const m = new Map<string, { sumW: number; sumWV: number }>();
+    for (const r of creditQuality) {
+      if (!isReliable(r.ticker, r.period_end)) continue;
+      const w = r.n_positions;
+      if (!w) continue;
+      const slot = m.get(r.period_end) ?? { sumW: 0, sumWV: 0 };
+      slot.sumW += w;
+      slot.sumWV += w * r[field];
+      m.set(r.period_end, slot);
+    }
+    return new Map(
+      Array.from(m.entries()).map(([k, s]) => [k, s.sumW ? s.sumWV / s.sumW : 0]),
+    );
+  }
+  // Industry weighted-avg spread (weighted by parsed-position count).
+  function buildIndustrySpread(field: "avg_spread_book_bps" | "avg_spread_new_bps",
+                                wField: "n_positions_priced" | "n_new") {
+    const m = new Map<string, { num: number; den: number }>();
+    for (const r of spreadAnalysis) {
+      if (!isReliable(r.ticker, r.period_end)) continue;
+      const v = r[field];
+      const w = r[wField];
+      if (v === null || v === undefined || !w) continue;
+      const slot = m.get(r.period_end) ?? { num: 0, den: 0 };
+      slot.num += (v as number) * w;
+      slot.den += w;
+      m.set(r.period_end, slot);
+    }
+    return new Map(
+      Array.from(m.entries()).map(([k, s]) => [k, s.den ? s.num / s.den : 0]),
+    );
+  }
+
+  const naIndustry  = buildIndustryCQ("pct_non_accrual");
+  const pikIndustry = buildIndustryCQ("pct_pik_total");
+  const mkIndustry  = buildIndustryCQ("pct_below_95");
+  const bookSpInd   = buildIndustrySpread("avg_spread_book_bps", "n_positions_priced");
+  const newSpInd    = buildIndustrySpread("avg_spread_new_bps", "n_new");
+
+  // Build BDC + industry overlay series.
+  const cmpFromCQ = (field: "pct_non_accrual" | "pct_pik_total" | "pct_below_95",
+                    industry: Map<string, number>): ComparisonPoint[] =>
+    cqRows.map((r) => ({
+      period_end: r.period_end,
+      bdc: r[field],
+      industry: industry.get(r.period_end) ?? null,
+    }));
+  const cmpFromSpread = (field: "avg_spread_book_bps" | "avg_spread_new_bps",
+                         industry: Map<string, number>): ComparisonPoint[] =>
+    spRows
+      .filter((r) => r[field] !== null && r[field] !== undefined)
+      .map((r) => ({
+        period_end: r.period_end,
+        bdc: r[field] as number,
+        industry: industry.get(r.period_end) ?? null,
+      }));
+
+  const naCmp        = cmpFromCQ("pct_non_accrual", naIndustry);
+  const pikCmp       = cmpFromCQ("pct_pik_total",   pikIndustry);
+  const lt95Cmp      = cmpFromCQ("pct_below_95",    mkIndustry);
+  const bookSpCmp    = cmpFromSpread("avg_spread_book_bps", bookSpInd);
+  const newSpCmp     = cmpFromSpread("avg_spread_new_bps",  newSpInd);
 
   // Composition stacked-area data (collapse "other" buckets)
   const compositionLine = acRows.map((r) => ({
@@ -93,12 +157,12 @@ export default async function BDCDetailPage({ params }: PageProps) {
     pct_other:       r.pct_other_secured + r.pct_abf + r.pct_cash + r.pct_other + r.pct_unclassified,
   }));
 
-  // Severity stacked bars: per-quarter counts (latest 12 quarters)
+  // Severity stacked bars: per-quarter cost-weighted percent (latest 12 quarters).
   const sevSeries = modRows.slice(-12).map((r) => ({
     period_end: r.period_end,
-    minimal: r.new_minimal,
-    moderate: r.new_moderate,
-    severe: r.new_severe,
+    minimal: r.pct_new_minimal_cost,
+    moderate: r.pct_new_moderate_cost,
+    severe: r.pct_new_severe_cost,
   }));
 
   // Helpers
@@ -237,41 +301,35 @@ export default async function BDCDetailPage({ params }: PageProps) {
             )}
           </div>
 
-          {/* Two-up: NA% trend + Below-95 trend */}
+          {/* Trajectory charts: BDC + industry overlay */}
+          <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
+            Solid line = <span style={{ color: "#a5b4fc" }}>{bdc.ticker}</span>. Dashed gray line = industry weighted average across reliable BDCs.
+          </p>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
             <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-              <div className="text-sm font-semibold text-white mb-1">Non-accrual & PIK trajectory</div>
-              <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>% of cost on non-accrual (red) and any-PIK (orange).</p>
-              <div style={{ height: 220 }}>
-                <CreditLensChart data={naLine} yLabel="% NA at cost" color="#ef4444" height={220} />
-              </div>
-              <div style={{ height: 220, marginTop: 8 }}>
-                <CreditLensChart data={pikLine} yLabel="% PIK at cost" color="#f97316" height={220} />
-              </div>
+              <div className="text-sm font-semibold text-white mb-1">Non-accrual % vs industry</div>
+              <ComparisonChart data={naCmp} yLabel="% NA at cost" unit="%" bdcLabel={bdc.ticker} bdcColor="#ef4444" />
             </div>
             <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-              <div className="text-sm font-semibold text-white mb-1">Markdown stress</div>
-              <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>% of cost where FV / par &lt; 0.95.</p>
-              <div style={{ height: 220 }}>
-                <CreditLensChart data={lt95Line} yLabel="% below 95¢" color="#ef4444" height={220} />
-              </div>
-              {(bookSpreadLine.length > 0 || newSpreadLine.length > 0) && (
-                <>
-                  <div className="text-sm font-semibold text-white mb-1 mt-3">Spread trajectory (bps)</div>
-                  <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Book spread (green) vs new-loan spread (purple).</p>
-                  <div style={{ height: 220 }}>
-                    {bookSpreadLine.length > 0 && (
-                      <CreditLensChart data={bookSpreadLine} yLabel="bps" unit="" color="#22c55e" height={220} />
-                    )}
-                  </div>
-                  {newSpreadLine.length > 0 && (
-                    <div style={{ height: 220, marginTop: 8 }}>
-                      <CreditLensChart data={newSpreadLine} yLabel="new bps" unit="" color="#a855f7" height={220} />
-                    </div>
-                  )}
-                </>
-              )}
+              <div className="text-sm font-semibold text-white mb-1">PIK % vs industry</div>
+              <ComparisonChart data={pikCmp} yLabel="% PIK at cost" unit="%" bdcLabel={bdc.ticker} bdcColor="#f97316" />
             </div>
+            <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <div className="text-sm font-semibold text-white mb-1">Marks below 95¢ vs industry</div>
+              <ComparisonChart data={lt95Cmp} yLabel="% below 95¢" unit="%" bdcLabel={bdc.ticker} bdcColor="#dc2626" />
+            </div>
+            {bookSpCmp.length > 0 && (
+              <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+                <div className="text-sm font-semibold text-white mb-1">Book spread (bps) vs industry</div>
+                <ComparisonChart data={bookSpCmp} yLabel="Book spread (bps)" unit=" bps" bdcLabel={bdc.ticker} bdcColor="#22c55e" />
+              </div>
+            )}
+            {newSpCmp.length > 0 && (
+              <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+                <div className="text-sm font-semibold text-white mb-1">New-loan spread (bps) vs industry</div>
+                <ComparisonChart data={newSpCmp} yLabel="New-loan spread (bps)" unit=" bps" bdcLabel={bdc.ticker} bdcColor="#a855f7" />
+              </div>
+            )}
           </div>
 
           {/* Two-up: asset composition + modifications by severity */}
@@ -288,9 +346,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
                 <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
                   <div className="text-sm font-semibold text-white mb-1">Modifications by severity (last 12 quarters)</div>
                   <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
-                    Count of new cash → PIK flips per quarter, bucketed by PIK severity.
+                    Cost of new cash → PIK flips each quarter as % of eligible-loan cost, bucketed by PIK severity.
                   </p>
-                  <SeverityStackedBars data={sevSeries} />
+                  <SeverityStackedBars data={sevSeries} yLabel="% of eligible cost" unit="%" />
                 </div>
               )}
             </div>

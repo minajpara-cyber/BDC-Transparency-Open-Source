@@ -266,19 +266,28 @@ export default function CreditPage() {
   const lt90Line = buildIndustrySeries("pct_below_90");
   const modPctLine = buildModIndustrySeries();
 
-  // Modifications-by-severity: industry-aggregated counts per quarter.
-  const sevByPeriod = new Map<string, { minimal: number; moderate: number; severe: number }>();
+  // Modifications-by-severity: industry-aggregated COST-weighted % per quarter.
+  // Numerator = sum(new_*_cost) across BDCs; denominator = sum(total_cost) across BDCs.
+  const sevByPeriod = new Map<string, {
+    minimalCost: number; moderateCost: number; severeCost: number; totalCost: number;
+  }>();
   for (const r of pikModifications) {
     if (!isReliable(r.ticker, r.period_end)) continue;
     if (!sevByPeriod.has(r.period_end))
-      sevByPeriod.set(r.period_end, { minimal: 0, moderate: 0, severe: 0 });
+      sevByPeriod.set(r.period_end, { minimalCost: 0, moderateCost: 0, severeCost: 0, totalCost: 0 });
     const s = sevByPeriod.get(r.period_end)!;
-    s.minimal  += r.new_minimal;
-    s.moderate += r.new_moderate;
-    s.severe   += r.new_severe;
+    s.minimalCost  += r.new_minimal_cost;
+    s.moderateCost += r.new_moderate_cost;
+    s.severeCost   += r.new_severe_cost;
+    s.totalCost    += r.total_cost;
   }
   const severityIndustry = Array.from(sevByPeriod.entries())
-    .map(([period_end, s]) => ({ period_end, ...s }))
+    .map(([period_end, s]) => ({
+      period_end,
+      minimal:  s.totalCost ? (100 * s.minimalCost)  / s.totalCost : 0,
+      moderate: s.totalCost ? (100 * s.moderateCost) / s.totalCost : 0,
+      severe:   s.totalCost ? (100 * s.severeCost)   / s.totalCost : 0,
+    }))
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 
   // Per-(ticker, period) severity rows for the recent table (latest 8 quarters).
@@ -444,12 +453,12 @@ export default function CreditPage() {
             <CreditLensChart data={modPctLine} yLabel="% modified by cost" color="#f97316" />
           </div>
           <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-            <div className="text-sm font-semibold text-white mb-1">Industry new modifications by severity</div>
+            <div className="text-sm font-semibold text-white mb-1">Industry new modifications by severity (% of cost)</div>
             <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
-              Stacked count of new cash → PIK modifications each quarter, bucketed by PIK severity
+              Stacked share of eligible-loan cost flipping cash → PIK each quarter, bucketed by PIK severity
               (minimal &lt;20% / moderate 20–50% / severe ≥50% or all-PIK of total coupon).
             </p>
-            <SeverityStackedBars data={severityIndustry} />
+            <SeverityStackedBars data={severityIndustry} yLabel="% of eligible cost" unit="%" />
           </div>
         </div>
 
@@ -461,14 +470,15 @@ export default function CreditPage() {
           <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
             <h3 className="font-semibold text-white text-sm">Recent modifications by severity (last 8 quarters)</h3>
             <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              Per-BDC counts of new cash → PIK flips this quarter, by severity bucket. Rows sorted by quarter then severity.
+              Per-BDC share of eligible-loan cost flipping cash → PIK this quarter, by severity bucket.
+              Rows sorted by quarter then severity.
             </p>
           </div>
           <div className="overflow-x-auto" style={{ maxHeight: 380 }}>
             <table className="w-full text-sm">
               <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e", position: "sticky", top: 0, zIndex: 1 }}>
                 <tr>
-                  {["Quarter", "BDC", "New mods", "Severe", "Moderate", "Minimal", "Cured", "Net"].map((h) => (
+                  {["Quarter", "BDC", "% modified (cost)", "Severe %", "Moderate %", "Minimal %", "# mods", "# cured", "Net #"].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap"
@@ -480,7 +490,10 @@ export default function CreditPage() {
                 </tr>
               </thead>
               <tbody>
-                {severityTableRows.map((r, i) => (
+                {severityTableRows.map((r, i) => {
+                  const totalPct = r.pct_new_minimal_cost + r.pct_new_moderate_cost + r.pct_new_severe_cost;
+                  const fmtPct = (v: number) => (v > 0 ? `${v.toFixed(2)}%` : "—");
+                  return (
                   <tr
                     key={`${r.ticker}-${r.period_end}-${i}`}
                     className="border-t"
@@ -495,26 +508,30 @@ export default function CreditPage() {
                         {r.ticker}
                       </Link>
                     </td>
-                    <td className="px-4 py-2.5 text-sm font-semibold text-white">{r.new_mods}</td>
-                    <td className="px-4 py-2.5 text-sm font-semibold" style={{ color: r.new_severe > 0 ? "#dc2626" : "#6b6b88" }}>
-                      {r.new_severe || "—"}
+                    <td className="px-4 py-2.5 text-sm font-semibold text-white">{fmtPct(totalPct)}</td>
+                    <td className="px-4 py-2.5 text-sm font-semibold" style={{ color: r.pct_new_severe_cost > 0 ? "#dc2626" : "#6b6b88" }}>
+                      {fmtPct(r.pct_new_severe_cost)}
                     </td>
-                    <td className="px-4 py-2.5 text-sm" style={{ color: r.new_moderate > 0 ? "#f97316" : "#6b6b88" }}>
-                      {r.new_moderate || "—"}
+                    <td className="px-4 py-2.5 text-sm" style={{ color: r.pct_new_moderate_cost > 0 ? "#f97316" : "#6b6b88" }}>
+                      {fmtPct(r.pct_new_moderate_cost)}
                     </td>
-                    <td className="px-4 py-2.5 text-sm" style={{ color: r.new_minimal > 0 ? "#fde68a" : "#6b6b88" }}>
-                      {r.new_minimal || "—"}
+                    <td className="px-4 py-2.5 text-sm" style={{ color: r.pct_new_minimal_cost > 0 ? "#fde68a" : "#6b6b88" }}>
+                      {fmtPct(r.pct_new_minimal_cost)}
                     </td>
-                    <td className="px-4 py-2.5 text-sm" style={{ color: r.cured > 0 ? "#22c55e" : "#6b6b88" }}>
+                    <td className="px-4 py-2.5 text-xs" style={{ color: r.new_mods > 0 ? "#d1d5db" : "#6b6b88" }}>
+                      {r.new_mods || "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs" style={{ color: r.cured > 0 ? "#22c55e" : "#6b6b88" }}>
                       {r.cured || "—"}
                     </td>
-                    <td className="px-4 py-2.5 text-sm font-semibold" style={{
+                    <td className="px-4 py-2.5 text-xs font-semibold" style={{
                       color: r.net > 0 ? "#ef4444" : r.net < 0 ? "#22c55e" : "#9ca3af",
                     }}>
                       {r.net > 0 ? "+" : ""}{r.net}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

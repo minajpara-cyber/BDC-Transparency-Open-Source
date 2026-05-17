@@ -21,9 +21,19 @@ export interface SeverityBarPoint {
 interface Props {
   data: SeverityBarPoint[];
   yLabel?: string;
+  /** "%" for cost-percent display, "" for raw counts. Defaults to "". */
+  unit?: string;
 }
 
-export default function SeverityStackedBars({ data, yLabel = "# loans modified" }: Props) {
+export default function SeverityStackedBars({ data, yLabel = "# loans modified", unit = "" }: Props) {
+  const fmtTick = (v: number) =>
+    unit === "%" ? `${v.toFixed(1)}%` : Number(v).toLocaleString();
+  const fmtTooltip = (value: unknown) => {
+    if (value === undefined || value === null) return "";
+    const n = Number(value);
+    if (Number.isNaN(n)) return String(value);
+    return unit === "%" ? `${n.toFixed(2)}%` : n.toLocaleString();
+  };
   return (
     <div style={{ width: "100%", height: 280 }}>
       <ResponsiveContainer>
@@ -37,6 +47,7 @@ export default function SeverityStackedBars({ data, yLabel = "# loans modified" 
           />
           <YAxis
             tick={{ fill: "#8b8ba8", fontSize: 11 }}
+            tickFormatter={fmtTick}
             label={{ value: yLabel, angle: -90, position: "insideLeft", fill: "#8b8ba8", fontSize: 11 }}
           />
           <Tooltip
@@ -47,7 +58,7 @@ export default function SeverityStackedBars({ data, yLabel = "# loans modified" 
               fontSize: 12,
             }}
             labelStyle={{ color: "#d1d5db" }}
-            formatter={(value) => Number(value).toLocaleString()}
+            formatter={fmtTooltip}
           />
           <Legend wrapperStyle={{ fontSize: 11, color: "#8b8ba8" }} />
           <Bar dataKey="minimal"  name="Minimal (<20% PIK share)" stackId="a" fill="#fde68a" />
