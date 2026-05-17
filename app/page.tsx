@@ -5,6 +5,7 @@ import AlertBadge from "@/components/AlertBadge";
 import { marketStats } from "@/data/bdcs";
 import { recentAlerts, bdcSectorExposure, topBDCSoftwareExposure } from "@/data/market";
 import { portfolioCompanies } from "@/data/companies";
+import { computeDerivedMarketStats } from "@/lib/marketStatsDerived";
 
 export default function HomePage() {
   const nonAccrualCompanies = portfolioCompanies.filter(
@@ -14,6 +15,26 @@ export default function HomePage() {
     (c) => c.holders.some((h) => h.status === "PIK")
   );
 
+  const derived = computeDerivedMarketStats();
+  // Helpers for Δ display
+  const fmtDeltaPP = (d: number | null): string | undefined => {
+    if (d == null) return undefined;
+    return `${d >= 0 ? "+" : ""}${d.toFixed(2)} pp vs prior Q`;
+  };
+  const fmtDeltaB = (d: number | null): string | undefined => {
+    if (d == null) return undefined;
+    return `${d >= 0 ? "+" : ""}$${d.toFixed(2)}B vs prior Q`;
+  };
+  const trendForPP = (d: number | null, lowerIsBetter = true): "up" | "down" | "neutral" => {
+    if (d == null || Math.abs(d) < 0.005) return "neutral";
+    if (lowerIsBetter) return d < 0 ? "down" : "up";
+    return d > 0 ? "up" : "down";
+  };
+  // Friendly display for the as-of date.
+  const asOfLabel = derived.latest_period
+    ? new Date(derived.latest_period).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "—";
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Hero */}
@@ -22,7 +43,9 @@ export default function HomePage() {
           <span className="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider" style={{ background: "rgba(99,102,241,0.15)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)" }}>
             Live Tracking
           </span>
-          <span className="text-xs" style={{ color: "#8b8ba8" }}>Data as of Q3 2025 · {marketStats.totalBDCCount} BDCs tracked</span>
+          <span className="text-xs" style={{ color: "#8b8ba8" }}>
+            Parsed data as of {asOfLabel} · {derived.n_bdcs_latest} traded BDCs from EDGAR · {marketStats.totalBDCCount} BDCs catalogued
+          </span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3 leading-tight">
           BDC Software Private Credit<br />
@@ -30,7 +53,7 @@ export default function HomePage() {
         </h1>
         <p className="text-base sm:text-lg max-w-2xl" style={{ color: "#9ca3af" }}>
           Aggregating public data on software company exposure across all Business Development Companies.
-          Track valuations, non-accruals, PIK loans, and AI disruption risk across ${marketStats.totalPortfolioFairValue}B of software private credit.
+          Track valuations, non-accruals, PIK loans, and AI disruption risk — with ${derived.totalPortfolioFairValue_b.toFixed(1)}B of fair value parsed directly from {derived.n_bdcs_latest} BDC Schedule-of-Investments filings.
         </p>
         <div className="flex gap-3 mt-5">
           <Link
@@ -53,51 +76,50 @@ export default function HomePage() {
       {/* Key Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
-          label="Total BDC AUM"
-          value="$450B"
-          sub="155 BDCs tracked"
-          trend="up"
-          trendLabel="4x since 2020"
+          label="Parsed Portfolio FV"
+          value={`$${derived.totalPortfolioFairValue_b.toFixed(1)}B`}
+          sub={`${derived.n_bdcs_latest} BDCs · as of ${asOfLabel}`}
+          trend={derived.delta_fv_b != null ? (derived.delta_fv_b >= 0 ? "up" : "down") : "neutral"}
+          trendLabel={fmtDeltaB(derived.delta_fv_b)}
           icon={<DollarSign size={16} />}
           highlight
         />
         <StatCard
-          label="Software Exposure"
-          value="29.0%"
-          sub="of total BDC portfolios"
-          trend="up"
-          trendLabel="+7pp since 2022"
-          icon={<BarChart3 size={16} />}
-          color="#6366f1"
-        />
-        <StatCard
-          label="Avg Price to Par"
-          value="97.8¢"
-          sub="software loan average"
-          trend="neutral"
-          icon={<Activity size={16} />}
-          color="#22c55e"
+          label="Non-Accrual Rate"
+          value={`${derived.averageNonAccrualRate.toFixed(2)}%`}
+          sub="cost-weighted across covered BDCs"
+          trend={trendForPP(derived.delta_na, true)}
+          trendLabel={fmtDeltaPP(derived.delta_na)}
+          icon={<Shield size={16} />}
+          color="#ef4444"
         />
         <StatCard
           label="PIK Rate"
-          value="12.8%"
-          sub="of software loans"
-          trend="down"
-          trendLabel="from 13.5% peak"
+          value={`${derived.averagePikRate.toFixed(2)}%`}
+          sub="cost-weighted across covered BDCs"
+          trend={trendForPP(derived.delta_pik, true)}
+          trendLabel={fmtDeltaPP(derived.delta_pik)}
           icon={<TrendingDown size={16} />}
           color="#eab308"
+        />
+        <StatCard
+          label="Below 95¢ at Par"
+          value={`${derived.averageBelow95.toFixed(2)}%`}
+          sub="cost-weighted debt marks"
+          trend="neutral"
+          icon={<Activity size={16} />}
+          color="#f97316"
         />
       </div>
 
       {/* Second row stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
-          label="Non-Accrual Rate"
-          value="1.8%"
-          sub="weighted avg BDC"
-          trend="down"
-          trendLabel="from 2.3% peak"
-          color="#ef4444"
+          label="Below 90¢ at Par"
+          value={`${derived.averageBelow90.toFixed(2)}%`}
+          sub="cost-weighted debt marks"
+          trend="neutral"
+          color="#dc2626"
         />
         <StatCard
           label="Software Loans Tracked"
@@ -346,9 +368,10 @@ export default function HomePage() {
 
       {/* Disclaimer */}
       <div className="rounded-lg px-5 py-4 text-xs border" style={{ background: "#0f0f16", borderColor: "#1e1e2e", color: "#6b6b88" }}>
-        <strong className="text-white">Disclaimer:</strong> Data sourced from public SEC filings, BDC quarterly reports, Schedule of Investments disclosures, and published industry research.
-        This site is for informational purposes only and does not constitute investment advice. All valuations, exposure estimates, and credit assessments are based on publicly available information and may not reflect current conditions.
-        Data is as of Q3 2025 unless otherwise noted.
+        <strong className="text-white">Disclaimer:</strong> Headline portfolio-FV, non-accrual, PIK, and mark-below-par numbers are parsed directly from each BDC&apos;s Schedule of Investments
+        (10-K / 10-Q filings on EDGAR), aggregated cost-weighted across the {derived.n_bdcs_latest} traded BDCs we cover. Coverage is as of {asOfLabel}.
+        The 155-BDC universe, AUM totals, software-exposure breakdowns, alerts, and AI-risk classifications remain curated from public reports.
+        For informational purposes only; not investment advice.
       </div>
     </div>
   );
