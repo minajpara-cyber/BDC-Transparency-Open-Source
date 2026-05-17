@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Building2, LineChart } from "lucide-react";
+import { ArrowLeft, ExternalLink, Building2 } from "lucide-react";
 import AlertBadge from "@/components/AlertBadge";
 import StatCard from "@/components/StatCard";
 import AssetCompositionChart from "@/components/AssetCompositionChart";
 import SeverityStackedBars from "@/components/SeverityStackedBars";
 import ComparisonChart, { ComparisonPoint } from "@/components/ComparisonChart";
+import BDCTimelineChart from "@/components/BDCTimelineChart";
 import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { portfolioCompanies } from "@/data/companies";
@@ -43,6 +44,19 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const softwareRisk = bdc.softwareExposure >= 50 ? "Critical" : bdc.softwareExposure >= 25 ? "High" : bdc.softwareExposure >= 15 ? "Medium" : "Low";
 
   const hasTimeline = bdcsHistory.some((r) => r.ticker === bdc.ticker);
+
+  // Timeline data (for the "Through Time" section at the bottom of this page).
+  const timelineRows = bdcsHistory
+    .filter((r) => r.ticker === bdc.ticker)
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+  const timelineMods = pikModifications
+    .filter((m) => m.ticker === bdc.ticker)
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+  const tlEarliest = timelineRows[0];
+  const tlLatest   = timelineRows[timelineRows.length - 1];
+  const tlFvChangeB    = tlLatest && tlEarliest ? tlLatest.total_fv_b - tlEarliest.total_fv_b : 0;
+  const tlPositionChg  = tlLatest && tlEarliest ? tlLatest.n_positions  - tlEarliest.n_positions : 0;
+  const tlQuarters     = timelineRows.length;
 
   // ---- Build per-BDC credit slices from our parsed data ---------------------
   const cqRows = creditQuality
@@ -215,25 +229,6 @@ export default async function BDCDetailPage({ params }: PageProps) {
           </div>
         )}
       </div>
-
-      {/* Time-series CTA */}
-      {hasTimeline && (
-        <Link
-          href={`/bdcs/${bdc.slug}/timeline`}
-          className="group inline-flex items-center gap-2 mb-6 px-4 py-2.5 rounded-lg border transition-colors"
-          style={{
-            background: "rgba(99,102,241,0.08)",
-            borderColor: "rgba(99,102,241,0.3)",
-            color: "#a5b4fc",
-          }}
-        >
-          <LineChart size={14} />
-          <span className="text-sm font-medium">View {bdc.ticker} through time →</span>
-          <span className="text-xs" style={{ color: "#8b8ba8" }}>
-            Quarter-by-quarter portfolio composition
-          </span>
-        </Link>
-      )}
 
       {/* Credit analysis (parsed SOI data) */}
       {hasCredit && (
@@ -577,6 +572,115 @@ export default async function BDCDetailPage({ params }: PageProps) {
           ))}
         </div>
       </div>
+
+      {/* Through Time — portfolio size + modifications flow + quarterly snapshot table */}
+      {hasTimeline && tlLatest && tlEarliest && (
+        <section className="mt-8">
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
+            <h2 className="text-lg font-semibold text-white">{bdc.ticker} through time</h2>
+            <span className="text-xs px-2 py-0.5 rounded border" style={{
+              color: "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)",
+            }}>
+              {tlQuarters}Q · {tlEarliest.period_end.slice(0, 7)} → {tlLatest.period_end.slice(0, 7)}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <StatCard
+              label="Coverage"
+              value={`${tlQuarters}Q`}
+              sub={`${tlEarliest.period_end.slice(0, 7)} → ${tlLatest.period_end.slice(0, 7)}`}
+            />
+            <StatCard
+              label="Latest portfolio"
+              value={`$${tlLatest.total_fv_b.toFixed(1)}B`}
+              sub={`${tlLatest.n_positions.toLocaleString()} positions`}
+            />
+            <StatCard
+              label="FV change since start"
+              value={`${tlFvChangeB >= 0 ? "+" : ""}$${tlFvChangeB.toFixed(1)}B`}
+              color={tlFvChangeB >= 0 ? "#22c55e" : "#ef4444"}
+              trend={tlFvChangeB >= 0 ? "up" : "down"}
+              trendLabel={tlEarliest.total_fv_b ? `${((tlFvChangeB / tlEarliest.total_fv_b) * 100).toFixed(0)}%` : undefined}
+            />
+            <StatCard
+              label="Position change"
+              value={`${tlPositionChg >= 0 ? "+" : ""}${tlPositionChg.toLocaleString()}`}
+              color={tlPositionChg >= 0 ? "#22c55e" : "#ef4444"}
+              sub={`${tlEarliest.n_positions} → ${tlLatest.n_positions}`}
+            />
+          </div>
+
+          <BDCTimelineChart rows={timelineRows} modRows={timelineMods} ticker={bdc.ticker} hideCreditPanel />
+
+          {/* Snapshot table */}
+          <div
+            className="rounded-xl border overflow-hidden mt-4"
+            style={{ background: "#111118", borderColor: "#1e1e2e" }}
+          >
+            <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+              <h3 className="font-semibold text-white text-sm">Quarterly snapshots</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                  <tr>
+                    {["Period end", "Positions", "Cost ($B)", "Fair value ($B)", "FV / Cost", "NA % (cost)", "PIK % (cost)"].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap"
+                        style={{ color: "#8b8ba8" }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...timelineRows].reverse().map((r, i) => {
+                    const ratio = r.total_cost_b ? r.total_fv_b / r.total_cost_b : 0;
+                    const ratioColor = ratio >= 1 ? "#22c55e" : ratio >= 0.97 ? "#eab308" : "#ef4444";
+                    return (
+                      <tr
+                        key={r.period_end}
+                        className="border-t"
+                        style={{
+                          borderColor: "#1a1a28",
+                          background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                        }}
+                      >
+                        <td className="px-4 py-2.5 font-mono text-xs text-white">{r.period_end}</td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: "#d1d5db" }}>
+                          {r.n_positions.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: "#d1d5db" }}>
+                          ${r.total_cost_b.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: "#d1d5db" }}>
+                          ${r.total_fv_b.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs font-semibold" style={{ color: ratioColor }}>
+                          {(ratio * 100).toFixed(2)}%
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{
+                          color: r.na_pct_at_cost >= 3 ? "#ef4444" : r.na_pct_at_cost >= 1 ? "#eab308" : "#9ca3af",
+                        }}>
+                          {r.na_pct_at_cost > 0 ? `${r.na_pct_at_cost.toFixed(2)}%` : "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{
+                          color: r.pik_pct_at_cost >= 15 ? "#f97316" : r.pik_pct_at_cost >= 5 ? "#eab308" : "#9ca3af",
+                        }}>
+                          {r.pik_pct_at_cost > 0 ? `${r.pik_pct_at_cost.toFixed(2)}%` : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

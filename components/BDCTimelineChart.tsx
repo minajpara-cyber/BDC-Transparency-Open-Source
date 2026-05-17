@@ -20,6 +20,9 @@ interface Props {
   rows: BDCQuarter[];
   modRows: PIKModEvent[];
   ticker: string;
+  /** Hide the bottom credit-quality (NA% / PIK%) panel — useful when a richer
+   *  credit section already lives elsewhere on the page. */
+  hideCreditPanel?: boolean;
 }
 
 const fmtBn = (v: number) => `$${v.toFixed(1)}B`;
@@ -28,7 +31,7 @@ const fmtPct = (v: number) => `${v.toFixed(2)}%`;
 const hasNonZero = (rows: { na: number; pik: number }[]) =>
   rows.some((r) => r.na > 0 || r.pik > 0);
 
-export default function BDCTimelineChart({ rows, modRows, ticker }: Props) {
+export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPanel }: Props) {
   const data = rows.map((r) => ({
     period_end: r.period_end,
     cost: r.total_cost_b,
@@ -39,21 +42,28 @@ export default function BDCTimelineChart({ rows, modRows, ticker }: Props) {
   }));
 
   // Build modification series aligned to the SAME quarter axis as `data`.
+  // Each bucket is expressed as % of eligible-loan COST for the quarter (not loan count).
   const modByPeriod = new Map(modRows.map((m) => [m.period_end, m]));
   const modData = rows.map((r) => {
     const m = modByPeriod.get(r.period_end);
+    const pctCured = m && m.total_cost
+      ? (100 * (m.cured_cost ?? 0)) / m.total_cost
+      : 0;
+    const pctNewTotal = (m?.pct_new_minimal_cost ?? 0)
+      + (m?.pct_new_moderate_cost ?? 0)
+      + (m?.pct_new_severe_cost ?? 0);
     return {
       period_end: r.period_end,
-      new_minimal: m?.new_minimal ?? 0,
-      new_moderate: m?.new_moderate ?? 0,
-      new_severe: m?.new_severe ?? 0,
-      cured: m ? -m.cured : 0,
-      net: m?.net ?? 0,
+      new_minimal: m?.pct_new_minimal_cost ?? 0,
+      new_moderate: m?.pct_new_moderate_cost ?? 0,
+      new_severe:   m?.pct_new_severe_cost ?? 0,
+      cured: -pctCured,           // negative bar below zero line
+      net:   pctNewTotal - pctCured,
     };
   });
   const showModPanel = modRows.length > 0;
 
-  const showCreditPanel = hasNonZero(data);
+  const showCreditPanel = !hideCreditPanel && hasNonZero(data);
 
   return (
     <div className="space-y-6">
@@ -140,10 +150,10 @@ export default function BDCTimelineChart({ rows, modRows, ticker }: Props) {
         className="rounded-xl border p-5"
         style={{ background: "#111118", borderColor: "#1e1e2e" }}
       >
-        <h2 className="font-semibold text-white mb-1">{ticker} PIK modifications by quarter</h2>
+        <h2 className="font-semibold text-white mb-1">{ticker} PIK modifications by quarter — % of cost</h2>
         <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-          Loans flipping cash-pay → PIK that quarter (stacked above, by severity).
-          Loans curing back to cash-pay shown below as negative bars. Black line = net.
+          Cost of loans flipping cash-pay → PIK that quarter, as % of eligible-loan cost (stacked
+          above, by severity). Cured cost shown below as negative bar. Light line = net change.
         </p>
         <div style={{ width: "100%", height: 300 }}>
           <ResponsiveContainer>
@@ -155,7 +165,10 @@ export default function BDCTimelineChart({ rows, modRows, ticker }: Props) {
                 tickFormatter={(v: string) => v.slice(0, 7)}
                 minTickGap={20}
               />
-              <YAxis tick={{ fill: "#8b8ba8", fontSize: 11 }} />
+              <YAxis
+                tick={{ fill: "#8b8ba8", fontSize: 11 }}
+                tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+              />
               <ReferenceLine y={0} stroke="#3b3b55" />
               <Tooltip
                 contentStyle={{
@@ -169,8 +182,8 @@ export default function BDCTimelineChart({ rows, modRows, ticker }: Props) {
                   const v = Number(value);
                   const n = name as string;
                   return n === "Cured (PIK → cash)"
-                    ? [Math.abs(v).toString(), n]
-                    : [v.toString(), n];
+                    ? [`${Math.abs(v).toFixed(2)}%`, n]
+                    : [`${v.toFixed(2)}%`, n];
                 }}
               />
               <Legend wrapperStyle={{ fontSize: 12, color: "#8b8ba8" }} />
