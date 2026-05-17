@@ -87,6 +87,8 @@ export const spreadAnalysis: SpreadRow[] = [
   {"ticker": "BXSL", "period_end": "2025-09-30", "avg_spread_book_bps": 540, "avg_spread_new_bps": null, "n_positions_priced": 588, "n_new": 0},
   {"ticker": "BXSL", "period_end": "2025-12-31", "avg_spread_book_bps": 531, "avg_spread_new_bps": null, "n_positions_priced": 607, "n_new": 0},
   {"ticker": "BXSL", "period_end": "2026-03-31", "avg_spread_book_bps": 530, "avg_spread_new_bps": null, "n_positions_priced": 630, "n_new": 0},
+  {"ticker": "CGBD", "period_end": "2019-12-31", "avg_spread_book_bps": 462, "avg_spread_new_bps": null, "n_positions_priced": 64, "n_new": 0},
+  {"ticker": "CGBD", "period_end": "2020-03-31", "avg_spread_book_bps": 468, "avg_spread_new_bps": null, "n_positions_priced": 128, "n_new": 0},
   {"ticker": "CGBD", "period_end": "2022-09-30", "avg_spread_book_bps": 835, "avg_spread_new_bps": null, "n_positions_priced": 2, "n_new": 0},
   {"ticker": "CGBD", "period_end": "2022-12-31", "avg_spread_book_bps": 664, "avg_spread_new_bps": null, "n_positions_priced": 134, "n_new": 0},
   {"ticker": "CGBD", "period_end": "2023-03-31", "avg_spread_book_bps": 834, "avg_spread_new_bps": null, "n_positions_priced": 2, "n_new": 0},
