@@ -17,15 +17,19 @@ import {
 import AlertBadge from "@/components/AlertBadge";
 import {
   bdcAumHistory,
-  nonAccrualHistory,
-  pikRateHistory,
   softwareExposureHistory,
   bdcSalesHistory,
   bdcSectorExposure,
   topBDCSoftwareExposure,
 } from "@/data/market";
-import { marketStats } from "@/data/bdcs";
 import { portfolioCompanies } from "@/data/companies";
+import {
+  industryNonAccrualHistory,
+  industryPikHistory,
+  industryFVHistory,
+  filterBroad,
+} from "@/lib/marketHistoryActual";
+import { computeDerivedMarketStats } from "@/lib/marketStatsDerived";
 
 const CHART_COLORS = {
   primary: "#6366f1",
@@ -51,23 +55,51 @@ export default function MarketPage() {
     { name: "Low", count: portfolioCompanies.filter(c => c.aiRisk === "Low").length, color: "#22c55e" },
   ];
 
+  // Industry-aggregate quarterly series derived from our SOI parsing.
+  const naSeries  = filterBroad(industryNonAccrualHistory(), 6);
+  const pikSeries = filterBroad(industryPikHistory(), 6);
+  const fvSeries  = filterBroad(industryFVHistory(), 6);
+  const derived = computeDerivedMarketStats();
+  const asOfLabel = derived.latest_period
+    ? new Date(derived.latest_period).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "—";
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-7">
         <h1 className="text-2xl font-bold text-white mb-2">Market Trends & Analytics</h1>
         <p className="text-sm" style={{ color: "#8b8ba8" }}>
           BDC market data, software exposure trends, credit quality metrics, and AI disruption risk analysis.
-          Data as of Q3 2025.
+          Non-accrual / PIK / parsed-FV series derived from our own SOI parsing of {derived.n_bdcs_latest} traded BDCs · latest quarter {asOfLabel}.
         </p>
       </div>
 
       {/* Key Market Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         {[
-          { label: "Total BDC AUM", value: "$450B", sub: "4x growth since 2020", color: "#6366f1" },
-          { label: "Software Exposure", value: "29.0%", sub: "↑ from 22% in 2022", color: "#f97316" },
-          { label: "Avg PIK Rate", value: "12.8%", sub: "↓ from 13.5% peak", color: "#eab308" },
-          { label: "Non-Accrual Rate", value: "1.8%", sub: "↓ from 2.3% peak", color: "#22c55e" },
+          { label: "Total BDC AUM", value: "$450B", sub: "4x growth since 2020 (curated)", color: "#6366f1" },
+          {
+            label: "Parsed Portfolio FV",
+            value: `$${derived.totalPortfolioFairValue_b.toFixed(0)}B`,
+            sub: `${derived.n_bdcs_latest} BDCs · ${asOfLabel}`,
+            color: "#f97316",
+          },
+          {
+            label: "Avg PIK Rate",
+            value: `${derived.averagePikRate.toFixed(2)}%`,
+            sub: derived.delta_pik != null
+              ? `${derived.delta_pik >= 0 ? "+" : ""}${derived.delta_pik.toFixed(2)}pp QoQ`
+              : "cost-weighted",
+            color: "#eab308",
+          },
+          {
+            label: "Non-Accrual Rate",
+            value: `${derived.averageNonAccrualRate.toFixed(2)}%`,
+            sub: derived.delta_na != null
+              ? `${derived.delta_na >= 0 ? "+" : ""}${derived.delta_na.toFixed(2)}pp QoQ`
+              : "cost-weighted",
+            color: "#22c55e",
+          },
         ].map((m) => (
           <div key={m.label} className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
             <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>{m.label}</div>
@@ -127,9 +159,11 @@ export default function MarketPage() {
         {/* Non-Accrual Rate */}
         <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <h2 className="font-semibold text-white mb-1">Non-Accrual Rate History</h2>
-          <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>Weighted average BDC non-accrual rate (%)</p>
+          <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
+            Industry-weighted % of cost on non-accrual · {naSeries.length} quarters · derived from our SOI parsing
+          </p>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={nonAccrualHistory}>
+            <AreaChart data={naSeries}>
               <defs>
                 <linearGradient id="naGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
@@ -139,7 +173,13 @@ export default function MarketPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
               <XAxis dataKey="date" tick={{ fill: "#8b8ba8", fontSize: 11 }} />
               <YAxis tick={{ fill: "#8b8ba8", fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "Non-Accrual Rate"]} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                formatter={((v: unknown, _n: unknown, item: unknown) => [
+                  `${Number(v).toFixed(2)}%  (n=${(item as { payload?: { coverage?: number } }).payload?.coverage ?? "?"})`,
+                  "Non-Accrual %",
+                ]) as unknown as (v: unknown) => [string, string]}
+              />
               <Area type="monotone" dataKey="value" stroke="#ef4444" fill="url(#naGrad)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
@@ -148,9 +188,11 @@ export default function MarketPage() {
         {/* PIK Rate History */}
         <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <h2 className="font-semibold text-white mb-1">PIK Rate History</h2>
-          <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>Payment-in-kind as % of total BDC loan portfolio</p>
+          <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
+            Industry-weighted PIK loan cost share (%) · {pikSeries.length} quarters · derived from our SOI parsing
+          </p>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={pikRateHistory}>
+            <AreaChart data={pikSeries}>
               <defs>
                 <linearGradient id="pikGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
@@ -160,8 +202,45 @@ export default function MarketPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
               <XAxis dataKey="date" tick={{ fill: "#8b8ba8", fontSize: 11 }} />
               <YAxis tick={{ fill: "#8b8ba8", fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
-              <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}%`, "PIK Rate"]} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                formatter={((v: unknown, _n: unknown, item: unknown) => [
+                  `${Number(v).toFixed(2)}%  (n=${(item as { payload?: { coverage?: number } }).payload?.coverage ?? "?"})`,
+                  "PIK %",
+                ]) as unknown as (v: unknown) => [string, string]}
+              />
               <Area type="monotone" dataKey="value" stroke="#eab308" fill="url(#pikGrad)" strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Parsed-FV history */}
+      <div className="grid grid-cols-1 gap-6 mb-6">
+        <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+          <h2 className="font-semibold text-white mb-1">Parsed Portfolio FV — All Covered BDCs</h2>
+          <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
+            Sum of fair value (in $B) across the {derived.n_bdcs_latest} traded BDCs we parse · {fvSeries.length} quarters
+          </p>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={fvSeries}>
+              <defs>
+                <linearGradient id="fvGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
+              <XAxis dataKey="date" tick={{ fill: "#8b8ba8", fontSize: 11 }} />
+              <YAxis tick={{ fill: "#8b8ba8", fontSize: 11 }} tickFormatter={(v) => `$${v}B`} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                formatter={((v: unknown, _n: unknown, item: unknown) => [
+                  `$${Number(v).toFixed(1)}B  (n=${(item as { payload?: { coverage?: number } }).payload?.coverage ?? "?"})`,
+                  "Sum FV",
+                ]) as unknown as (v: unknown) => [string, string]}
+              />
+              <Area type="monotone" dataKey="value" stroke="#6366f1" fill="url(#fvGrad)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
