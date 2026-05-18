@@ -34,7 +34,14 @@ const METRIC_META: Record<Metric, { label: string; sub: string; color: string }>
 };
 
 // Compress raw rows into one series per vintage_year for a given metric.
-function buildSeries(rows: VintageRow[], metric: Metric): VintageSeries[] {
+// When hcOnly=true and the metric has a *_hc counterpart, use that; rows
+// where the HC value is null (cohort had <5 HIGH+MED loans) are dropped.
+function buildSeries(rows: VintageRow[], metric: Metric, hcOnly: boolean = false): VintageSeries[] {
+  const hcVariant: Partial<Record<Metric, keyof VintageRow>> = {
+    pct_ever_default: "pct_ever_default_hc",
+    pct_ever_modified: "pct_ever_modified_hc",
+  };
+  const useKey = (hcOnly && hcVariant[metric]) ? hcVariant[metric]! : metric;
   const byVintage = new Map<number, VintageRow[]>();
   for (const r of rows) {
     if (!byVintage.has(r.vintage_year)) byVintage.set(r.vintage_year, []);
@@ -45,11 +52,14 @@ function buildSeries(rows: VintageRow[], metric: Metric): VintageSeries[] {
     return {
       vintage_year: vy,
       is_partial: sorted[0]?.is_partial ?? false,
-      points: sorted.map((r) => ({
-        age_years: r.age_years,
-        value: r[metric] as number,
-        alive_cost_b: r.alive_cost_b,
-      })),
+      points: sorted
+        .map((r) => ({
+          age_years: r.age_years,
+          value: r[useKey] as number | null,
+          alive_cost_b: r.alive_cost_b,
+        }))
+        .filter((p) => p.value !== null && p.value !== undefined)
+        .map((p) => ({ age_years: p.age_years, value: p.value as number, alive_cost_b: p.alive_cost_b })),
     };
   });
 }
@@ -221,6 +231,11 @@ function relDeltaColor(delta: number): { bg: string; fg: string } {
 
 export default function VintagePage() {
   const [includePartial, setIncludePartial] = useState(false);
+  // Default ON — per docs/acq_date_methodology.md, low-confidence vintage
+  // assignments (heuristic first-observed inference, or drifted disclosed
+  // acq_dates likely indicating amendments not originations) shouldn't drive
+  // the headline view. User can toggle off to see all-loans rollup.
+  const [hcOnly, setHcOnly] = useState(true);
   const [matrixMetric, setMatrixMetric] = useState<Metric>("pct_ever_default");
   const [matrixView, setMatrixView] = useState<ViewMode>("absolute");
   const [matrixSortKey, setMatrixSortKey] = useState<number | "total" | null>("total");
@@ -240,8 +255,8 @@ export default function VintagePage() {
     return industryRows.filter((r) => !r.is_partial);
   }, [industryRows, includePartial]);
 
-  const defaultSeries = useMemo(() => buildSeries(visibleRows, "pct_ever_default"), [visibleRows]);
-  const modSeries     = useMemo(() => buildSeries(visibleRows, "pct_ever_modified"), [visibleRows]);
+  const defaultSeries = useMemo(() => buildSeries(visibleRows, "pct_ever_default", hcOnly), [visibleRows, hcOnly]);
+  const modSeries     = useMemo(() => buildSeries(visibleRows, "pct_ever_modified", hcOnly), [visibleRows, hcOnly]);
   const naSeries  = useMemo(() => buildSeries(visibleRows, "pct_ever_na"),  [visibleRows]);
   const b80Series = useMemo(() => buildSeries(visibleRows, "pct_ever_b80"), [visibleRows]);
   const b90Series = useMemo(() => buildSeries(visibleRows, "pct_b90_alive"), [visibleRows]);
@@ -317,16 +332,33 @@ export default function VintagePage() {
         </p>
         <div className="mt-3 rounded-lg border p-3 text-xs"
              style={{ background: "rgba(99,102,241,0.05)", borderColor: "rgba(99,102,241,0.2)", color: "#9ca3af" }}>
-          <span className="text-white font-semibold">Methodology note (2026-05-18):</span>{" "}
-          The primary metric is now <span className="text-white">% Cost Ever Defaulted</span> —
-          loans flagged on-book non-accrual OR exited in distress (write-off, distressed sale, debt-for-equity).
-          This matches Raymond James&apos;s published &ldquo;cumulative 1L default exposure&rdquo; methodology and runs
-          roughly 5pp higher than the legacy on-book-only %.{" "}
-          Industry rollup excludes loans where the holder&apos;s parser coverage started{" "}
-          <em>after</em> the vintage year (eliminates survivor bias for BCRED/ADS/ASIF/BBDC vintages).{" "}
-          For the closest RJ comparison, note RJ tracks <em>1L only</em> while this view aggregates all liens.
+          <span className="text-white font-semibold">Methodology (updated 2026-05-18):</span>{" "}
+          Primary metric is <span className="text-white">% Cost Ever Defaulted</span> — loans
+          flagged on-book non-accrual OR exited in distress (write-off, distressed sale, debt-for-equity).
+          Matches Raymond James&apos;s &ldquo;cumulative 1L default exposure&rdquo;.{" "}
+          Industry rollup excludes loans where the holder&apos;s coverage started <em>after</em> the
+          vintage year (eliminates BCRED/ADS/ASIF/BBDC survivor bias).{" "}
+          <span className="text-white">Vintage assignment is tiered HIGH/MED/LOW</span> by acq_date
+          stability across quarters and across BDC holders — investigation showed disclosed
+          acquisition_date is materially polluted by amendment retags (88% of intra-BDC drifts go
+          forward by median 22 months; BCRED is the dominant late-discloser). LOW-tier loans are
+          excluded from the headline view by default; toggle off to include them.
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
+            <input
+              type="checkbox"
+              checked={hcOnly}
+              onChange={(e) => setHcOnly(e.target.checked)}
+              className="cursor-pointer"
+            />
+            <span>
+              High-confidence vintage only{" "}
+              <span style={{ color: "#6b6b88" }}>
+                (HIGH+MED tier: stable acq_date across quarters & holders; default on — see methodology)
+              </span>
+            </span>
+          </label>
           <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
             <input
               type="checkbox"
@@ -334,7 +366,7 @@ export default function VintagePage() {
               onChange={(e) => setIncludePartial(e.target.checked)}
               className="cursor-pointer"
             />
-            Include vintages pre-dating parser coverage (shown dashed — heavy survivorship bias)
+            Include vintages pre-dating parser coverage (shown dashed)
           </label>
         </div>
       </div>
@@ -375,8 +407,12 @@ export default function VintagePage() {
             </thead>
             <tbody>
               {tableRows.map((r, i) => {
-                const defColor = (r.pct_ever_default ?? 0) >= 8 ? "#dc2626" : (r.pct_ever_default ?? 0) >= 4 ? "#f97316" : "#22c55e";
-                const modColor = (r.pct_ever_modified ?? 0) >= 12 ? "#a855f7" : (r.pct_ever_modified ?? 0) >= 6 ? "#c084fc" : "#9ca3af";
+                const defValue = hcOnly ? r.pct_ever_default_hc : r.pct_ever_default;
+                const modValue = hcOnly ? r.pct_ever_modified_hc : r.pct_ever_modified;
+                const defColor = defValue == null ? "#444"
+                  : defValue >= 8 ? "#dc2626" : defValue >= 4 ? "#f97316" : "#22c55e";
+                const modColor = modValue == null ? "#444"
+                  : modValue >= 12 ? "#a855f7" : modValue >= 6 ? "#c084fc" : "#9ca3af";
                 const naColor  = r.pct_ever_na >= 3 ? "#ef4444" : r.pct_ever_na >= 1 ? "#f97316" : "#22c55e";
                 const b80Color = r.pct_ever_b80 >= 5 ? "#ef4444" : r.pct_ever_b80 >= 2 ? "#f97316" : "#22c55e";
                 const b90Color = r.pct_b90_alive >= 10 ? "#ef4444" : r.pct_b90_alive >= 5 ? "#f97316" : "#22c55e";
@@ -385,7 +421,10 @@ export default function VintagePage() {
                     <td className="px-4 py-3 font-semibold text-white">{r.vintage_year}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }}>{r.n_loans_cohort.toLocaleString()}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }} title={
-                      `${r.n_loans_high_conf} of ${r.n_loans_cohort} loans have a disclosed acquisition date (own BDC's filing or cross-BDC borrow). Higher = more reliable vintage tagging.`
+                      `HIGH (stable acq_date ≤90d drift, peer spread ≤90d): ${r.n_loans_hi_tier ?? 0}\n` +
+                      `MED (drift ≤12mo OR peer spread ≤12mo): ${r.n_loans_med_tier ?? 0}\n` +
+                      `LOW (drift >12mo OR first_obs heuristic): ${r.n_loans_low_tier ?? 0}\n` +
+                      `Hi-Conf = HIGH + MED. Higher = more reliable vintage tagging.`
                     }>
                       {r.n_loans_high_conf?.toLocaleString() ?? "—"}
                       {r.n_loans_cohort > 0 && r.n_loans_high_conf !== undefined && (
@@ -396,8 +435,8 @@ export default function VintagePage() {
                     </td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}>${r.cohort_entry_cost_b.toFixed(1)}B</td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }}>{r.age_years.toFixed(2)}y</td>
-                    <td className="px-4 py-3 text-sm font-bold" style={{ color: defColor }}>{(r.pct_ever_default ?? 0).toFixed(2)}%</td>
-                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: modColor }}>{(r.pct_ever_modified ?? 0).toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-sm font-bold" style={{ color: defColor }}>{defValue == null ? "—" : `${defValue.toFixed(2)}%`}</td>
+                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: modColor }}>{modValue == null ? "—" : `${modValue.toFixed(2)}%`}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: naColor }}>{r.pct_ever_na.toFixed(2)}%</td>
                     <td className="px-4 py-3 text-sm" style={{ color: b80Color }}>{r.pct_ever_b80.toFixed(2)}%</td>
                     <td className="px-4 py-3 text-sm" style={{ color: b90Color }}>{r.pct_b90_alive.toFixed(2)}%</td>
