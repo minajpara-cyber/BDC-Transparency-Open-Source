@@ -73,41 +73,45 @@ function buildIndustrySeries(field: NumericKeys): IndustryPoint[] {
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
 
-/** Modification heatmap cell map (% new modifications this quarter). */
+/** Modification heatmap cell map. Uses the broad multi-signal metric
+ *  (pct_any_mod_cost) — captures PIK flips, maturity extensions, par
+ *  haircuts (cross-BDC corroborated), spread cuts. Pre-2026-05-18 we
+ *  only tracked cash→PIK flips (pct_new_cost), which captured ~10% of
+ *  true modifications per the diagnostic in docs/vintage_diagnostic.md.
+ */
 function buildModCellMap() {
   const m = new Map<string, { value: number | null; reliable?: boolean }>();
   for (const r of modificationRate) {
     m.set(`${r.ticker}|${r.period_end}`, {
-      value: r.pct_new_cost,
+      value: r.pct_any_mod_cost ?? r.pct_new_cost,
       reliable: isReliable(r.ticker, r.period_end),
     });
   }
   return m;
 }
 
-/**
- * Industry-aggregate modification series. Both numerators and denominators
- * sum the per-BDC USD-equivalent costs (the export has already applied each
- * BDC's unit multiplier) so the cross-issuer aggregate is exact.
+/** Industry-aggregate modification series, multi-signal (any_mod) basis.
+ *  Both numerator and denominator sum per-BDC USD-equivalent costs (export
+ *  already applied UNIT_MULTIPLIER) so the cross-issuer aggregate is exact.
  */
 function buildModIndustrySeries(): IndustryPoint[] {
   const byPeriod = new Map<
     string,
-    { newCost: number; totalCost: number; coverage: number }
+    { modCost: number; totalCost: number; coverage: number }
   >();
   for (const r of modificationRate) {
     if (!isReliable(r.ticker, r.period_end)) continue;
     if (!byPeriod.has(r.period_end))
-      byPeriod.set(r.period_end, { newCost: 0, totalCost: 0, coverage: 0 });
+      byPeriod.set(r.period_end, { modCost: 0, totalCost: 0, coverage: 0 });
     const slot = byPeriod.get(r.period_end)!;
-    slot.newCost += r.new_mods_cost;
+    slot.modCost += r.any_mods_cost ?? r.new_mods_cost;
     slot.totalCost += r.total_cost;
     slot.coverage += 1;
   }
   return Array.from(byPeriod.entries())
     .map(([period_end, s]) => ({
       period_end,
-      value: s.totalCost ? (100 * s.newCost) / s.totalCost : 0,
+      value: s.totalCost ? (100 * s.modCost) / s.totalCost : 0,
       coverage: s.coverage,
     }))
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
@@ -431,24 +435,27 @@ export default function CreditPage() {
       {/* Section 4 — Loan modifications */}
       <section id="mods" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
-          Loan modifications: cash-pay → PIK <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· flow per quarter</span>
+          Loan modifications <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· flow per quarter · multi-signal</span>
         </h2>
         <CreditHeatmap
-          title="% of cost flipped cash → PIK this quarter"
+          title="% of cost modified this quarter (any signal)"
           description={
-            "Each cell = (amortized cost of loans flipped cash → PIK this quarter) / (amortized cost of all eligible loans this quarter). " +
-            "Eligible = loans we observed in a prior quarter. Cells colored 0% → 2% → 5% → ≥10%. Loans whose first observation is already PIK are excluded — we can't tell if they originated PIK or were modified earlier."
+            "Multi-signal modification rate — captures cash → PIK flips, maturity extensions (>180 days), " +
+            "par haircuts (>15% drop, cross-BDC corroborated to exclude single-BDC partial sales), and spread cuts (>50bps). " +
+            "Each cell = (amortized cost of modified loans this quarter) / (amortized cost of eligible loans). " +
+            "Cells colored 0% → 3% → 8% → ≥15%. Pre-2026-05-18 this view only tracked PIK flips, capturing ~10% of true mods."
           }
           periods={periods}
           tickers={tickers}
           cellMap={modMap}
-          thresholds={[2, 5, 10]}
+          thresholds={[3, 8, 15]}
         />
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
           <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-            <div className="text-sm font-semibold text-white mb-1">Industry rate of new modifications (cost-weighted)</div>
+            <div className="text-sm font-semibold text-white mb-1">Industry rate of new modifications (cost-weighted, multi-signal)</div>
             <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
-              (Sum of new-modification cost across reporting BDCs) / (sum of eligible-loan cost across reporting BDCs) each quarter.
+              Sum of modification-event cost (PIK / mat-extend / par-cut / spread-cut) divided by eligible-loan cost,
+              aggregated across reporting BDCs each quarter.
             </p>
             <CreditLensChart data={modPctLine} yLabel="% modified by cost" color="#f97316" />
           </div>

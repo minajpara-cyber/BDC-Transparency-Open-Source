@@ -3,13 +3,18 @@ import React, { useMemo, useState } from "react";
 import VintageChart, { VintageSeries } from "@/components/VintageChart";
 import { vintageRows, VintageRow } from "@/data/vintage_analysis";
 
-type Metric = "pct_ever_default" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive";
+type Metric = "pct_ever_default" | "pct_ever_modified" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive";
 
 const METRIC_META: Record<Metric, { label: string; sub: string; color: string }> = {
   pct_ever_default: {
     label: "% Cost Ever Defaulted (cumulative default exposure)",
     sub: "Cumulative — share of vintage cost ever flagged non-accrual OR exited in distress (write-off, distressed sale, debt-for-equity). Matches Raymond James's published 'cumulative 1L default exposure' methodology. Primary vintage-performance metric.",
     color: "#dc2626",
+  },
+  pct_ever_modified: {
+    label: "% Cost Ever Modified (multi-signal)",
+    sub: "Cumulative — share of vintage cost that has experienced ANY modification event by age T: cash→PIK flip, maturity extension (>180 days), par haircut (>15% drop, cross-BDC corroborated), or spread cut (>50bps). Captures restructuring activity broader than non-accrual.",
+    color: "#a855f7",
   },
   pct_ever_na: {
     label: "% Cost Ever Non-Accrual (on-book only)",
@@ -188,14 +193,17 @@ type ViewMode = "absolute" | "relative";
 function absLevelColor(value: number, metric: Metric): { bg: string; fg: string } {
   // Thresholds tuned per metric so the colors mean roughly the same thing
   // across the views (good / amber / bad). pct_ever_default uses RJ-scale
-  // thresholds (~5% = average, 8%+ = severe).
+  // thresholds (~5% = average, 8%+ = severe). pct_ever_modified runs higher
+  // since restructurings precede defaults (2022/23 vintages ~15% modified).
   const t = metric === "pct_b90_alive"
     ? { greenMax: 3, yellowMax: 7, orangeMax: 12 }
     : metric === "pct_ever_b80"
       ? { greenMax: 1.5, yellowMax: 4, orangeMax: 8 }
       : metric === "pct_ever_default"
         ? { greenMax: 2, yellowMax: 5, orangeMax: 8 }
-        : { greenMax: 0.75, yellowMax: 2, orangeMax: 4 };
+        : metric === "pct_ever_modified"
+          ? { greenMax: 4, yellowMax: 10, orangeMax: 18 }
+          : { greenMax: 0.75, yellowMax: 2, orangeMax: 4 };
   if (value < t.greenMax) return { bg: "rgba(34,197,94,0.10)",  fg: "#22c55e" };
   if (value < t.yellowMax) return { bg: "rgba(234,179,8,0.08)", fg: "#eab308" };
   if (value < t.orangeMax) return { bg: "rgba(249,115,22,0.10)", fg: "#f97316" };
@@ -233,6 +241,7 @@ export default function VintagePage() {
   }, [industryRows, includePartial]);
 
   const defaultSeries = useMemo(() => buildSeries(visibleRows, "pct_ever_default"), [visibleRows]);
+  const modSeries     = useMemo(() => buildSeries(visibleRows, "pct_ever_modified"), [visibleRows]);
   const naSeries  = useMemo(() => buildSeries(visibleRows, "pct_ever_na"),  [visibleRows]);
   const b80Series = useMemo(() => buildSeries(visibleRows, "pct_ever_b80"), [visibleRows]);
   const b90Series = useMemo(() => buildSeries(visibleRows, "pct_b90_alive"), [visibleRows]);
@@ -335,6 +344,7 @@ export default function VintagePage() {
         const meta = METRIC_META[m];
         const series =
           m === "pct_ever_default" ? defaultSeries :
+          m === "pct_ever_modified" ? modSeries :
           m === "pct_ever_na" ? naSeries :
           m === "pct_ever_b80" ? b80Series : b90Series;
         return (
@@ -358,7 +368,7 @@ export default function VintagePage() {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                {["Vintage", "Loans", "Hi-Conf", "Cohort Size", "Latest Age", "Cum. Default %", "On-book NA %", "Ever <80¢ %", "Current <90¢ %", "Coverage"].map((h) => (
+                {["Vintage", "Loans", "Hi-Conf", "Cohort Size", "Latest Age", "Cum. Default %", "Ever Modified %", "On-book NA %", "Ever <80¢ %", "Current <90¢ %", "Coverage"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>{h}</th>
                 ))}
               </tr>
@@ -366,6 +376,7 @@ export default function VintagePage() {
             <tbody>
               {tableRows.map((r, i) => {
                 const defColor = (r.pct_ever_default ?? 0) >= 8 ? "#dc2626" : (r.pct_ever_default ?? 0) >= 4 ? "#f97316" : "#22c55e";
+                const modColor = (r.pct_ever_modified ?? 0) >= 12 ? "#a855f7" : (r.pct_ever_modified ?? 0) >= 6 ? "#c084fc" : "#9ca3af";
                 const naColor  = r.pct_ever_na >= 3 ? "#ef4444" : r.pct_ever_na >= 1 ? "#f97316" : "#22c55e";
                 const b80Color = r.pct_ever_b80 >= 5 ? "#ef4444" : r.pct_ever_b80 >= 2 ? "#f97316" : "#22c55e";
                 const b90Color = r.pct_b90_alive >= 10 ? "#ef4444" : r.pct_b90_alive >= 5 ? "#f97316" : "#22c55e";
@@ -386,6 +397,7 @@ export default function VintagePage() {
                     <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}>${r.cohort_entry_cost_b.toFixed(1)}B</td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }}>{r.age_years.toFixed(2)}y</td>
                     <td className="px-4 py-3 text-sm font-bold" style={{ color: defColor }}>{(r.pct_ever_default ?? 0).toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: modColor }}>{(r.pct_ever_modified ?? 0).toFixed(2)}%</td>
                     <td className="px-4 py-3 text-sm" style={{ color: naColor }}>{r.pct_ever_na.toFixed(2)}%</td>
                     <td className="px-4 py-3 text-sm" style={{ color: b80Color }}>{r.pct_ever_b80.toFixed(2)}%</td>
                     <td className="px-4 py-3 text-sm" style={{ color: b90Color }}>{r.pct_b90_alive.toFixed(2)}%</td>
@@ -470,6 +482,7 @@ export default function VintagePage() {
                   title={METRIC_META[m].sub}
                 >
                   {m === "pct_ever_default" ? "Cum. Default"
+                    : m === "pct_ever_modified" ? "Ever Modified"
                     : m === "pct_ever_na" ? "Ever NA"
                     : m === "pct_ever_b80" ? "Ever <80¢"
                     : "Curr. <90¢"}

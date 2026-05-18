@@ -147,6 +147,51 @@ export default function AboutPage() {
         </div>
       </div>
 
+      {/* Methodology — vintage & modifications */}
+      <div className="rounded-xl border p-6 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+        <h2 className="font-semibold text-white mb-4">Methodology — Vintage & Modifications</h2>
+        <p className="text-sm leading-relaxed mb-3" style={{ color: "#d1d5db" }}>
+          The <Link href="/vintage" className="text-indigo-400 hover:underline">vintage analysis</Link>{" "}
+          and credit-modification metrics use distinct methodologies. Both are cost-weighted across our
+          19 covered BDCs, with MFIC excluded from non-accrual metrics (its SOI doesn&apos;t flag NA
+          per-position).
+        </p>
+
+        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Cumulative default exposure (pct_ever_default)</h3>
+        <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
+          Cumulative share of vintage cost ever flagged non-accrual OR exited the portfolio in distress
+          (loan exited at a mark below 0.85, or after ever being NA / below 80¢). This matches Raymond
+          James&apos;s published &ldquo;cumulative 1L default exposure&rdquo; methodology. The prior
+          pct_ever_na metric only counted on-book non-accruals, so it ran 4-10× LOWER than RJ — loans
+          that defaulted then exited via write-off, distressed sale, or debt-for-equity were invisible.
+        </p>
+
+        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Multi-signal modifications (pct_ever_modified, pct_any_mod_cost)</h3>
+        <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
+          Four signals comprise a &ldquo;modification event&rdquo; on a loan:
+        </p>
+        <ul className="text-xs leading-relaxed mb-3 pl-5 list-disc" style={{ color: "#9ca3af" }}>
+          <li><span className="text-white">Cash → PIK flip</span> — loan was previously cash-pay, now has PIK component</li>
+          <li><span className="text-white">Maturity extension</span> — maturity_date jumped &gt;180 days forward vs prior quarter</li>
+          <li><span className="text-white">Par haircut</span> — par dropped &gt;15% AND at least one other BDC holder saw a drop the same quarter (cross-BDC corroboration — excludes one-BDC partial sales which aren&apos;t borrower modifications)</li>
+          <li><span className="text-white">Spread/coupon cut</span> — cash_rate_bps dropped &gt;50bps vs prior quarter</li>
+        </ul>
+        <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
+          Pre-2026-05-18 the dashboard only tracked PIK flips, capturing roughly 10% of true modifications.
+          The new multi-signal metric typically runs 3-5× higher and matches industry definitions of
+          &ldquo;modified loan&rdquo;. 2022 and 2023 vintages show ever-modified rates of 16% by age 12q
+          vs 2018&apos;s 2% — consistent with the rate-shock-driven restructuring wave.
+        </p>
+
+        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Coverage caveats</h3>
+        <ul className="text-xs leading-relaxed pl-5 list-disc" style={{ color: "#9ca3af" }}>
+          <li>Vintage rollup excludes loans whose holder BDC&apos;s parser coverage started <em>after</em> their vintage_year (eliminates BCRED / ADS / ASIF / BBDC survivor bias from older vintages)</li>
+          <li>Modification cross-BDC corroboration only fires for loans held by 2+ BDCs (~6% of universe by count, ~40% by cost) — solo-held loans rely on the &gt;15% threshold alone</li>
+          <li>BDC-disclosed acquisition_date is the latest amendment date in some filers, not original origination — under investigation</li>
+          <li>Pre-2018 vintages are excluded; FSK/OBDC pre-2022 excluded due to parser limitations</li>
+        </ul>
+      </div>
+
       {/* Open Source */}
       <div className="rounded-xl border p-6 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <div className="flex items-start gap-3">
