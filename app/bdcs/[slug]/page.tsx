@@ -694,28 +694,50 @@ export default async function BDCDetailPage({ params }: PageProps) {
         const vintageYears = Array.from(new Set(bdcVintage.map((r) => r.vintage_year))).sort();
         const ageYears = [1, 2, 3, 4, 5];
 
+        // Prefer HC-restricted metric (HIGH+MED confidence vintage assignments
+        // only — per the acq_date methodology investigation, disclosed
+        // acquisition_date drifts forward for ~88% of amended loans, making
+        // "any disclosure" a poor confidence signal). Falls back to all-loans
+        // metric when the HC subset is too small for that cohort (<5 HC loans).
         const pickMetric = (
           rows: typeof bdcVintage,
           vy: number,
           age: number,
-          metric: "pct_ever_default" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive",
-        ): number | null => {
+          metric: "pct_ever_default" | "pct_ever_modified" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive",
+        ): { value: number | null; restricted: boolean } => {
           const r = rows.find((x) => x.vintage_year === vy && x.age_quarters === age * 4);
-          return r ? (r[metric] as number) : null;
+          if (!r) return { value: null, restricted: false };
+          const hcKey: Partial<Record<string, keyof typeof r>> = {
+            pct_ever_default: "pct_ever_default_hc",
+            pct_ever_modified: "pct_ever_modified_hc",
+          };
+          const hk = hcKey[metric];
+          if (hk && r[hk] != null) {
+            return { value: r[hk] as number, restricted: true };
+          }
+          return { value: r[metric] as number, restricted: false };
         };
 
-        const deltaCell = (bdcV: number | null, indV: number | null) => {
-          if (bdcV === null || indV === null) {
+        const deltaCell = (
+          bdc: { value: number | null; restricted: boolean },
+          ind: { value: number | null; restricted: boolean },
+        ) => {
+          if (bdc.value === null || ind.value === null) {
             return <td className="px-3 py-2 text-xs" style={{ color: "#444" }}>—</td>;
           }
-          const diff = bdcV - indV;
+          const diff = bdc.value - ind.value;
           const color = diff > 0.25 ? "#ef4444" : diff < -0.25 ? "#22c55e" : "#9ca3af";
           const arrow = diff > 0.25 ? "↑" : diff < -0.25 ? "↓" : "≈";
           return (
-            <td className="px-3 py-2">
-              <div className="text-sm font-semibold" style={{ color: "#d1d5db" }}>{bdcV.toFixed(2)}%</div>
+            <td className="px-3 py-2" title={bdc.restricted ? "HC-restricted (HIGH+MED tier loans only)" : "All loans"}>
+              <div className="text-sm font-semibold flex items-center gap-1" style={{ color: "#d1d5db" }}>
+                {bdc.value.toFixed(2)}%
+                {bdc.restricted && <span className="text-[10px] px-1 py-0 rounded" style={{
+                  background: "rgba(34,197,94,0.12)", color: "#22c55e",
+                }}>HC</span>}
+              </div>
               <div className="text-xs" style={{ color }}>
-                {arrow} {Math.abs(diff).toFixed(2)}pp vs ind. {indV.toFixed(2)}%
+                {arrow} {Math.abs(diff).toFixed(2)}pp vs ind. {ind.value.toFixed(2)}%
               </div>
             </td>
           );
@@ -733,8 +755,13 @@ export default async function BDCDetailPage({ params }: PageProps) {
             </div>
             <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
               Cumulative <span className="text-white">cost-weighted % ever defaulted</span> (on-book non-accrual OR exited in distress)
-              at standard ages for each acquisition cohort, compared to the industry average. Green = this BDC&apos;s vintage
-              performed better than peers; red = worse. Vintages predating our parser coverage are omitted.
+              at standard ages for each acquisition cohort, compared to the industry average. Cells tagged{" "}
+              <span className="px-1 py-0 rounded text-[10px]" style={{
+                background: "rgba(34,197,94,0.12)", color: "#22c55e",
+              }}>HC</span>{" "}
+              use HIGH+MED confidence-tier loans only (stable disclosed acq_date). Cells without the tag fall back to
+              all-loans because the HC subset was too thin (&lt;5 loans). Green = this BDC&apos;s vintage outperformed peers;
+              red = worse. Vintages predating our parser coverage are omitted.
             </p>
 
             <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
@@ -747,6 +774,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                       {ageYears.map((y) => (
                         <th key={y} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Default at Y{y}</th>
                       ))}
+                      <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }} title="HIGH+MED tier loans / total cohort loans">Hi-Conf</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -763,6 +791,11 @@ export default async function BDCDetailPage({ params }: PageProps) {
                             const indV = pickMetric(industryVintage, vy, yr, "pct_ever_default");
                             return <td key={yr} className="p-0">{deltaCell(bdcV, indV)}</td>;
                           })}
+                          <td className="px-3 py-2 text-xs" style={{ color: "#6b6b88" }} title="HIGH+MED-tier loans in this BDC's cohort (stable acq_date)">
+                            {cohort && cohort.n_loans_high_conf !== undefined
+                              ? `${cohort.n_loans_high_conf}/${cohort.n_loans_cohort}`
+                              : "—"}
+                          </td>
                         </tr>
                       );
                     })}
