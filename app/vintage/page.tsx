@@ -3,12 +3,17 @@ import React, { useMemo, useState } from "react";
 import VintageChart, { VintageSeries } from "@/components/VintageChart";
 import { vintageRows, VintageRow } from "@/data/vintage_analysis";
 
-type Metric = "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive";
+type Metric = "pct_ever_default" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive";
 
 const METRIC_META: Record<Metric, { label: string; sub: string; color: string }> = {
+  pct_ever_default: {
+    label: "% Cost Ever Defaulted (cumulative default exposure)",
+    sub: "Cumulative — share of vintage cost ever flagged non-accrual OR exited in distress (write-off, distressed sale, debt-for-equity). Matches Raymond James's published 'cumulative 1L default exposure' methodology. Primary vintage-performance metric.",
+    color: "#dc2626",
+  },
   pct_ever_na: {
-    label: "% Cost Ever Non-Accrual",
-    sub: "Cumulative — share of vintage cost that has been flagged non-accrual at any point through age T",
+    label: "% Cost Ever Non-Accrual (on-book only)",
+    sub: "Legacy metric — only counts loans still on the balance sheet flagged non-accrual. Excludes loans that defaulted then exited. Runs ~5pp LOWER than pct_ever_default.",
     color: "#ef4444",
   },
   pct_ever_b80: {
@@ -182,12 +187,15 @@ type ViewMode = "absolute" | "relative";
 
 function absLevelColor(value: number, metric: Metric): { bg: string; fg: string } {
   // Thresholds tuned per metric so the colors mean roughly the same thing
-  // across the three views (good / amber / bad).
+  // across the views (good / amber / bad). pct_ever_default uses RJ-scale
+  // thresholds (~5% = average, 8%+ = severe).
   const t = metric === "pct_b90_alive"
     ? { greenMax: 3, yellowMax: 7, orangeMax: 12 }
     : metric === "pct_ever_b80"
       ? { greenMax: 1.5, yellowMax: 4, orangeMax: 8 }
-      : { greenMax: 0.75, yellowMax: 2, orangeMax: 4 };
+      : metric === "pct_ever_default"
+        ? { greenMax: 2, yellowMax: 5, orangeMax: 8 }
+        : { greenMax: 0.75, yellowMax: 2, orangeMax: 4 };
   if (value < t.greenMax) return { bg: "rgba(34,197,94,0.10)",  fg: "#22c55e" };
   if (value < t.yellowMax) return { bg: "rgba(234,179,8,0.08)", fg: "#eab308" };
   if (value < t.orangeMax) return { bg: "rgba(249,115,22,0.10)", fg: "#f97316" };
@@ -205,7 +213,7 @@ function relDeltaColor(delta: number): { bg: string; fg: string } {
 
 export default function VintagePage() {
   const [includePartial, setIncludePartial] = useState(false);
-  const [matrixMetric, setMatrixMetric] = useState<Metric>("pct_ever_na");
+  const [matrixMetric, setMatrixMetric] = useState<Metric>("pct_ever_default");
   const [matrixView, setMatrixView] = useState<ViewMode>("absolute");
   const [matrixSortKey, setMatrixSortKey] = useState<number | "total" | null>("total");
   const [matrixSortDir, setMatrixSortDir] = useState<"asc" | "desc">("asc");
@@ -224,6 +232,7 @@ export default function VintagePage() {
     return industryRows.filter((r) => !r.is_partial);
   }, [industryRows, includePartial]);
 
+  const defaultSeries = useMemo(() => buildSeries(visibleRows, "pct_ever_default"), [visibleRows]);
   const naSeries  = useMemo(() => buildSeries(visibleRows, "pct_ever_na"),  [visibleRows]);
   const b80Series = useMemo(() => buildSeries(visibleRows, "pct_ever_b80"), [visibleRows]);
   const b90Series = useMemo(() => buildSeries(visibleRows, "pct_b90_alive"), [visibleRows]);
@@ -297,6 +306,17 @@ export default function VintagePage() {
           observation in our parser). All metrics are <span className="text-white">cost-weighted</span>.
           MFIC excluded from non-accrual metrics — its SOI doesn&apos;t flag NA per position.
         </p>
+        <div className="mt-3 rounded-lg border p-3 text-xs"
+             style={{ background: "rgba(99,102,241,0.05)", borderColor: "rgba(99,102,241,0.2)", color: "#9ca3af" }}>
+          <span className="text-white font-semibold">Methodology note (2026-05-18):</span>{" "}
+          The primary metric is now <span className="text-white">% Cost Ever Defaulted</span> —
+          loans flagged on-book non-accrual OR exited in distress (write-off, distressed sale, debt-for-equity).
+          This matches Raymond James&apos;s published &ldquo;cumulative 1L default exposure&rdquo; methodology and runs
+          roughly 5pp higher than the legacy on-book-only %.{" "}
+          Industry rollup excludes loans where the holder&apos;s parser coverage started{" "}
+          <em>after</em> the vintage year (eliminates survivor bias for BCRED/ADS/ASIF/BBDC vintages).{" "}
+          For the closest RJ comparison, note RJ tracks <em>1L only</em> while this view aggregates all liens.
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
             <input
@@ -313,7 +333,10 @@ export default function VintagePage() {
       {/* Three industry curves stacked */}
       {(Object.keys(METRIC_META) as Metric[]).map((m) => {
         const meta = METRIC_META[m];
-        const series = m === "pct_ever_na" ? naSeries : m === "pct_ever_b80" ? b80Series : b90Series;
+        const series =
+          m === "pct_ever_default" ? defaultSeries :
+          m === "pct_ever_na" ? naSeries :
+          m === "pct_ever_b80" ? b80Series : b90Series;
         return (
           <div key={m} className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
             <h2 className="font-semibold text-white mb-1">{meta.label}</h2>
@@ -335,13 +358,14 @@ export default function VintagePage() {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                {["Vintage", "Loans", "Cohort Size", "Latest Age", "Cumulative NA%", "Ever <80¢ %", "Current <90¢ %", "Coverage"].map((h) => (
+                {["Vintage", "Loans", "Hi-Conf", "Cohort Size", "Latest Age", "Cum. Default %", "On-book NA %", "Ever <80¢ %", "Current <90¢ %", "Coverage"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {tableRows.map((r, i) => {
+                const defColor = (r.pct_ever_default ?? 0) >= 8 ? "#dc2626" : (r.pct_ever_default ?? 0) >= 4 ? "#f97316" : "#22c55e";
                 const naColor  = r.pct_ever_na >= 3 ? "#ef4444" : r.pct_ever_na >= 1 ? "#f97316" : "#22c55e";
                 const b80Color = r.pct_ever_b80 >= 5 ? "#ef4444" : r.pct_ever_b80 >= 2 ? "#f97316" : "#22c55e";
                 const b90Color = r.pct_b90_alive >= 10 ? "#ef4444" : r.pct_b90_alive >= 5 ? "#f97316" : "#22c55e";
@@ -349,11 +373,22 @@ export default function VintagePage() {
                   <tr key={r.vintage_year} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
                     <td className="px-4 py-3 font-semibold text-white">{r.vintage_year}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }}>{r.n_loans_cohort.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }} title={
+                      `${r.n_loans_high_conf} of ${r.n_loans_cohort} loans have a disclosed acquisition date (own BDC's filing or cross-BDC borrow). Higher = more reliable vintage tagging.`
+                    }>
+                      {r.n_loans_high_conf?.toLocaleString() ?? "—"}
+                      {r.n_loans_cohort > 0 && r.n_loans_high_conf !== undefined && (
+                        <span className="ml-1 text-xs" style={{ color: "#6b6b88" }}>
+                          ({Math.round(100 * r.n_loans_high_conf / r.n_loans_cohort)}%)
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}>${r.cohort_entry_cost_b.toFixed(1)}B</td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }}>{r.age_years.toFixed(2)}y</td>
-                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: naColor }}>{r.pct_ever_na.toFixed(2)}%</td>
-                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: b80Color }}>{r.pct_ever_b80.toFixed(2)}%</td>
-                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: b90Color }}>{r.pct_b90_alive.toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-sm font-bold" style={{ color: defColor }}>{(r.pct_ever_default ?? 0).toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-sm" style={{ color: naColor }}>{r.pct_ever_na.toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-sm" style={{ color: b80Color }}>{r.pct_ever_b80.toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-sm" style={{ color: b90Color }}>{r.pct_b90_alive.toFixed(2)}%</td>
                     <td className="px-4 py-3 text-xs">
                       {r.is_partial ? (
                         <span className="px-2 py-0.5 rounded text-xs" style={{ background: "rgba(234,179,8,0.12)", color: "#eab308", border: "1px solid rgba(234,179,8,0.2)" }}>
@@ -374,9 +409,10 @@ export default function VintagePage() {
       {/* Vintage-on-vintage comparison at standard ages */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-          <h2 className="font-semibold text-white">Cumulative NA% at Standard Ages</h2>
+          <h2 className="font-semibold text-white">Cumulative Default % at Standard Ages</h2>
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-            How each vintage looked at year 1, 2, 3, 4, 5 since acquisition. &mdash; means the vintage hasn&apos;t aged that far yet.
+            Share of vintage cost that has defaulted (on-book NA OR exited in distress) by year T. RJ-comparable.
+            &mdash; means the vintage hasn&apos;t aged that far yet.
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -393,9 +429,9 @@ export default function VintagePage() {
                 <tr key={r.vintage_year} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
                   <td className="px-4 py-3 font-semibold text-white">{r.vintage_year}</td>
                   {[1, 2, 3, 4, 5, 6].map((yr) => {
-                    const v = metricAtAge(visibleRows, r.vintage_year, yr, "pct_ever_na");
+                    const v = metricAtAge(visibleRows, r.vintage_year, yr, "pct_ever_default");
                     if (v === null) return <td key={yr} className="px-4 py-3 text-sm" style={{ color: "#444" }}>&mdash;</td>;
-                    const color = v >= 3 ? "#ef4444" : v >= 1 ? "#f97316" : "#22c55e";
+                    const color = v >= 8 ? "#dc2626" : v >= 4 ? "#f97316" : "#22c55e";
                     return <td key={yr} className="px-4 py-3 text-sm font-semibold" style={{ color }}>{v.toFixed(2)}%</td>;
                   })}
                 </tr>
@@ -433,7 +469,10 @@ export default function VintagePage() {
                   }}
                   title={METRIC_META[m].sub}
                 >
-                  {m === "pct_ever_na" ? "Ever NA" : m === "pct_ever_b80" ? "Ever <80¢" : "Curr. <90¢"}
+                  {m === "pct_ever_default" ? "Cum. Default"
+                    : m === "pct_ever_na" ? "Ever NA"
+                    : m === "pct_ever_b80" ? "Ever <80¢"
+                    : "Curr. <90¢"}
                 </button>
               ))}
             </div>

@@ -698,7 +698,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
           rows: typeof bdcVintage,
           vy: number,
           age: number,
-          metric: "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive",
+          metric: "pct_ever_default" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive",
         ): number | null => {
           const r = rows.find((x) => x.vintage_year === vy && x.age_quarters === age * 4);
           return r ? (r[metric] as number) : null;
@@ -732,9 +732,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
               </span>
             </div>
             <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-              Cumulative <span className="text-white">cost-weighted % ever non-accrual</span> at standard ages for each
-              acquisition cohort, compared to the industry average. Green = this BDC&apos;s vintage performed better than peers;
-              red = worse. Vintages predating our parser coverage are omitted.
+              Cumulative <span className="text-white">cost-weighted % ever defaulted</span> (on-book non-accrual OR exited in distress)
+              at standard ages for each acquisition cohort, compared to the industry average. Green = this BDC&apos;s vintage
+              performed better than peers; red = worse. Vintages predating our parser coverage are omitted.
             </p>
 
             <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
@@ -745,7 +745,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                       <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Vintage</th>
                       <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Cohort</th>
                       {ageYears.map((y) => (
-                        <th key={y} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>NA at Y{y}</th>
+                        <th key={y} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Default at Y{y}</th>
                       ))}
                     </tr>
                   </thead>
@@ -759,8 +759,8 @@ export default async function BDCDetailPage({ params }: PageProps) {
                             {cohort ? `${cohort.n_loans_cohort} loans · $${cohort.cohort_entry_cost_b.toFixed(1)}B` : "—"}
                           </td>
                           {ageYears.map((yr) => {
-                            const bdcV = pickMetric(bdcVintage, vy, yr, "pct_ever_na");
-                            const indV = pickMetric(industryVintage, vy, yr, "pct_ever_na");
+                            const bdcV = pickMetric(bdcVintage, vy, yr, "pct_ever_default");
+                            const indV = pickMetric(industryVintage, vy, yr, "pct_ever_default");
                             return <td key={yr} className="p-0">{deltaCell(bdcV, indV)}</td>;
                           })}
                         </tr>
