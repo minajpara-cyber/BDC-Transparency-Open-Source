@@ -15,12 +15,10 @@ export interface LongTailBDC {
 }
 
 export const longTailBDCs: LongTailBDC[] = [
-  { cik: 1747777, name: "BLUE OWL TECHNOLOGY FINANCE CORP.", n_periods: 16, earliest_period: "2021-12-31", latest_period: "2025-12-31", latest_n_positions: 496, latest_fair_value_b: 15.552, latest_cost_b: 14.133 },
   { cik: 1930087, name: "GOLUB CAPITAL PRIVATE CREDIT FUND", n_periods: 11, earliest_period: "2023-06-30", latest_period: "2025-12-31", latest_n_positions: 1002, latest_fair_value_b: 9.829, latest_cost_b: 9.756 },
   { cik: 1925309, name: "SIXTH STREET LENDING PARTNERS", n_periods: 16, earliest_period: "2022-03-31", latest_period: "2025-12-31", latest_n_positions: 120, latest_fair_value_b: 8.111, latest_cost_b: 7.893 },
   { cik: 1872371, name: "OAKTREE STRATEGIC CREDIT FUND", n_periods: 15, earliest_period: "2022-09-30", latest_period: "2025-12-31", latest_n_positions: 385, latest_fair_value_b: 7.434, latest_cost_b: 7.429 },
   { cik: 1889668, name: "BLUE OWL TECHNOLOGY FINANCE CORP. II", n_periods: 10, earliest_period: "2021-12-31", latest_period: "2024-12-31", latest_n_positions: 298, latest_fair_value_b: 5.557, latest_cost_b: 5.371 },
-  { cik: 1280784, name: "HERCULES CAPITAL, INC.", n_periods: 19, earliest_period: "2020-12-31", latest_period: "2025-12-31", latest_n_positions: 365, latest_fair_value_b: 5.405, latest_cost_b: 5.422 },
   { cik: 1859919, name: "BARINGS PRIVATE CREDIT CORP", n_periods: 30, earliest_period: "2021-04-30", latest_period: "2025-12-31", latest_n_positions: 808, latest_fair_value_b: 5.125, latest_cost_b: 4.898 },
   { cik: 1807427, name: "BLUE OWL CAPITAL CORP III", n_periods: 9, earliest_period: "2021-12-31", latest_period: "2024-09-30", latest_n_positions: 452, latest_fair_value_b: 4.376, latest_cost_b: 4.233 },
   { cik: 1504619, name: "PENNANTPARK FLOATING RATE CAPITAL LTD.", n_periods: 15, earliest_period: "2021-09-30", latest_period: "2025-12-31", latest_n_positions: 683, latest_fair_value_b: 3.994, latest_cost_b: 3.953 },
@@ -29,9 +27,7 @@ export const longTailBDCs: LongTailBDC[] = [
   { cik: 1383414, name: "PENNANTPARK INVESTMENT CORP", n_periods: 16, earliest_period: "2021-09-30", latest_period: "2025-12-31", latest_n_positions: 594, latest_fair_value_b: 2.942, latest_cost_b: 2.62 },
   { cik: 1786108, name: "TRINITY CAPITAL INC.", n_periods: 16, earliest_period: "2020-12-31", latest_period: "2025-12-31", latest_n_positions: 456, latest_fair_value_b: 2.941, latest_cost_b: 2.373 },
   { cik: 1572694, name: "GOLDMAN SACHS BDC, INC.", n_periods: 15, earliest_period: "2021-12-31", latest_period: "2025-12-31", latest_n_positions: 524, latest_fair_value_b: 2.909, latest_cost_b: 3.2 },
-  { cik: 1496099, name: "NEW MOUNTAIN FINANCE CORP", n_periods: 21, earliest_period: "2013-04-30", latest_period: "2025-12-31", latest_n_positions: 374, latest_fair_value_b: 2.768, latest_cost_b: 2.969 },
   { cik: 1715268, name: "GOLUB CAPITAL BDC 3, INC.", n_periods: 6, earliest_period: "2022-09-30", latest_period: "2024-03-31", latest_n_positions: 1350, latest_fair_value_b: 2.699, latest_cost_b: 2.712 },
-  { cik: 1379785, name: "BARINGS BDC, INC.", n_periods: 38, earliest_period: "2017-12-31", latest_period: "2025-12-31", latest_n_positions: 681, latest_fair_value_b: 2.685, latest_cost_b: 2.424 },
   { cik: 1655050, name: "BAIN CAPITAL SPECIALTY FINANCE, INC.", n_periods: 20, earliest_period: "2020-12-31", latest_period: "2025-12-31", latest_n_positions: 475, latest_fair_value_b: 2.508, latest_cost_b: 2.485 },
   { cik: 17313, name: "CAPITAL SOUTHWEST CORP", n_periods: 15, earliest_period: "2022-03-31", latest_period: "2025-12-31", latest_n_positions: 531, latest_fair_value_b: 2.405, latest_cost_b: 2.031 },
   { cik: 1901612, name: "GOLUB CAPITAL BDC 4, INC.", n_periods: 13, earliest_period: "2022-09-30", latest_period: "2025-12-31", latest_n_positions: 841, latest_fair_value_b: 2.372, latest_cost_b: 2.341 },
@@ -40,7 +36,6 @@ export const longTailBDCs: LongTailBDC[] = [
   { cik: 1737924, name: "NUVEEN CHURCHILL DIRECT LENDING CORP.", n_periods: 14, earliest_period: "2022-12-31", latest_period: "2025-12-31", latest_n_positions: 528, latest_fair_value_b: 1.962, latest_cost_b: 2.001 },
   { cik: 1501729, name: "FS SPECIALTY LENDING FUND", n_periods: 14, earliest_period: "2019-12-31", latest_period: "2025-06-30", latest_n_positions: 123, latest_fair_value_b: 1.928, latest_cost_b: 1.78 },
   { cik: 1370755, name: "BLACKROCK TCP CAPITAL CORP.", n_periods: 15, earliest_period: "2021-12-31", latest_period: "2025-12-31", latest_n_positions: 363, latest_fair_value_b: 1.706, latest_cost_b: 1.678 },
-  { cik: 1633336, name: "CRESCENT CAPITAL BDC, INC.", n_periods: 16, earliest_period: "2021-12-31", latest_period: "2025-12-31", latest_n_positions: 551, latest_fair_value_b: 1.557, latest_cost_b: 1.587 },
   { cik: 1885968, name: "T SERIES MIDDLE MARKET LOAN FUND LLC", n_periods: 5, earliest_period: "2021-09-30", latest_period: "2023-09-30", latest_n_positions: 275, latest_fair_value_b: 1.544, latest_cost_b: 1.562 },
   { cik: 1781870, name: "NEW MOUNTAIN GUARDIAN III BDC, L.L.C.", n_periods: 8, earliest_period: "2022-12-31", latest_period: "2024-09-30", latest_n_positions: 196, latest_fair_value_b: 1.539, latest_cost_b: 1.561 },
   { cik: 2049733, name: "BLACKSTONE PRIVATE REAL ESTATE CREDIT & INCOME FUND", n_periods: 3, earliest_period: "2025-06-30", latest_period: "2025-12-31", latest_n_positions: 113, latest_fair_value_b: 1.528, latest_cost_b: 1.516 },
