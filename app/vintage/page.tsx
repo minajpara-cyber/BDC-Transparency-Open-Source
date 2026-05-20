@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import VintageChart, { VintageSeries } from "@/components/VintageChart";
 import { vintageRows, VintageRow } from "@/data/vintage_analysis";
+import { vintageLGD } from "@/data/vintage_lgd";
 
 type Metric = "pct_ever_default" | "pct_ever_modified" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive";
 
@@ -387,6 +388,114 @@ export default function VintagePage() {
           </div>
         );
       })}
+
+      {/* Cohort survival curve — % of vintage cohort cost still on book at age T */}
+      <div className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+        <h2 className="font-semibold text-white mb-1">% Cohort Cost Still On Book (survival)</h2>
+        <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
+          Share of each vintage&apos;s entry cost still on a BDC&apos;s balance sheet at age T.
+          Declines reflect refis, paydowns, distressed sales, write-offs — anything that takes a
+          loan off the book. Pair with the cumulative-default curve: a vintage that survives
+          long &amp; defaults little is the gold standard.
+        </p>
+        {(() => {
+          // Build a survival series from industry rows: alive_cost_b /
+          // cohort_entry_cost_b at each age. Use ALL-tier rows (this is a
+          // book-level survival metric, not a default-pollution-sensitive one).
+          const indByVintage = new Map<number, VintageRow[]>();
+          for (const r of vintageRows) {
+            if (r.ticker !== "industry") continue;
+            if (!indByVintage.has(r.vintage_year)) indByVintage.set(r.vintage_year, []);
+            indByVintage.get(r.vintage_year)!.push(r);
+          }
+          const survivalSeries: VintageSeries[] = Array.from(indByVintage.entries()).map(
+            ([vy, list]) => {
+              const sorted = [...list].sort((a, b) => a.age_quarters - b.age_quarters);
+              return {
+                vintage_year: vy,
+                is_partial: sorted[0]?.is_partial ?? false,
+                points: sorted
+                  .filter((r) => r.cohort_entry_cost_b > 0 && r.alive_cost_b > 0)
+                  .map((r) => ({
+                    age_years: r.age_years,
+                    value: (100 * r.alive_cost_b) / r.cohort_entry_cost_b,
+                    alive_cost_b: r.alive_cost_b,
+                  })),
+              };
+            },
+          );
+          return <VintageChart series={survivalSeries} yLabel="% of cohort cost still on book" height={300} />;
+        })()}
+      </div>
+
+      {/* Loss-given-default table — per vintage realized losses on distress exits */}
+      <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+        <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+          <h2 className="font-semibold text-white">Loss-given-default by vintage</h2>
+          <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
+            For loans that exited the book in distress (mark &lt; 0.85 at exit, ever NA, or ever
+            below 80¢ before exit), what was the realized loss?{" "}
+            <b>LGD% = realized loss / distress-exit cost</b>. Vintages 2014–2024 only — earlier has
+            selection bias (older loans pre-coverage are systematically the survivors), and 2025+
+            doesn&apos;t have enough exits yet. Realized loss uses last-observed FV − cost as a
+            proxy (we don&apos;t track actual sale proceeds), so this is a directional read, not
+            audited.
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+              <tr>
+                {[
+                  "Vintage", "# loans", "# exited", "% exited", "# distress",
+                  "% distress", "Distress cost ($B)", "Realized loss ($B)", "Implied LGD",
+                ].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {vintageLGD.map((r, i) => (
+                <tr key={r.vintage_year} style={{
+                  background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                  borderBottom: "1px solid #1a1a28",
+                }}>
+                  <td className="px-4 py-2.5 font-semibold text-white">{r.vintage_year}</td>
+                  <td className="px-4 py-2.5 text-sm" style={{ color: "#9ca3af" }}>{r.n_loans_total.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-sm" style={{ color: "#9ca3af" }}>{r.n_exited.toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-sm tabular-nums" style={{ color: "#9ca3af" }}>{r.pct_exited.toFixed(0)}%</td>
+                  <td className="px-4 py-2.5 text-sm" style={{ color: r.n_distress > 30 ? "#fdba74" : "#9ca3af" }}>{r.n_distress}</td>
+                  <td className="px-4 py-2.5 text-sm tabular-nums" style={{
+                    color: r.pct_distress >= 10 ? "#ef4444" : r.pct_distress >= 5 ? "#f97316" : "#22c55e",
+                  }}>
+                    {r.pct_distress.toFixed(1)}%
+                  </td>
+                  <td className="px-4 py-2.5 text-sm font-mono tabular-nums" style={{ color: "#d1d5db" }}>
+                    {r.distress_cost_b.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-2.5 text-sm font-mono tabular-nums" style={{
+                    color: r.realized_loss_b < 0 ? "#fca5a5" : "#86efac",
+                  }}>
+                    {r.realized_loss_b.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-2.5 text-sm font-semibold tabular-nums" style={{
+                    color: r.lgd_pct >= 30 ? "#ef4444" : r.lgd_pct >= 15 ? "#f97316" : r.lgd_pct < 0 ? "#86efac" : "#9ca3af",
+                  }}>
+                    {r.lgd_pct.toFixed(1)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="px-5 py-3 text-xs border-t" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
+          Positive realized loss in 2024 reflects refis exiting above cost (BDCs sold loans at
+          slight premium during the tighter spread environment) — not all distress exits are
+          losses.
+        </div>
+      </div>
 
       {/* Per-vintage summary table */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>

@@ -1,13 +1,20 @@
-// Server component: a wide BDC×quarter heatmap rendered as an HTML table.
-// Cells are colored by metric magnitude using a green→yellow→red scale.
-// Each ticker label in the row header links to /bdcs/{slug} so users can
-// jump straight from a credit cell to that BDC's detail page.
+"use client";
+
+// Wide BDC×quarter heatmap. Cells are colored by metric magnitude using a
+// green→yellow→red scale. Each ticker label in the row header links to
+// /bdcs/{slug}. When `flagKey` is provided, individual cells become clickable
+// buttons that open a position-level drilldown modal scoped to that
+// (ticker, period_end, flag).
+import { useState } from "react";
 import Link from "next/link";
+import LoanDetailsModal from "./LoanDetailsModal";
 
 interface Cell {
   value: number | null;  // null = missing (no filing that quarter)
   reliable?: boolean;     // if false, cell is muted/striped
 }
+
+type FlagKey = "f_na" | "f_below_95" | "f_below_90" | "f_below_80" | "f_pik";
 
 interface Props {
   title: string;
@@ -21,24 +28,20 @@ interface Props {
   // color thresholds: [green, yellow, red]
   thresholds: [number, number, number];
   unit?: string; // e.g., "%"
+  // Optional: when set, cells become clickable buttons that open a modal
+  // showing the position-level rows in our stressed_positions extract for
+  // (ticker, period_end) filtered to this flag.
+  flagKey?: FlagKey;
+  metricLabel?: string;
 }
 
 function cellColor(v: number | null, t: [number, number, number]): string {
   if (v === null || v === undefined) return "transparent";
   const [g, y, r] = t;
-  // Linear interpolation between green/yellow/red anchor points
-  // Below g: gradient white→green-tint
-  // Between g..y: green→yellow
-  // Between y..r: yellow→red
-  // Above r: saturated red
   const clamp = (x: number) => Math.max(0, Math.min(1, x));
-  let red = 0,
-    green = 0,
-    blue = 0,
-    alpha = 0;
+  let red = 0, green = 0, blue = 0, alpha = 0;
   if (v <= g) {
     const t01 = clamp(v / Math.max(g, 0.0001));
-    // light gray → green-tint
     red = 30 + (34 - 30) * t01;
     green = 30 + (197 - 30) * t01;
     blue = 40 + (94 - 40) * t01;
@@ -72,7 +75,12 @@ export default function CreditHeatmap({
   cellMap,
   thresholds,
   unit = "%",
+  flagKey,
+  metricLabel,
 }: Props) {
+  const [modal, setModal] = useState<{ ticker: string; period_end: string } | null>(null);
+  const clickable = !!flagKey;
+
   return (
     <div
       className="rounded-xl border overflow-hidden"
@@ -83,6 +91,11 @@ export default function CreditHeatmap({
         {description && (
           <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
             {description}
+            {clickable && (
+              <span style={{ color: "#a5b4fc" }}>
+                {" "}Click any cell to see the underlying loans.
+              </span>
+            )}
           </p>
         )}
       </div>
@@ -140,23 +153,33 @@ export default function CreditHeatmap({
                   const cell = cellMap.get(`${ticker}|${p}`);
                   const v = cell?.value ?? null;
                   const reliable = cell?.reliable ?? true;
+                  const canClick = clickable && v !== null && reliable;
+                  const cellStyle = {
+                    background: cellColor(v, thresholds),
+                    color: v === null ? "#3b3b55" : reliable ? "#fafafa" : "#9ca3af",
+                    fontStyle: reliable ? "normal" : ("italic" as const),
+                    opacity: reliable ? 1 : 0.55,
+                    cursor: canClick ? "pointer" : "default",
+                  };
+                  const displayText =
+                    v === null
+                      ? "—"
+                      : unit.toLowerCase().includes("bps")
+                      ? Math.round(v).toString()
+                      : v.toFixed(1);
+                  const titleText =
+                    v === null
+                      ? "no filing"
+                      : `${ticker} · ${p}: ${unit.toLowerCase().includes("bps") ? Math.round(v) : v.toFixed(2)}${unit}${reliable ? "" : "  (partial coverage)"}${canClick ? "  — click for loan detail" : ""}`;
                   return (
                     <td
                       key={p}
                       className="px-2 py-1.5 text-center font-mono"
-                      style={{
-                        background: cellColor(v, thresholds),
-                        color: v === null ? "#3b3b55" : reliable ? "#fafafa" : "#9ca3af",
-                        fontStyle: reliable ? "normal" : "italic",
-                        opacity: reliable ? 1 : 0.55,
-                      }}
-                      title={
-                        v === null
-                          ? "no filing"
-                          : `${ticker} · ${p}: ${unit.toLowerCase().includes("bps") ? Math.round(v) : v.toFixed(2)}${unit}${reliable ? "" : "  (partial coverage)"}`
-                      }
+                      style={cellStyle}
+                      title={titleText}
+                      onClick={canClick ? () => setModal({ ticker, period_end: p }) : undefined}
                     >
-                      {v === null ? "—" : (unit.toLowerCase().includes("bps") ? Math.round(v).toString() : v.toFixed(1))}
+                      {displayText}
                     </td>
                   );
                 })}
@@ -165,7 +188,10 @@ export default function CreditHeatmap({
           </tbody>
         </table>
       </div>
-      <div className="px-5 py-3 text-xs flex items-center gap-4 flex-wrap" style={{ color: "#6b6b88", borderTop: "1px solid #1e1e2e" }}>
+      <div
+        className="px-5 py-3 text-xs flex items-center gap-4 flex-wrap"
+        style={{ color: "#6b6b88", borderTop: "1px solid #1e1e2e" }}
+      >
         <span>Scale ({unit}):</span>
         {[0, thresholds[0], thresholds[1], thresholds[2]].map((bound, i, a) => {
           const next = a[i + 1];
@@ -191,6 +217,16 @@ export default function CreditHeatmap({
           );
         })}
       </div>
+      {clickable && (
+        <LoanDetailsModal
+          open={modal !== null}
+          onClose={() => setModal(null)}
+          ticker={modal?.ticker ?? null}
+          period_end={modal?.period_end ?? null}
+          flagKey={flagKey!}
+          metricLabel={metricLabel ?? title}
+        />
+      )}
     </div>
   );
 }

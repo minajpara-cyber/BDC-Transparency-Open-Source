@@ -9,6 +9,9 @@ import { modificationRate, ModificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
 import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
+import { stressedPositions } from "@/data/stressed_positions";
+import { borrowers } from "@/data/borrowers_index";
+import { borrowerHistory } from "@/data/borrowers_history";
 
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
 // commonly capture mark-based fields (par / cost / fv) cleanly even when
@@ -369,6 +372,123 @@ export default function CreditPage() {
     .filter((r) => r.new_minimal + r.new_moderate + r.new_severe > 0)
     .sort((a, b) => (b.period_end.localeCompare(a.period_end)) || (b.new_severe - a.new_severe));
 
+  // ---------- Stressed-loans table (C.3) ----------
+  // Latest quarter present in the stressed-positions extract. Pick the top-20
+  // positions by dollar markdown (cost - fv), which is the actionable view
+  // for an analyst: "where is the most $$ being written down right now".
+  const stressedLatestPeriod = stressedPositions
+    .map((p) => p.period_end)
+    .sort()
+    .pop() ?? "";
+  const topStressed = stressedPositions
+    .filter((p) => p.period_end === stressedLatestPeriod)
+    .map((p) => ({ ...p, markdown_m: p.cost_m - p.fv_m }))
+    .sort((a, b) => b.markdown_m - a.markdown_m)
+    .slice(0, 25);
+
+  // ---------- Concentration (C.4) ----------
+  // Top 15 borrowers by aggregate cost across the industry. borrowers_index
+  // is already sorted by total_fv but we want total_cost (more stable basis
+  // for concentration risk). Exclude obvious aggregator rows ("Total",
+  // "Senior Direct Lending Program", JV vehicles).
+  const AGGREGATOR_PATTERNS = [
+    /^total\b/i, /joint venture/i, /^bcred emerald jv/i, /lending program/i,
+    /^in joint/i, /cash and cash equivalents/i, /^shelf$/i, /^snoopy$/i,
+    /^credit opportunities/i, /senior direct lending/i,
+  ];
+  const topByCost = borrowers
+    .filter((b) => !AGGREGATOR_PATTERNS.some((p) => p.test(b.name)))
+    .sort((a, b) => b.total_cost - a.total_cost)
+    .slice(0, 15);
+  const industryTotalCost = borrowers.reduce(
+    (s, b) => s + (AGGREGATOR_PATTERNS.some((p) => p.test(b.name)) ? 0 : b.total_cost),
+    0,
+  );
+
+  // ---------- Cross-BDC mark dispersion (C.5) ----------
+  // For each borrower with ≥3 BDC holders in the latest available quarter,
+  // compute the spread between max and min mark (fv/cost). Big dispersion
+  // means BDCs disagree on the credit — worth investigating.
+  const dispersionLatest = borrowerHistory
+    .map((r) => r.period_end)
+    .sort()
+    .pop() ?? "";
+  type DispersionRow = {
+    slug: string; name: string;
+    holders: Array<{ ticker: string; mark: number; cost: number; fv: number }>;
+    min_mark: number; max_mark: number; spread: number; total_cost: number;
+  };
+  const borrowerNameBySlug = new Map(borrowers.map((b) => [b.slug, b.name]));
+  const byBorrower = new Map<string, DispersionRow>();
+  for (const r of borrowerHistory) {
+    if (r.period_end !== dispersionLatest) continue;
+    if (r.cost <= 0 || r.fv <= 0) continue;
+    const mark = r.fv / r.cost;
+    if (mark > 1.5 || mark < 0.0) continue;
+    const name = borrowerNameBySlug.get(r.slug) ?? r.slug;
+    if (AGGREGATOR_PATTERNS.some((p) => p.test(name))) continue;
+    let row = byBorrower.get(r.slug);
+    if (!row) {
+      row = { slug: r.slug, name, holders: [], min_mark: 99, max_mark: -1, spread: 0, total_cost: 0 };
+      byBorrower.set(r.slug, row);
+    }
+    row.holders.push({ ticker: r.ticker, mark, cost: r.cost, fv: r.fv });
+    row.total_cost += r.cost;
+    if (mark < row.min_mark) row.min_mark = mark;
+    if (mark > row.max_mark) row.max_mark = mark;
+  }
+  const dispersionRows = Array.from(byBorrower.values())
+    .filter((r) => r.holders.length >= 3)
+    .map((r) => ({ ...r, spread: r.max_mark - r.min_mark }))
+    .sort((a, b) => b.spread - a.spread)
+    .slice(0, 15);
+
+  // ---------- PIK cascade (C.6) ----------
+  // For each (borrower, ticker) loan where has_pik flipped from 0 to 1 at
+  // period T, check the state 4 quarters later. Outcomes:
+  //   - cured: has_pik=0 at T+4
+  //   - still PIK + non-accrual: has_pik=1 AND is_non_accrual=1
+  //   - still PIK accruing: has_pik=1 AND is_non_accrual=0
+  //   - exited: no observation at T+4 (loan no longer on book)
+  const byLoan = new Map<string, Array<{ period_end: string; has_pik: number | null; is_non_accrual: number | null }>>();
+  for (const r of borrowerHistory) {
+    const k = `${r.slug}|${r.ticker}`;
+    if (!byLoan.has(k)) byLoan.set(k, []);
+    byLoan.get(k)!.push({ period_end: r.period_end, has_pik: r.has_pik, is_non_accrual: r.is_non_accrual });
+  }
+  type CascadeBucket = { flips: number; cured: number; pik_na: number; pik_ok: number; exited: number };
+  const cascade = new Map<string, CascadeBucket>();
+  for (const series of byLoan.values()) {
+    series.sort((a, b) => a.period_end.localeCompare(b.period_end));
+    for (let i = 1; i < series.length; i++) {
+      const prev = series[i - 1];
+      const curr = series[i];
+      if (prev.has_pik === 0 && curr.has_pik === 1) {
+        // Look 4 quarters later
+        const future = series[i + 4];
+        const year = curr.period_end.slice(0, 4);
+        const bucket = cascade.get(year) ?? { flips: 0, cured: 0, pik_na: 0, pik_ok: 0, exited: 0 };
+        bucket.flips += 1;
+        if (!future) bucket.exited += 1;
+        else if (future.has_pik === 0) bucket.cured += 1;
+        else if (future.is_non_accrual === 1) bucket.pik_na += 1;
+        else bucket.pik_ok += 1;
+        cascade.set(year, bucket);
+      }
+    }
+  }
+  const cascadeRows = Array.from(cascade.entries())
+    .sort()
+    .map(([year, b]) => ({
+      year,
+      ...b,
+      pct_cured: b.flips ? (100 * b.cured) / b.flips : 0,
+      pct_pik_na: b.flips ? (100 * b.pik_na) / b.flips : 0,
+      pct_pik_ok: b.flips ? (100 * b.pik_ok) / b.flips : 0,
+      pct_exited: b.flips ? (100 * b.exited) / b.flips : 0,
+    }))
+    .filter((r) => r.flips >= 5);
+
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Link
@@ -412,6 +532,10 @@ export default function CreditPage() {
           ["#mods", "Loan modifications"],
           ["#composition", "Asset mix"],
           ["#spread", "Spread"],
+          ["#stressed-loans", "Stressed loans"],
+          ["#concentration", "Concentration"],
+          ["#dispersion", "Mark dispersion"],
+          ["#pik-cascade", "PIK cascade"],
         ].map(([href, label]) => (
           <a
             key={href}
@@ -457,6 +581,8 @@ export default function CreditPage() {
           tickers={tickers}
           cellMap={naMap}
           thresholds={[2, 5, 10]}
+          flagKey="f_na"
+          metricLabel="Non-accrual positions"
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry non-accrual rate</div>
@@ -477,6 +603,8 @@ export default function CreditPage() {
           tickers={tickers}
           cellMap={lt95Map}
           thresholds={[5, 15, 30]}
+          flagKey="f_below_95"
+          metricLabel="Loans marked below 95¢ of par"
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry % below 95¢</div>
@@ -496,6 +624,8 @@ export default function CreditPage() {
           tickers={tickers}
           cellMap={lt90Map}
           thresholds={[3, 10, 20]}
+          flagKey="f_below_90"
+          metricLabel="Loans marked below 90¢ of par"
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry % below 90¢</div>
@@ -521,6 +651,8 @@ export default function CreditPage() {
           tickers={tickers}
           cellMap={modMap}
           thresholds={[2, 5, 10]}
+          flagKey="f_pik"
+          metricLabel="Loans currently paying PIK"
         />
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
           <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
@@ -703,6 +835,255 @@ export default function CreditPage() {
           (overstates spread, understates fixed-rate originations). Positions without parseable spread
           text are excluded from the weighted average.
         </p>
+      </section>
+
+      {/* Section 7 — Top stressed loans (latest quarter) */}
+      <section id="stressed-loans" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Top stressed loans <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · {stressedLatestPeriod} · biggest absolute write-downs across the industry
+          </span>
+        </h2>
+        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs" style={{ color: "#8b8ba8" }}>
+              Ranked by absolute markdown (cost − fair value) in the most recent quarter we have
+              position-level data for. Useful for spotting where the largest dollar losses are
+              accumulating right now. Mark is fair value as a percent of par.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                <tr>
+                  {["Rank", "BDC", "Borrower", "Type", "Cost ($M)", "FV ($M)", "Markdown ($M)", "Mark", "Flags"].map((h) => (
+                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {topStressed.map((p, i) => (
+                  <tr key={`${p.ticker}-${p.company}-${i}`} style={{
+                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                    borderBottom: "1px solid #1a1a28",
+                  }}>
+                    <td className="px-3 py-2 font-mono" style={{ color: "#6b6b88" }}>{i + 1}</td>
+                    <td className="px-3 py-2 font-mono">
+                      <Link href={`/bdcs/${p.ticker.toLowerCase()}`} className="hover:text-white" style={{ color: "#a5b4fc" }}>
+                        {p.ticker}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2" style={{ color: "#d1d5db", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {p.company}
+                    </td>
+                    <td className="px-3 py-2" style={{ color: "#9ca3af" }}>{p.investment_type ?? "—"}</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fafafa" }}>{p.cost_m.toFixed(1)}</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fafafa" }}>{p.fv_m.toFixed(1)}</td>
+                    <td className="px-3 py-2 font-mono text-right font-semibold" style={{ color: "#fca5a5" }}>
+                      {p.markdown_m.toFixed(1)}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-right" style={{
+                      color: p.mark_at_par === null ? "#6b6b88" :
+                        p.mark_at_par < 0.8 ? "#fca5a5" :
+                        p.mark_at_par < 0.9 ? "#fdba74" : "#fde68a",
+                    }}>
+                      {p.mark_at_par === null ? "—" : `${(p.mark_at_par * 100).toFixed(0)}¢`}
+                    </td>
+                    <td className="px-3 py-2 text-[10px]">
+                      <span className="flex gap-1 flex-wrap">
+                        {p.f_na === 1 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(239,68,68,0.15)", color: "#fca5a5" }}>NA</span>}
+                        {p.f_below_80 === 1 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(220,38,38,0.15)", color: "#fca5a5" }}>&lt;80¢</span>}
+                        {p.f_below_90 === 1 && p.f_below_80 === 0 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(249,115,22,0.15)", color: "#fdba74" }}>&lt;90¢</span>}
+                        {p.f_pik === 1 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(168,85,247,0.15)", color: "#d8b4fe" }}>PIK</span>}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 8 — Concentration */}
+      <section id="concentration" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Concentration <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · top borrowers by aggregate cost across all covered BDCs
+          </span>
+        </h2>
+        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs" style={{ color: "#8b8ba8" }}>
+              Direct-lending borrowers ranked by total amortized cost summed across every BDC
+              that holds them. The right-hand column shows what share of the entire universe&apos;s
+              parsed cost the borrower represents. Obvious aggregator rows (JV vehicles, &quot;Senior
+              Direct Lending Program&quot;, etc.) are excluded.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                <tr>
+                  {["Rank", "Borrower", "Industry", "BDC holders", "Aggregate cost ($M)", "% of industry"].map((h) => (
+                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {topByCost.map((b, i) => (
+                  <tr key={b.slug} style={{
+                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                    borderBottom: "1px solid #1a1a28",
+                  }}>
+                    <td className="px-3 py-2 font-mono" style={{ color: "#6b6b88" }}>{i + 1}</td>
+                    <td className="px-3 py-2">
+                      <Link href={`/borrowers/${b.slug}`} className="hover:text-white" style={{ color: "#a5b4fc" }}>
+                        {b.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2" style={{ color: "#9ca3af" }}>{b.industry || "—"}</td>
+                    <td className="px-3 py-2 font-mono" style={{ color: b.n_holders >= 5 ? "#fdba74" : "#d1d5db" }}>
+                      {b.n_holders}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fafafa" }}>
+                      {(b.total_cost / 1e6).toFixed(0)}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#9ca3af" }}>
+                      {((100 * b.total_cost) / industryTotalCost).toFixed(2)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 9 — Cross-BDC mark dispersion */}
+      <section id="dispersion" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Cross-BDC mark dispersion <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · {dispersionLatest} · same loan, different BDCs, different marks
+          </span>
+        </h2>
+        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs" style={{ color: "#8b8ba8" }}>
+              When three or more BDCs hold the same borrower, their marks should agree (it&apos;s the
+              same credit). Large dispersion means BDCs disagree on the credit quality — worth
+              investigating. Marks are fair value / cost.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                <tr>
+                  {["Borrower", "Holders", "Min mark", "Max mark", "Spread (pp)", "Total cost ($M)", "Detail"].map((h) => (
+                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {dispersionRows.map((r, i) => (
+                  <tr key={r.slug} style={{
+                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                    borderBottom: "1px solid #1a1a28",
+                  }}>
+                    <td className="px-3 py-2">
+                      <Link href={`/borrowers/${r.slug}`} className="hover:text-white" style={{ color: "#a5b4fc" }}>
+                        {r.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 font-mono" style={{ color: "#d1d5db" }}>{r.holders.length}</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fca5a5" }}>
+                      {(r.min_mark * 100).toFixed(1)}¢
+                    </td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#86efac" }}>
+                      {(r.max_mark * 100).toFixed(1)}¢
+                    </td>
+                    <td className="px-3 py-2 font-mono text-right font-semibold" style={{
+                      color: r.spread > 0.15 ? "#fca5a5" : r.spread > 0.05 ? "#fdba74" : "#9ca3af",
+                    }}>
+                      {(r.spread * 100).toFixed(1)}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#9ca3af" }}>
+                      {(r.total_cost / 1e6).toFixed(0)}
+                    </td>
+                    <td className="px-3 py-2 text-[10px]" style={{ color: "#8b8ba8" }}>
+                      {r.holders
+                        .sort((a, b) => a.mark - b.mark)
+                        .map((h) => `${h.ticker}: ${(h.mark * 100).toFixed(0)}¢`)
+                        .join(" · ")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 10 — PIK cascade */}
+      <section id="pik-cascade" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          PIK cascade <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · what happens to a loan 4 quarters after it flips cash → PIK
+          </span>
+        </h2>
+        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs" style={{ color: "#8b8ba8" }}>
+              For every loan we observed switching from cash-pay to PIK, where was it 4 quarters
+              later? Loans bucketed by the year of the flip. <b>Still PIK + NA</b> is the worst
+              outcome (deteriorated); <b>cured</b> means the loan went back to cash-pay; <b>exited</b>
+              means it left our parsed data (could be a refi, write-off, sale, or paydown — we can&apos;t
+              tell without realized-loss tracking). Cohorts with fewer than 5 flips are omitted.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                <tr>
+                  {["Flip year", "# loans flipped", "% cured", "% still PIK accruing", "% still PIK + NA", "% exited"].map((h) => (
+                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {cascadeRows.map((r, i) => (
+                  <tr key={r.year} style={{
+                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                    borderBottom: "1px solid #1a1a28",
+                  }}>
+                    <td className="px-3 py-2 font-mono" style={{ color: "#d1d5db" }}>{r.year}</td>
+                    <td className="px-3 py-2 font-mono" style={{ color: "#fafafa" }}>{r.flips}</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#86efac" }}>{r.pct_cured.toFixed(1)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fde68a" }}>{r.pct_pik_ok.toFixed(1)}%</td>
+                    <td className="px-3 py-2 font-mono text-right font-semibold" style={{ color: "#fca5a5" }}>{r.pct_pik_na.toFixed(1)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#9ca3af" }}>{r.pct_exited.toFixed(1)}%</td>
+                  </tr>
+                ))}
+                {cascadeRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-3 py-6 text-center" style={{ color: "#6b6b88" }}>
+                      Insufficient longitudinal cash → PIK observations yet (need more quarters
+                      of consecutive borrower data).
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>

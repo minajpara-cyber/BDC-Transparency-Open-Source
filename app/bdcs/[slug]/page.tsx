@@ -86,20 +86,39 @@ export default async function BDCDetailPage({ params }: PageProps) {
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 
   // -------- Industry comparison series ---------------------------------------
-  // Same coverage caveats used on /credit — exclude unreliable BDC/quarter combos.
-  const COVERAGE_CAVEATS: Array<{ ticker: string; until: string }> = [
-    { ticker: "FSK", until: "2022-05-31" },
-    { ticker: "OBDC", until: "2022-05-31" },
-    { ticker: "MFIC", until: "2025-11-30" },
+  // Per-metric coverage caveats — match the structure on /credit so reliable
+  // pre-XBRL data (FSK mark back to 2013, OBDC mark + NA back to 2016, MFIC
+  // mark-based metrics) feeds into the industry comparison curves.
+  type MetricFamily = "mark" | "na" | "pik";
+  const ALL_FAMILIES: MetricFamily[] = ["mark", "na", "pik"];
+  const COVERAGE_CAVEATS: Array<{ ticker: string; until: string; metrics: MetricFamily[] }> = [
+    { ticker: "CCAP", until: "2022-02-28", metrics: ALL_FAMILIES },
+    { ticker: "OCSL", until: "2022-12-31", metrics: ALL_FAMILIES },
+    { ticker: "FSK",  until: "2021-09-30", metrics: ["na", "pik"] },
+    { ticker: "OBDC", until: "2022-03-31", metrics: ["pik"] },
+    { ticker: "MFIC", until: "2025-11-30", metrics: ["na", "pik"] },
   ];
-  const isReliable = (t: string, p: string) =>
-    !COVERAGE_CAVEATS.some((c) => c.ticker === t && p <= c.until);
+  const isReliable = (t: string, p: string, family: MetricFamily) =>
+    !COVERAGE_CAVEATS.some(
+      (c) => c.ticker === t && p <= c.until && c.metrics.includes(family),
+    );
 
+  type CQField =
+    | "pct_non_accrual"
+    | "pct_pik_total"
+    | "pct_below_95"
+    | "pct_below_90";
+  function familyOfCQ(f: CQField): MetricFamily {
+    if (f === "pct_non_accrual") return "na";
+    if (f === "pct_pik_total")   return "pik";
+    return "mark";
+  }
   // Industry weighted-avg series for credit-quality metrics (position-weighted).
-  function buildIndustryCQ(field: "pct_non_accrual" | "pct_pik_total" | "pct_below_95") {
+  function buildIndustryCQ(field: CQField) {
+    const family = familyOfCQ(field);
     const m = new Map<string, { sumW: number; sumWV: number }>();
     for (const r of creditQuality) {
-      if (!isReliable(r.ticker, r.period_end)) continue;
+      if (!isReliable(r.ticker, r.period_end, family)) continue;
       const w = r.n_positions;
       if (!w) continue;
       const slot = m.get(r.period_end) ?? { sumW: 0, sumWV: 0 };
@@ -116,7 +135,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                                 wField: "n_positions_priced" | "n_new") {
     const m = new Map<string, { num: number; den: number }>();
     for (const r of spreadAnalysis) {
-      if (!isReliable(r.ticker, r.period_end)) continue;
+      if (!isReliable(r.ticker, r.period_end, "mark")) continue;
       const v = r[field];
       const w = r[wField];
       if (v === null || v === undefined || !w) continue;
@@ -129,15 +148,31 @@ export default async function BDCDetailPage({ params }: PageProps) {
       Array.from(m.entries()).map(([k, s]) => [k, s.den ? s.num / s.den : 0]),
     );
   }
+  // Industry cash→PIK modification rate (cost-weighted).
+  function buildIndustryModRate() {
+    const m = new Map<string, { num: number; den: number }>();
+    for (const r of modificationRate) {
+      if (!isReliable(r.ticker, r.period_end, "pik")) continue;
+      const slot = m.get(r.period_end) ?? { num: 0, den: 0 };
+      slot.num += r.new_mods_cost;
+      slot.den += r.total_cost;
+      m.set(r.period_end, slot);
+    }
+    return new Map(
+      Array.from(m.entries()).map(([k, s]) => [k, s.den ? (100 * s.num) / s.den : 0]),
+    );
+  }
 
   const naIndustry  = buildIndustryCQ("pct_non_accrual");
   const pikIndustry = buildIndustryCQ("pct_pik_total");
   const mkIndustry  = buildIndustryCQ("pct_below_95");
+  const lt90Industry = buildIndustryCQ("pct_below_90");
   const bookSpInd   = buildIndustrySpread("avg_spread_book_bps", "n_positions_priced");
   const newSpInd    = buildIndustrySpread("avg_spread_new_bps", "n_new");
+  const modRateInd  = buildIndustryModRate();
 
   // Build BDC + industry overlay series.
-  const cmpFromCQ = (field: "pct_non_accrual" | "pct_pik_total" | "pct_below_95",
+  const cmpFromCQ = (field: CQField,
                     industry: Map<string, number>): ComparisonPoint[] =>
     cqRows.map((r) => ({
       period_end: r.period_end,
@@ -157,8 +192,14 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const naCmp        = cmpFromCQ("pct_non_accrual", naIndustry);
   const pikCmp       = cmpFromCQ("pct_pik_total",   pikIndustry);
   const lt95Cmp      = cmpFromCQ("pct_below_95",    mkIndustry);
+  const lt90Cmp      = cmpFromCQ("pct_below_90",    lt90Industry);
   const bookSpCmp    = cmpFromSpread("avg_spread_book_bps", bookSpInd);
   const newSpCmp     = cmpFromSpread("avg_spread_new_bps",  newSpInd);
+  const modRateCmp   = modRateRows.map((r) => ({
+    period_end: r.period_end,
+    bdc: r.pct_new_cost,
+    industry: modRateInd.get(r.period_end) ?? null,
+  })) as ComparisonPoint[];
 
   // Composition stacked-area data (collapse "other" buckets)
   const compositionLine = acRows.map((r) => ({
@@ -314,6 +355,18 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <div className="text-sm font-semibold text-white mb-1">Marks below 95¢ vs industry</div>
               <ComparisonChart data={lt95Cmp} yLabel="% below 95¢" unit="%" bdcLabel={bdc.ticker} bdcColor="#dc2626" />
             </div>
+            <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <div className="text-sm font-semibold text-white mb-1">Marks below 90¢ vs industry</div>
+              <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>Deeper distress bucket — loans the BDC has written below 90¢ of par.</p>
+              <ComparisonChart data={lt90Cmp} yLabel="% below 90¢" unit="%" bdcLabel={bdc.ticker} bdcColor="#b91c1c" />
+            </div>
+            {modRateCmp.length > 0 && (
+              <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+                <div className="text-sm font-semibold text-white mb-1">Cash → PIK modification rate vs industry</div>
+                <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>% of eligible-loan cost that flipped from cash-pay to PIK this quarter.</p>
+                <ComparisonChart data={modRateCmp} yLabel="% modified (cost)" unit="%" bdcLabel={bdc.ticker} bdcColor="#a855f7" />
+              </div>
+            )}
             {bookSpCmp.length > 0 && (
               <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
                 <div className="text-sm font-semibold text-white mb-1">Book spread (bps) vs industry</div>
