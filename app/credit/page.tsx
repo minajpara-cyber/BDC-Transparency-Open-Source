@@ -10,14 +10,34 @@ import { pikModifications } from "@/data/pik_modifications";
 import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
 
-// Known parser-coverage caveats — cells from these (ticker, period_end<=cutoff)
-// combinations show in muted/italic style and are excluded from industry charts.
-const COVERAGE_CAVEATS: Array<{ ticker: string; until: string; reason: string }> = [
-  { ticker: "FSK",  until: "2022-05-31", reason: "Pre-XBRL FSK parser captures partial sections" },
-  { ticker: "OBDC", until: "2022-05-31", reason: "Pre-XBRL OBDC parser captures partial sections" },
-  { ticker: "CCAP", until: "2022-02-28", reason: "Pre-XBRL CCAP filings parsed financial-statement summary rows instead of SOI positions" },
-  { ticker: "OCSL", until: "2022-12-31", reason: "Pre-XBRL OCSL SOI extraction is patchy; par data missing for many quarters" },
-  { ticker: "MFIC", until: "2025-11-30", reason: "MFIC SOI lacks per-position non-accrual footnotes" },
+// Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
+// commonly capture mark-based fields (par / cost / fv) cleanly even when
+// non-accrual / PIK footnotes don't decode — for those BDCs we only flag
+// the broken metric family, which lets reliable historical data surface.
+// Caveat-flagged cells are muted/italic and excluded from industry charts.
+type MetricFamily = "mark" | "na" | "pik";
+const ALL_FAMILIES: MetricFamily[] = ["mark", "na", "pik"];
+const COVERAGE_CAVEATS: Array<{ ticker: string; until: string; metrics: MetricFamily[]; reason: string }> = [
+  // CCAP pre-XBRL parsed financial-statement summary rows, not SOI positions —
+  // every metric is unreliable.
+  { ticker: "CCAP", until: "2022-02-28", metrics: ALL_FAMILIES,
+    reason: "Pre-XBRL CCAP filings parsed financial-statement summary rows instead of SOI positions" },
+  // OCSL pre-XBRL is patchy — par_amount missing for many quarters so the
+  // mark-based metrics show as 0%. Keep all metrics flagged until XBRL kicks in.
+  { ticker: "OCSL", until: "2022-12-31", metrics: ALL_FAMILIES,
+    reason: "Pre-XBRL OCSL SOI extraction is patchy; par missing for many quarters" },
+  // FSK mark-based metrics parse cleanly back to 2013 — only NA flag detection
+  // breaks during the FSKR merger era (Q4 2019 – Q3 2021) where the parser
+  // misreads merger-adjustment footnotes as non-accrual marks.
+  { ticker: "FSK",  until: "2021-09-30", metrics: ["na", "pik"],
+    reason: "FSK NA flag detection misfires during the FSKR-merger era (Q4 2019 – Q3 2021)" },
+  // OBDC pre-XBRL: mark + NA parse cleanly, but PIK footnotes don't decode.
+  { ticker: "OBDC", until: "2022-03-31", metrics: ["pik"],
+    reason: "Pre-XBRL OBDC parser doesn't decode PIK footnotes" },
+  // MFIC SOI doesn't carry per-position non-accrual / PIK footnotes ever.
+  // Keep mark-based metrics visible.
+  { ticker: "MFIC", until: "2025-11-30", metrics: ["na", "pik"],
+    reason: "MFIC SOI lacks per-position non-accrual / PIK footnotes" },
 ];
 
 // Drop BDC-quarter rows with too few positions from industry aggregates and
@@ -25,9 +45,10 @@ const COVERAGE_CAVEATS: Array<{ ticker: string; until: string; reason: string }>
 // that aren't representative of the BDC's actual book.
 const MIN_POSITIONS_FOR_RELIABLE = 30;
 
-function isReliable(ticker: string, period_end: string): boolean {
+function isReliable(ticker: string, period_end: string, family: MetricFamily): boolean {
   for (const c of COVERAGE_CAVEATS) {
-    if (c.ticker === ticker && period_end <= c.until) return false;
+    if (c.ticker !== ticker || period_end > c.until) continue;
+    if (c.metrics.includes(family)) return false;
   }
   return true;
 }
@@ -48,13 +69,22 @@ type NumericKeys =
   | "pct_below_95"
   | "pct_below_90";
 
+// Map credit_quality numeric fields to their metric family for caveat
+// resolution. Mark-based metrics (below_X) share the "mark" family; NA
+// stands alone.
+function metricFamilyOf(field: NumericKeys): MetricFamily {
+  if (field === "pct_non_accrual") return "na";
+  return "mark";
+}
+
 /** Heatmap cell map for a credit-quality metric. */
 function buildCreditCellMap(field: NumericKeys) {
+  const family = metricFamilyOf(field);
   const m = new Map<string, { value: number | null; reliable?: boolean }>();
   for (const r of creditQuality) {
     if (!isQuarterEnd(r.period_end)) continue;
     const reliable =
-      isReliable(r.ticker, r.period_end) &&
+      isReliable(r.ticker, r.period_end, family) &&
       r.n_positions >= MIN_POSITIONS_FOR_RELIABLE;
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r[field] as number,
@@ -72,10 +102,11 @@ function buildCreditCellMap(field: NumericKeys) {
  * multipliers aren't carried into the export.
  */
 function buildIndustrySeries(field: NumericKeys): IndustryPoint[] {
+  const family = metricFamilyOf(field);
   const byPeriod = new Map<string, { sumW: number; sumWV: number; coverage: number }>();
   for (const r of creditQuality) {
     if (!isQuarterEnd(r.period_end)) continue;
-    if (!isReliable(r.ticker, r.period_end)) continue;
+    if (!isReliable(r.ticker, r.period_end, family)) continue;
     if (r.ticker !== "industry" && r.n_positions < MIN_POSITIONS_FOR_RELIABLE) continue;
     const w = r.n_positions;
     if (!w) continue;
@@ -108,7 +139,7 @@ function buildModCellMap() {
     if (!isQuarterEnd(r.period_end)) continue;
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r.pct_new_cost,
-      reliable: isReliable(r.ticker, r.period_end),
+      reliable: isReliable(r.ticker, r.period_end, "pik"),
     });
   }
   return m;
@@ -126,7 +157,7 @@ function buildModIndustrySeries(): IndustryPoint[] {
   >();
   for (const r of modificationRate) {
     if (!isQuarterEnd(r.period_end)) continue;
-    if (!isReliable(r.ticker, r.period_end)) continue;
+    if (!isReliable(r.ticker, r.period_end, "pik")) continue;
     if (!byPeriod.has(r.period_end))
       byPeriod.set(r.period_end, { newCost: 0, totalCost: 0, coverage: 0 });
     const slot = byPeriod.get(r.period_end)!;
@@ -152,7 +183,7 @@ function buildFirstLienCellMap() {
     if (!isQuarterEnd(r.period_end)) continue;
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r.pct_first_lien,
-      reliable: isReliable(r.ticker, r.period_end),
+      reliable: isReliable(r.ticker, r.period_end, "mark"),
     });
   }
   return m;
@@ -165,7 +196,7 @@ function buildEquityCellMap() {
     if (!isQuarterEnd(r.period_end)) continue;
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r.pct_equity,
-      reliable: isReliable(r.ticker, r.period_end),
+      reliable: isReliable(r.ticker, r.period_end, "mark"),
     });
   }
   return m;
@@ -202,7 +233,7 @@ function buildIndustryComposition() {
   }>();
   for (const r of assetComposition) {
     if (!isQuarterEnd(r.period_end)) continue;
-    if (!isReliable(r.ticker, r.period_end)) continue;
+    if (!isReliable(r.ticker, r.period_end, "mark")) continue;
     const w = weightLookup.get(`${r.ticker}|${r.period_end}`) ?? 1;
     if (!byPeriod.has(r.period_end))
       byPeriod.set(r.period_end, { weight: 0, first: 0, second: 0, unsec: 0, sub: 0, sjv: 0, eq: 0, other: 0 });
@@ -237,7 +268,7 @@ function buildSpreadCellMap(field: "avg_spread_book_bps" | "avg_spread_new_bps")
     if (!isQuarterEnd(r.period_end)) continue;
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r[field] as number | null,
-      reliable: isReliable(r.ticker, r.period_end),
+      reliable: isReliable(r.ticker, r.period_end, "mark"),
     });
   }
   return m;
@@ -250,7 +281,7 @@ function buildSpreadIndustry(field: "avg_spread_book_bps" | "avg_spread_new_bps"
   const byPeriod = new Map<string, { num: number; den: number; coverage: number }>();
   for (const r of spreadAnalysis) {
     if (!isQuarterEnd(r.period_end)) continue;
-    if (!isReliable(r.ticker, r.period_end)) continue;
+    if (!isReliable(r.ticker, r.period_end, "mark")) continue;
     const v = r[field];
     const w = r[weightField];
     if (v === null || v === undefined || !w) continue;
@@ -310,7 +341,7 @@ export default function CreditPage() {
   }>();
   for (const r of pikModifications) {
     if (!isQuarterEnd(r.period_end)) continue;
-    if (!isReliable(r.ticker, r.period_end)) continue;
+    if (!isReliable(r.ticker, r.period_end, "pik")) continue;
     if (!sevByPeriod.has(r.period_end))
       sevByPeriod.set(r.period_end, { minimalCost: 0, moderateCost: 0, severeCost: 0, totalCost: 0 });
     const s = sevByPeriod.get(r.period_end)!;
@@ -334,7 +365,7 @@ export default function CreditPage() {
     .sort()
     .slice(-8);
   const severityTableRows = pikModifications
-    .filter((r) => recentPeriods.includes(r.period_end) && isReliable(r.ticker, r.period_end))
+    .filter((r) => recentPeriods.includes(r.period_end) && isReliable(r.ticker, r.period_end, "pik"))
     .filter((r) => r.new_minimal + r.new_moderate + r.new_severe > 0)
     .sort((a, b) => (b.period_end.localeCompare(a.period_end)) || (b.new_severe - a.new_severe));
 
@@ -402,13 +433,15 @@ export default function CreditPage() {
         <AlertTriangle size={14} className="mt-0.5 shrink-0" />
         <div className="leading-relaxed">
           <span className="font-semibold">Partial coverage:</span>{" "}
-          The SOI parsing pipeline has known gaps for some pre-2022 filings (especially FSK, OBDC,
-          CCAP, and OCSL). Cells from those quarters appear in italics and muted color and are
-          excluded from the industry-aggregate line charts. BDC-quarters with fewer than{" "}
-          {MIN_POSITIONS_FOR_RELIABLE} parsed positions are also flagged as unreliable — these
-          tend to be stub or partial-period filings. MFIC&apos;s SOI does not flag non-accrual
-          at the position level, so its non-accrual column is also flagged. Only calendar
-          quarter-ends (3/31, 6/30, 9/30, 12/31) are shown.
+          Caveats now apply per metric family rather than per BDC-quarter as a whole — mark-based
+          data (below 95¢ / 90¢, asset mix, spread) surfaces back to 2013 for FSK and 2016 for OBDC
+          because those parsers capture par / cost / fv cleanly even pre-XBRL. CCAP and OCSL
+          pre-XBRL remain fully muted (parser was extracting summary rows / par missing). FSK&apos;s
+          non-accrual is muted through Q3 2021 (FSKR-merger era — parser misreads merger-adjustment
+          footnotes as NA). MFIC&apos;s SOI doesn&apos;t carry per-position non-accrual or PIK
+          footnotes, so those two columns stay muted; mark-based metrics for MFIC are reliable.
+          BDC-quarters with fewer than {MIN_POSITIONS_FOR_RELIABLE} parsed positions are also
+          flagged. Only calendar quarter-ends shown.
         </div>
       </div>
 
