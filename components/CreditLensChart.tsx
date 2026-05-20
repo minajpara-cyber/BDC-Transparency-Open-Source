@@ -2,7 +2,7 @@
 
 import {
   ResponsiveContainer,
-  LineChart,
+  ComposedChart,
   CartesianGrid,
   XAxis,
   YAxis,
@@ -18,12 +18,25 @@ export interface IndustryPoint {
   coverage: number;     // count of BDCs reporting this quarter
 }
 
+interface MacroOverlay {
+  /** Quarter-end keyed series. Aligned to the same period_end strings as `data`. */
+  series: Array<{ period_end: string; value: number }>;
+  /** Label for the legend / tooltip. */
+  label: string;
+  /** Unit suffix for tooltip (e.g. "bps", "%"). */
+  unit: string;
+  /** Stroke color. Defaults to a muted grey-blue. */
+  color?: string;
+}
+
 interface Props {
   data: IndustryPoint[];
   yLabel: string;
   unit?: string;        // suffix like "%" or "" (count)
   color?: string;
   height?: number;
+  /** Optional secondary axis macro line (e.g. HY OAS, Fed funds). */
+  overlay?: MacroOverlay;
 }
 
 export default function CreditLensChart({
@@ -32,11 +45,22 @@ export default function CreditLensChart({
   unit = "%",
   color = "#6366f1",
   height = 280,
+  overlay,
 }: Props) {
+  // Merge overlay into the same row by period_end so Recharts can plot both
+  // series on shared x-axis with separate y-axes.
+  const overlayByPeriod = new Map(
+    (overlay?.series ?? []).map((p) => [p.period_end, p.value]),
+  );
+  const merged = data.map((d) => ({
+    ...d,
+    overlayValue: overlay ? overlayByPeriod.get(d.period_end) ?? null : null,
+  }));
+
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
-        <LineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 8 }}>
+        <ComposedChart data={merged} margin={{ top: 10, right: overlay ? 50 : 20, left: 0, bottom: 8 }}>
           <CartesianGrid stroke="#1e1e2e" strokeDasharray="3 3" />
           <XAxis
             dataKey="period_end"
@@ -45,11 +69,27 @@ export default function CreditLensChart({
             minTickGap={20}
           />
           <YAxis
+            yAxisId="primary"
             tick={{ fill: "#8b8ba8", fontSize: 11 }}
             tickFormatter={(v: number) => (unit === "%" ? `${v.toFixed(0)}%` : `${v}`)}
             label={{ value: yLabel, angle: -90, position: "insideLeft", fill: "#8b8ba8", fontSize: 11 }}
           />
-          <ReferenceLine y={0} stroke="#3b3b55" />
+          {overlay && (
+            <YAxis
+              yAxisId="overlay"
+              orientation="right"
+              tick={{ fill: "#9ca3af", fontSize: 10 }}
+              tickFormatter={(v: number) => `${v}${overlay.unit === "bps" ? "" : overlay.unit}`}
+              label={{
+                value: overlay.label,
+                angle: 90,
+                position: "insideRight",
+                fill: "#9ca3af",
+                fontSize: 10,
+              }}
+            />
+          )}
+          <ReferenceLine y={0} yAxisId="primary" stroke="#3b3b55" />
           <Tooltip
             contentStyle={{
               background: "#0f0f16",
@@ -58,24 +98,47 @@ export default function CreditLensChart({
               fontSize: 12,
             }}
             labelStyle={{ color: "#d1d5db" }}
-            formatter={(value, _name, item) => {
+            formatter={(value, name, item) => {
               const v = Number(value);
-              const coverage =
-                (item?.payload as IndustryPoint | undefined)?.coverage ?? null;
-              const valStr = unit === "%" ? `${v.toFixed(2)}%` : v.toLocaleString();
-              return [`${valStr}  (n=${coverage ?? "?"} BDCs)`, "Industry weighted avg"];
+              if (name === "Industry aggregate") {
+                const coverage =
+                  (item?.payload as IndustryPoint | undefined)?.coverage ?? null;
+                const valStr = unit === "%" ? `${v.toFixed(2)}%` : v.toLocaleString();
+                return [`${valStr}  (n=${coverage ?? "?"} BDCs)`, name];
+              }
+              if (overlay && name === overlay.label) {
+                const valStr =
+                  overlay.unit === "bps"
+                    ? `${Math.round(v)} bps`
+                    : `${v.toFixed(2)}${overlay.unit}`;
+                return [valStr, name];
+              }
+              return [String(value), name];
             }}
           />
           <Legend wrapperStyle={{ fontSize: 11, color: "#8b8ba8" }} />
           <Line
             type="monotone"
+            yAxisId="primary"
             dataKey="value"
             name="Industry aggregate"
             stroke={color}
             strokeWidth={2.5}
             dot={{ r: 3 }}
           />
-        </LineChart>
+          {overlay && (
+            <Line
+              type="monotone"
+              yAxisId="overlay"
+              dataKey="overlayValue"
+              name={overlay.label}
+              stroke={overlay.color ?? "#6b7280"}
+              strokeWidth={1.5}
+              strokeDasharray="4 4"
+              dot={false}
+            />
+          )}
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );

@@ -15,6 +15,7 @@ import { borrowers } from "@/data/borrowers_index";
 import { borrowerHistory } from "@/data/borrowers_history";
 import { pikCascade } from "@/data/pik_cascade";
 import { sectorCredit } from "@/data/sector_credit";
+import { macroContext } from "@/data/macro_context";
 
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
 // commonly capture mark-based fields (par / cost / fv) cleanly even when
@@ -340,6 +341,15 @@ export default function CreditPage() {
   const lt90Line = buildIndustrySeries("pct_below_90");
   const modPctLine = buildModIndustrySeries();
 
+  // Macro overlays — HY OAS pairs naturally with mark-based metrics
+  // (below 95/90, modifications); Fed Funds with spread series.
+  const hyOasSeries = macroContext
+    .filter((r) => isQuarterEnd(r.period_end))
+    .map((r) => ({ period_end: r.period_end, value: r.hy_oas_bps }));
+  const ffrSeries = macroContext
+    .filter((r) => isQuarterEnd(r.period_end))
+    .map((r) => ({ period_end: r.period_end, value: r.ffr_pct }));
+
   // Modifications-by-severity: industry-aggregated COST-weighted % per quarter.
   // Numerator = sum(new_*_cost) across BDCs; denominator = sum(total_cost) across BDCs.
   const sevByPeriod = new Map<string, {
@@ -563,7 +573,12 @@ export default function CreditPage() {
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry non-accrual rate</div>
           <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average across reporting BDCs each quarter.</p>
-          <CreditLensChart data={naLine} yLabel="% non-accrual (industry)" color="#ef4444" />
+          <CreditLensChart
+            data={naLine}
+            yLabel="% non-accrual (industry)"
+            color="#ef4444"
+            overlay={{ series: hyOasSeries, label: "HY OAS", unit: "bps" }}
+          />
         </div>
       </section>
 
@@ -585,7 +600,12 @@ export default function CreditPage() {
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry % below 95¢</div>
-          <CreditLensChart data={lt95Line} yLabel="% below 95¢ (industry)" color="#f97316" />
+          <CreditLensChart
+            data={lt95Line}
+            yLabel="% below 95¢ (industry)"
+            color="#f97316"
+            overlay={{ series: hyOasSeries, label: "HY OAS", unit: "bps" }}
+          />
         </div>
       </section>
 
@@ -607,7 +627,12 @@ export default function CreditPage() {
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry % below 90¢</div>
-          <CreditLensChart data={lt90Line} yLabel="% below 90¢ (industry)" color="#dc2626" />
+          <CreditLensChart
+            data={lt90Line}
+            yLabel="% below 90¢ (industry)"
+            color="#dc2626"
+            overlay={{ series: hyOasSeries, label: "HY OAS", unit: "bps" }}
+          />
         </div>
       </section>
 
@@ -804,12 +829,24 @@ export default function CreditPage() {
           <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
             <div className="text-sm font-semibold text-white mb-1">Industry book spread (bps)</div>
             <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average of book spread across reporting BDCs each quarter.</p>
-            <CreditLensChart data={bookSpreadLine} yLabel="Book spread (bps)" unit="" color="#22c55e" />
+            <CreditLensChart
+              data={bookSpreadLine}
+              yLabel="Book spread (bps)"
+              unit=""
+              color="#22c55e"
+              overlay={{ series: ffrSeries, label: "Fed Funds", unit: "%" }}
+            />
           </div>
           <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
             <div className="text-sm font-semibold text-white mb-1">Industry new-loan spread (bps)</div>
             <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average of new-loan spreads across reporting BDCs each quarter. The new-loan series leads the book — gives the cleanest read on spread compression / widening in primary direct lending.</p>
-            <CreditLensChart data={newSpreadLine} yLabel="New-loan spread (bps)" unit="" color="#a855f7" />
+            <CreditLensChart
+              data={newSpreadLine}
+              yLabel="New-loan spread (bps)"
+              unit=""
+              color="#a855f7"
+              overlay={{ series: hyOasSeries, label: "HY OAS", unit: "bps" }}
+            />
           </div>
         </div>
         <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
