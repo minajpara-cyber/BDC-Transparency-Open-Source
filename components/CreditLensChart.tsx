@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -39,6 +40,14 @@ interface Props {
   overlay?: MacroOverlay;
 }
 
+type RangeKey = "3y" | "5y" | "10y" | "all";
+const RANGES: Array<{ key: RangeKey; label: string; quarters: number | null }> = [
+  { key: "3y",  label: "3y",  quarters: 12 },
+  { key: "5y",  label: "5y",  quarters: 20 },
+  { key: "10y", label: "10y", quarters: 40 },
+  { key: "all", label: "All", quarters: null },
+];
+
 export default function CreditLensChart({
   data,
   yLabel,
@@ -47,19 +56,41 @@ export default function CreditLensChart({
   height = 280,
   overlay,
 }: Props) {
+  const [range, setRange] = useState<RangeKey>("all");
   // Merge overlay into the same row by period_end so Recharts can plot both
   // series on shared x-axis with separate y-axes.
   const overlayByPeriod = new Map(
     (overlay?.series ?? []).map((p) => [p.period_end, p.value]),
   );
-  const merged = data.map((d) => ({
+  const fullMerged = data.map((d) => ({
     ...d,
     overlayValue: overlay ? overlayByPeriod.get(d.period_end) ?? null : null,
   }));
+  const merged = useMemo(() => {
+    const cfg = RANGES.find((r) => r.key === range)!;
+    if (cfg.quarters === null) return fullMerged;
+    return fullMerged.slice(-cfg.quarters);
+  }, [fullMerged, range]);
 
   return (
-    <div style={{ width: "100%", height }}>
-      <ResponsiveContainer>
+    <div style={{ width: "100%", height: height + 28 }}>
+      <div className="flex justify-end gap-1 mb-1.5">
+        {RANGES.map((r) => (
+          <button
+            key={r.key}
+            onClick={() => setRange(r.key)}
+            className="text-[10px] px-1.5 py-0.5 rounded border transition-colors"
+            style={{
+              background: range === r.key ? "rgba(99,102,241,0.15)" : "transparent",
+              borderColor: range === r.key ? "#6366f1" : "#2d2d50",
+              color: range === r.key ? "#a5b4fc" : "#8b8ba8",
+            }}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+      <ResponsiveContainer width="100%" height={height}>
         <ComposedChart data={merged} margin={{ top: 10, right: overlay ? 50 : 20, left: 0, bottom: 8 }}>
           <CartesianGrid stroke="#1e1e2e" strokeDasharray="3 3" />
           <XAxis
