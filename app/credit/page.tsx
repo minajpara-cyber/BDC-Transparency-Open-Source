@@ -12,6 +12,7 @@ import { spreadAnalysis } from "@/data/spread_analysis";
 import { stressedPositions } from "@/data/stressed_positions";
 import { borrowers } from "@/data/borrowers_index";
 import { borrowerHistory } from "@/data/borrowers_history";
+import { pikCascade } from "@/data/pik_cascade";
 
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
 // commonly capture mark-based fields (par / cost / fv) cleanly even when
@@ -444,50 +445,18 @@ export default function CreditPage() {
     .slice(0, 15);
 
   // ---------- PIK cascade (C.6) ----------
-  // For each (borrower, ticker) loan where has_pik flipped from 0 to 1 at
-  // period T, check the state 4 quarters later. Outcomes:
-  //   - cured: has_pik=0 at T+4
-  //   - still PIK + non-accrual: has_pik=1 AND is_non_accrual=1
-  //   - still PIK accruing: has_pik=1 AND is_non_accrual=0
-  //   - exited: no observation at T+4 (loan no longer on book)
-  const byLoan = new Map<string, Array<{ period_end: string; has_pik: number | null; is_non_accrual: number | null }>>();
-  for (const r of borrowerHistory) {
-    const k = `${r.slug}|${r.ticker}`;
-    if (!byLoan.has(k)) byLoan.set(k, []);
-    byLoan.get(k)!.push({ period_end: r.period_end, has_pik: r.has_pik, is_non_accrual: r.is_non_accrual });
-  }
-  type CascadeBucket = { flips: number; cured: number; pik_na: number; pik_ok: number; exited: number };
-  const cascade = new Map<string, CascadeBucket>();
-  for (const series of byLoan.values()) {
-    series.sort((a, b) => a.period_end.localeCompare(b.period_end));
-    for (let i = 1; i < series.length; i++) {
-      const prev = series[i - 1];
-      const curr = series[i];
-      if (prev.has_pik === 0 && curr.has_pik === 1) {
-        // Look 4 quarters later
-        const future = series[i + 4];
-        const year = curr.period_end.slice(0, 4);
-        const bucket = cascade.get(year) ?? { flips: 0, cured: 0, pik_na: 0, pik_ok: 0, exited: 0 };
-        bucket.flips += 1;
-        if (!future) bucket.exited += 1;
-        else if (future.has_pik === 0) bucket.cured += 1;
-        else if (future.is_non_accrual === 1) bucket.pik_na += 1;
-        else bucket.pik_ok += 1;
-        cascade.set(year, bucket);
-      }
-    }
-  }
-  const cascadeRows = Array.from(cascade.entries())
-    .sort()
-    .map(([year, b]) => ({
-      year,
-      ...b,
-      pct_cured: b.flips ? (100 * b.cured) / b.flips : 0,
-      pct_pik_na: b.flips ? (100 * b.pik_na) / b.flips : 0,
-      pct_pik_ok: b.flips ? (100 * b.pik_ok) / b.flips : 0,
-      pct_exited: b.flips ? (100 * b.exited) / b.flips : 0,
-    }))
-    .filter((r) => r.flips >= 5);
+  // Loan-tranche-level cascade from data/pik_cascade.ts. The Python exporter
+  // walks loan_history.loan_id and buckets each cash→PIK flip by its outcome
+  // 4 quarters later (cured / still PIK at various mark levels / exited).
+  // Flag the most recent year as "follow-up incomplete" — flips from then
+  // haven't had time for the full T+4 lookforward.
+  const cascadeMaxYear = pikCascade.length
+    ? pikCascade[pikCascade.length - 1].year
+    : "";
+  const cascadeRows = pikCascade.map((r) => ({
+    ...r,
+    incomplete: r.year === cascadeMaxYear && r.pct_exited > 80,
+  }));
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -518,7 +487,10 @@ export default function CreditPage() {
         <p className="text-sm" style={{ color: "#9ca3af" }}>
           BDCs as rows, quarter-ends as columns. Each cell is the metric expressed as a percent (or
           basis points for spreads); companion charts show the industry-wide aggregate
-          (position-weighted across BDCs).
+          (position-weighted across BDCs).{" "}
+          <Link href="/methodology" className="hover:text-white" style={{ color: "#a5b4fc" }}>
+            How is this computed? →
+          </Link>
         </p>
       </div>
 
@@ -1030,7 +1002,7 @@ export default function CreditPage() {
         </div>
       </section>
 
-      {/* Section 10 — PIK cascade */}
+      {/* Section 10 — PIK cascade (loan-tranche level) */}
       <section id="pik-cascade" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           PIK cascade <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
@@ -1040,18 +1012,25 @@ export default function CreditPage() {
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
             <p className="text-xs" style={{ color: "#8b8ba8" }}>
-              For every loan we observed switching from cash-pay to PIK, where was it 4 quarters
-              later? Loans bucketed by the year of the flip. <b>Still PIK + NA</b> is the worst
-              outcome (deteriorated); <b>cured</b> means the loan went back to cash-pay; <b>exited</b>
-              means it left our parsed data (could be a refi, write-off, sale, or paydown — we can&apos;t
-              tell without realized-loss tracking). Cohorts with fewer than 5 flips are omitted.
+              For every loan-tranche we observed switching from cash-pay to PIK, where was it
+              4 quarters later? Tracked at the <b>loan_id</b> level so a borrower with multiple
+              tranches gets attributed to each tranche&apos;s separate fate.{" "}
+              <b>Still PIK · distress</b> (mark &lt; 80¢) is the worst outcome; <b>cured</b> means
+              the loan went back to cash-pay; <b>exited</b> means it left our parsed data (refi,
+              write-off, sale, or paydown — we can&apos;t distinguish without realized-loss
+              tracking). Cohorts with fewer than 10 flips omitted. Rows where the flip is too
+              recent to have full T+4 follow-up are dimmed.
             </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
                 <tr>
-                  {["Flip year", "# loans flipped", "% cured", "% still PIK accruing", "% still PIK + NA", "% exited"].map((h) => (
+                  {[
+                    "Flip year", "# tranches", "% cured",
+                    "% PIK · steady (≥90¢)", "% PIK · weak (80–90¢)",
+                    "% PIK · distress (<80¢)", "% exited",
+                  ].map((h) => (
                     <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
                       {h}
                     </th>
@@ -1063,20 +1042,24 @@ export default function CreditPage() {
                   <tr key={r.year} style={{
                     background: i % 2 === 0 ? "#111118" : "#0f0f16",
                     borderBottom: "1px solid #1a1a28",
+                    opacity: r.incomplete ? 0.55 : 1,
                   }}>
-                    <td className="px-3 py-2 font-mono" style={{ color: "#d1d5db" }}>{r.year}</td>
+                    <td className="px-3 py-2 font-mono" style={{ color: "#d1d5db" }}>
+                      {r.year}{r.incomplete && <span className="ml-1 text-[10px]" style={{ color: "#fdba74" }}>(follow-up incomplete)</span>}
+                    </td>
                     <td className="px-3 py-2 font-mono" style={{ color: "#fafafa" }}>{r.flips}</td>
                     <td className="px-3 py-2 font-mono text-right" style={{ color: "#86efac" }}>{r.pct_cured.toFixed(1)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fde68a" }}>{r.pct_pik_ok.toFixed(1)}%</td>
-                    <td className="px-3 py-2 font-mono text-right font-semibold" style={{ color: "#fca5a5" }}>{r.pct_pik_na.toFixed(1)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fde68a" }}>{r.pct_pik_strong.toFixed(1)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fdba74" }}>{r.pct_pik_weak.toFixed(1)}%</td>
+                    <td className="px-3 py-2 font-mono text-right font-semibold" style={{ color: "#fca5a5" }}>{r.pct_pik_distress.toFixed(1)}%</td>
                     <td className="px-3 py-2 font-mono text-right" style={{ color: "#9ca3af" }}>{r.pct_exited.toFixed(1)}%</td>
                   </tr>
                 ))}
                 {cascadeRows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-3 py-6 text-center" style={{ color: "#6b6b88" }}>
+                    <td colSpan={7} className="px-3 py-6 text-center" style={{ color: "#6b6b88" }}>
                       Insufficient longitudinal cash → PIK observations yet (need more quarters
-                      of consecutive borrower data).
+                      of consecutive loan-tranche data).
                     </td>
                   </tr>
                 )}

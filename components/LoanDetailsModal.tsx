@@ -180,8 +180,8 @@ export default function LoanDetailsModal({
                     No flagged loans found in our position-level extract for this cell.
                     <br />
                     <span className="text-[10px]">
-                      (Detail data is exported only for the most recent 12 quarters. Older
-                      cells exist in the heatmap but don&apos;t have loan-level drilldown yet.)
+                      Either no positions were flagged (NA / below 95¢ / PIK) at this quarter,
+                      or the cell pre-dates our position-level extract window.
                     </span>
                   </td>
                 </tr>
