@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import CreditHeatmap from "@/components/CreditHeatmap";
+import CsvDownloadButton from "@/components/CsvDownloadButton";
 import CreditLensChart, { IndustryPoint } from "@/components/CreditLensChart";
 import AssetCompositionChart from "@/components/AssetCompositionChart";
 import SeverityStackedBars from "@/components/SeverityStackedBars";
@@ -557,6 +558,7 @@ export default function CreditPage() {
           thresholds={[2, 5, 10]}
           flagKey="f_na"
           metricLabel="Non-accrual positions"
+          csvFilename="credit-non-accrual"
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry non-accrual rate</div>
@@ -579,6 +581,7 @@ export default function CreditPage() {
           thresholds={[5, 15, 30]}
           flagKey="f_below_95"
           metricLabel="Loans marked below 95¢ of par"
+          csvFilename="credit-below-95"
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry % below 95¢</div>
@@ -600,6 +603,7 @@ export default function CreditPage() {
           thresholds={[3, 10, 20]}
           flagKey="f_below_90"
           metricLabel="Loans marked below 90¢ of par"
+          csvFilename="credit-below-90"
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry % below 90¢</div>
@@ -627,6 +631,7 @@ export default function CreditPage() {
           thresholds={[2, 5, 10]}
           flagKey="f_pik"
           metricLabel="Loans currently paying PIK"
+          csvFilename="credit-mods-cash-to-pik"
         />
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
           <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
@@ -743,6 +748,7 @@ export default function CreditPage() {
           tickers={tickers}
           cellMap={firstLienMap}
           thresholds={[60, 80, 95]}
+          csvFilename="credit-first-lien"
         />
         <div className="mt-4">
           <CreditHeatmap
@@ -752,6 +758,7 @@ export default function CreditPage() {
             tickers={tickers}
             cellMap={equityMap}
             thresholds={[3, 8, 15]}
+            csvFilename="credit-equity"
           />
         </div>
         <div className="mt-4">
@@ -779,6 +786,7 @@ export default function CreditPage() {
           cellMap={bookSpreadMap}
           thresholds={[525, 625, 750]}
           unit=" bps"
+          csvFilename="credit-book-spread"
         />
         <div className="mt-4">
           <CreditHeatmap
@@ -789,6 +797,7 @@ export default function CreditPage() {
             cellMap={newSpreadMap}
             thresholds={[525, 625, 750]}
             unit=" bps"
+            csvFilename="credit-new-loan-spread"
           />
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
@@ -819,12 +828,21 @@ export default function CreditPage() {
           </span>
         </h2>
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs" style={{ color: "#8b8ba8" }}>
+          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
               Ranked by absolute markdown (cost − fair value) in the most recent quarter we have
               position-level data for. Useful for spotting where the largest dollar losses are
               accumulating right now. Mark is fair value as a percent of par.
             </p>
+            <CsvDownloadButton
+              filename={`credit-top-stressed-loans-${stressedLatestPeriod}`}
+              columns={["rank", "ticker", "period_end", "company", "investment_type", "industry", "cost_m", "fv_m", "markdown_m", "mark_at_par", "f_na", "f_below_95", "f_below_90", "f_below_80", "f_pik"]}
+              rows={topStressed.map((p, i) => [
+                i + 1, p.ticker, p.period_end, p.company, p.investment_type, p.industry,
+                p.cost_m, p.fv_m, p.markdown_m, p.mark_at_par,
+                p.f_na, p.f_below_95, p.f_below_90, p.f_below_80, p.f_pik,
+              ])}
+            />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -889,13 +907,21 @@ export default function CreditPage() {
           </span>
         </h2>
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs" style={{ color: "#8b8ba8" }}>
+          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
               Free-text industry tags from each SOI normalized to ~10 canonical sectors. Mark-based
               metrics use the same debt-shape filter as the main heatmaps (par ≈ cost). &quot;Unclassified&quot;
               is positions whose SOI didn&apos;t carry an industry tag; &quot;Other&quot; is industry tags that
               didn&apos;t match any canonical sector. See <Link href="/methodology" className="hover:text-white underline" style={{ color: "#a5b4fc" }}>methodology</Link> for the mapping.
             </p>
+            <CsvDownloadButton
+              filename={`credit-by-sector-${sectorCredit[0]?.period_end ?? "latest"}`}
+              columns={["sector", "period_end", "n_positions", "total_cost_b", "debt_cost_b", "pct_below_95", "pct_below_90", "pct_non_accrual", "pct_pik"]}
+              rows={sectorCredit.map((r) => [
+                r.sector, r.period_end, r.n_positions, r.total_cost_b, r.debt_cost_b,
+                r.pct_below_95, r.pct_below_90, r.pct_non_accrual, r.pct_pik,
+              ])}
+            />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -946,13 +972,22 @@ export default function CreditPage() {
           </span>
         </h2>
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs" style={{ color: "#8b8ba8" }}>
+          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
               Direct-lending borrowers ranked by total amortized cost summed across every BDC
               that holds them. The right-hand column shows what share of the entire universe&apos;s
               parsed cost the borrower represents. Obvious aggregator rows (JV vehicles, &quot;Senior
               Direct Lending Program&quot;, etc.) are excluded.
             </p>
+            <CsvDownloadButton
+              filename="credit-concentration-top-borrowers"
+              columns={["rank", "name", "industry", "n_holders", "total_cost_usd", "pct_of_industry"]}
+              rows={topByCost.map((b, i) => [
+                i + 1, b.name, b.industry || "",
+                b.n_holders, b.total_cost,
+                (100 * b.total_cost) / industryTotalCost,
+              ])}
+            />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -1003,12 +1038,23 @@ export default function CreditPage() {
           </span>
         </h2>
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs" style={{ color: "#8b8ba8" }}>
+          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
               When three or more BDCs hold the same borrower, their marks should agree (it&apos;s the
               same credit). Large dispersion means BDCs disagree on the credit quality — worth
               investigating. Marks are fair value / cost.
             </p>
+            <CsvDownloadButton
+              filename={`credit-mark-dispersion-${dispersionLatest}`}
+              columns={["name", "n_holders", "min_mark", "max_mark", "spread_pp", "total_cost_usd", "holder_detail"]}
+              rows={dispersionRows.map((r) => [
+                r.name, r.holders.length,
+                r.min_mark, r.max_mark, r.spread * 100,
+                r.total_cost,
+                r.holders.sort((a, b) => a.mark - b.mark)
+                  .map((h) => `${h.ticker}=${(h.mark * 100).toFixed(1)}c`).join("; "),
+              ])}
+            />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -1069,8 +1115,8 @@ export default function CreditPage() {
           </span>
         </h2>
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs" style={{ color: "#8b8ba8" }}>
+          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
               For every loan-tranche we observed switching from cash-pay to PIK, where was it
               4 quarters later? Tracked at the <b>loan_id</b> level so a borrower with multiple
               tranches gets attributed to each tranche&apos;s separate fate.{" "}
@@ -1080,6 +1126,15 @@ export default function CreditPage() {
               tracking). Cohorts with fewer than 10 flips omitted. Rows where the flip is too
               recent to have full T+4 follow-up are dimmed.
             </p>
+            <CsvDownloadButton
+              filename="credit-pik-cascade-by-year"
+              columns={["flip_year", "n_tranches", "pct_cured", "pct_pik_strong", "pct_pik_weak", "pct_pik_distress", "pct_exited", "follow_up_incomplete"]}
+              rows={cascadeRows.map((r) => [
+                r.year, r.flips, r.pct_cured, r.pct_pik_strong,
+                r.pct_pik_weak, r.pct_pik_distress, r.pct_exited,
+                r.incomplete ? 1 : 0,
+              ])}
+            />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">

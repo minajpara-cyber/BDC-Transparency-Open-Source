@@ -8,6 +8,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import LoanDetailsModal from "./LoanDetailsModal";
+import CsvDownloadButton from "./CsvDownloadButton";
 
 interface Cell {
   value: number | null;  // null = missing (no filing that quarter)
@@ -33,6 +34,8 @@ interface Props {
   // (ticker, period_end) filtered to this flag.
   flagKey?: FlagKey;
   metricLabel?: string;
+  // CSV download filename (slugified). Omit to hide the download button.
+  csvFilename?: string;
 }
 
 function cellColor(v: number | null, t: [number, number, number]): string {
@@ -77,26 +80,44 @@ export default function CreditHeatmap({
   unit = "%",
   flagKey,
   metricLabel,
+  csvFilename,
 }: Props) {
   const [modal, setModal] = useState<{ ticker: string; period_end: string } | null>(null);
   const clickable = !!flagKey;
+
+  // Flatten the cell map into a tall (ticker, period, value) CSV.
+  const csvRows = tickers.flatMap((ticker) =>
+    periods.map((p) => {
+      const v = cellMap.get(`${ticker}|${p}`)?.value ?? null;
+      return [ticker, p, v];
+    }),
+  );
 
   return (
     <div
       className="rounded-xl border overflow-hidden"
       style={{ background: "#111118", borderColor: "#1e1e2e" }}
     >
-      <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-        <h3 className="font-semibold text-white text-sm">{title}</h3>
-        {description && (
-          <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
-            {description}
-            {clickable && (
-              <span style={{ color: "#a5b4fc" }}>
-                {" "}Click any cell to see the underlying loans.
-              </span>
-            )}
-          </p>
+      <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
+        <div className="flex-1">
+          <h3 className="font-semibold text-white text-sm">{title}</h3>
+          {description && (
+            <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
+              {description}
+              {clickable && (
+                <span style={{ color: "#a5b4fc" }}>
+                  {" "}Click any cell to see the underlying loans.
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+        {csvFilename && (
+          <CsvDownloadButton
+            filename={csvFilename}
+            columns={["ticker", "period_end", `value${unit ? ` (${unit.trim()})` : ""}`]}
+            rows={csvRows}
+          />
         )}
       </div>
       <div className="overflow-x-auto">
