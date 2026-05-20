@@ -56,13 +56,17 @@ const COVERAGE_CAVEATS: Array<{
   // Keep mark-based metrics visible.
   { ticker: "MFIC", until: "2025-11-30", metrics: ["na", "pik"],
     reason: "MFIC SOI lacks per-position non-accrual / PIK footnotes" },
-  // OTF reformatted SOI column ordering starting Q3 2023. The OTF parser
-  // misreads the cash-spread column as the PIK-rate column for
-  // 2023-Q3 → 2024-Q4 (75% false-positive PIK rate); the 2023-Q1/Q2 and
-  // 2025 quarters lose PIK detection entirely. Mute the full 2023-2025 PIK
-  // series until the OTF parser is fixed upstream.
-  { ticker: "OTF",  from: "2023-01-01", until: "2025-12-31", metrics: ["pik"],
-    reason: "OTF parser column-mapping bug breaks PIK detection across 2023-Q1 → 2025-Q4 SOIs" },
+  // OTF parser column-mapping bug: the 51-col SOI layout (Q3 2023 → Q4 2024)
+  // put the cash spread in the pik_rate column → ~75% false-positive PIK.
+  // FIXED by scripts/74_fix_otf_pik_columns.py: moved cash spread back into
+  // cash_rate. Remaining issue: the 48-col layout (2023-Q1/Q2 and all of
+  // 2025) has the cash spread at cols 18-20 instead of 15-17, so the parser
+  // produces empty cash_rate and pik_rate fields → PIK appears as 0%
+  // through those quarters. Caveat the remaining unreliable periods only.
+  { ticker: "OTF", from: "2023-01-01", until: "2023-09-30", metrics: ["pik"],
+    reason: "OTF 48-col SOI loses PIK detection for 2023-Q1/Q2; Q3 mod-rate spikes as it transitions to the (now fixed) 51-col layout" },
+  { ticker: "OTF", from: "2025-01-01", until: "2026-03-31", metrics: ["pik"],
+    reason: "OTF 48-col SOI loses PIK detection for 2025; Q1 2026 mod-rate spikes as it transitions to a 39-col layout" },
 ];
 
 // Drop BDC-quarter rows with too few positions from industry aggregates and
