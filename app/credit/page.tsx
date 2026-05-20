@@ -54,10 +54,12 @@ const COVERAGE_CAVEATS: Array<{
   // OBDC pre-XBRL: mark + NA parse cleanly, but PIK footnotes don't decode.
   { ticker: "OBDC", until: "2022-03-31", metrics: ["pik"],
     reason: "Pre-XBRL OBDC parser doesn't decode PIK footnotes" },
-  // MFIC SOI doesn't carry per-position non-accrual / PIK footnotes ever.
-  // Keep mark-based metrics visible.
-  { ticker: "MFIC", until: "2025-11-30", metrics: ["na", "pik"],
-    reason: "MFIC SOI lacks per-position non-accrual / PIK footnotes" },
+  // MFIC SOI doesn't carry per-position non-accrual footnotes, but the 10-Q
+  // narrative discloses aggregate NA% at amortized cost — scraped back to
+  // 2015 by scripts/76_scrape_mfic_na_aggregates.py and overlaid in the
+  // credit_quality export. PIK works at the position level (3-7% across
+  // recent quarters, matching MFIC's middle-market profile). No caveat
+  // needed for MFIC.
   // (Historical) OTF parser column-mapping bug fixed in two passes via
   // scripts/74_fix_otf_pik_columns.py (51-col layout 2023-Q3 → 2024-Q4)
   // and scripts/75_fix_otf_48col_pik.py (48-col layout 2023-Q1/Q2 + 2025).
