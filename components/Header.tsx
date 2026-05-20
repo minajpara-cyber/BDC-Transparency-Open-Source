@@ -14,6 +14,7 @@ const navItems = [
   { href: "/non-accruals", label: "Non-Accruals" },
   { href: "/credit", label: "Credit" },
   { href: "/vintage", label: "Vintage" },
+  { href: "/methodology", label: "Methodology" },
   { href: "/about", label: "About" },
 ];
 
