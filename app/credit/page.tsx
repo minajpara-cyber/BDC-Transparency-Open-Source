@@ -26,7 +26,16 @@ import { sponsors } from "@/data/sponsors_index";
 // Caveat-flagged cells are muted/italic and excluded from industry charts.
 type MetricFamily = "mark" | "na" | "pik";
 const ALL_FAMILIES: MetricFamily[] = ["mark", "na", "pik"];
-const COVERAGE_CAVEATS: Array<{ ticker: string; until: string; metrics: MetricFamily[]; reason: string }> = [
+// `from` is optional. Without it, the caveat applies through `until` (no
+// lower bound). With it, the caveat covers a closed [from, until] window —
+// useful when a parser breaks for a specific era of filings.
+const COVERAGE_CAVEATS: Array<{
+  ticker: string;
+  from?: string;
+  until: string;
+  metrics: MetricFamily[];
+  reason: string;
+}> = [
   // CCAP pre-XBRL parsed financial-statement summary rows, not SOI positions —
   // every metric is unreliable.
   { ticker: "CCAP", until: "2022-02-28", metrics: ALL_FAMILIES,
@@ -47,6 +56,13 @@ const COVERAGE_CAVEATS: Array<{ ticker: string; until: string; metrics: MetricFa
   // Keep mark-based metrics visible.
   { ticker: "MFIC", until: "2025-11-30", metrics: ["na", "pik"],
     reason: "MFIC SOI lacks per-position non-accrual / PIK footnotes" },
+  // OTF reformatted SOI column ordering starting Q3 2023. The OTF parser
+  // misreads the cash-spread column as the PIK-rate column for
+  // 2023-Q3 → 2024-Q4 (75% false-positive PIK rate); the 2023-Q1/Q2 and
+  // 2025 quarters lose PIK detection entirely. Mute the full 2023-2025 PIK
+  // series until the OTF parser is fixed upstream.
+  { ticker: "OTF",  from: "2023-01-01", until: "2025-12-31", metrics: ["pik"],
+    reason: "OTF parser column-mapping bug breaks PIK detection across 2023-Q1 → 2025-Q4 SOIs" },
 ];
 
 // Drop BDC-quarter rows with too few positions from industry aggregates and
@@ -56,7 +72,9 @@ const MIN_POSITIONS_FOR_RELIABLE = 30;
 
 function isReliable(ticker: string, period_end: string, family: MetricFamily): boolean {
   for (const c of COVERAGE_CAVEATS) {
-    if (c.ticker !== ticker || period_end > c.until) continue;
+    if (c.ticker !== ticker) continue;
+    if (period_end > c.until) continue;
+    if (c.from !== undefined && period_end < c.from) continue;
     if (c.metrics.includes(family)) return false;
   }
   return true;
