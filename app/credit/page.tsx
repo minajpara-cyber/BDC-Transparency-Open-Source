@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import CreditHeatmap from "@/components/CreditHeatmap";
 import CsvDownloadButton from "@/components/CsvDownloadButton";
+import BDCComparePanel, { CompareRow } from "@/components/BDCComparePanel";
 import CreditLensChart, { IndustryPoint } from "@/components/CreditLensChart";
 import AssetCompositionChart from "@/components/AssetCompositionChart";
 import SeverityStackedBars from "@/components/SeverityStackedBars";
@@ -16,6 +17,7 @@ import { borrowerHistory } from "@/data/borrowers_history";
 import { pikCascade } from "@/data/pik_cascade";
 import { sectorCredit } from "@/data/sector_credit";
 import { macroContext } from "@/data/macro_context";
+import { sponsors } from "@/data/sponsors_index";
 
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
 // commonly capture mark-based fields (par / cost / fv) cleanly even when
@@ -350,6 +352,32 @@ export default function CreditPage() {
     .filter((r) => isQuarterEnd(r.period_end))
     .map((r) => ({ period_end: r.period_end, value: r.ffr_pct }));
 
+  // ---------- Sponsor credit quality (C.7 follow-up) ----------
+  // Top 20 PE sponsors by aggregate fair value, with their position-weighted
+  // credit metrics. Exclude tiny sponsors (< 30 positions) — too thin a
+  // sample to draw conclusions.
+  const topSponsors = sponsors
+    .filter((s) => s.n_positions >= 30)
+    .sort((a, b) => b.total_fv - a.total_fv)
+    .slice(0, 20);
+
+  // Pre-computed rows for the BDC comparison panel (client component). We
+  // do the reliability resolution here so the child component can stay
+  // serialization-friendly.
+  const compareRows: CompareRow[] = creditQuality
+    .filter((r) => r.ticker !== "industry" && isQuarterEnd(r.period_end))
+    .map((r) => ({
+      ticker: r.ticker,
+      period_end: r.period_end,
+      pct_non_accrual: r.pct_non_accrual,
+      pct_below_95: r.pct_below_95,
+      pct_below_90: r.pct_below_90,
+      pct_pik_total: r.pct_pik_total,
+      rel_na:  isReliable(r.ticker, r.period_end, "na")  && r.n_positions >= MIN_POSITIONS_FOR_RELIABLE,
+      rel_mark: isReliable(r.ticker, r.period_end, "mark") && r.n_positions >= MIN_POSITIONS_FOR_RELIABLE,
+      rel_pik: isReliable(r.ticker, r.period_end, "pik") && r.n_positions >= MIN_POSITIONS_FOR_RELIABLE,
+    }));
+
   // Modifications-by-severity: industry-aggregated COST-weighted % per quarter.
   // Numerator = sum(new_*_cost) across BDCs; denominator = sum(total_cost) across BDCs.
   const sevByPeriod = new Map<string, {
@@ -518,6 +546,8 @@ export default function CreditPage() {
           ["#spread", "Spread"],
           ["#stressed-loans", "Stressed loans"],
           ["#sectors", "By sector"],
+          ["#sponsors", "By sponsor"],
+          ["#compare", "Compare BDCs"],
           ["#concentration", "Concentration"],
           ["#dispersion", "Mark dispersion"],
           ["#pik-cascade", "PIK cascade"],
@@ -999,6 +1029,96 @@ export default function CreditPage() {
             </table>
           </div>
         </div>
+      </section>
+
+      {/* Section 7b2 — By sponsor */}
+      <section id="sponsors" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Credit metrics by PE sponsor <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · top 20 by aggregate fair value · position-count weighted
+          </span>
+        </h2>
+        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
+              For each PE sponsor in our mapping, every borrower we&apos;ve attributed to that
+              sponsor — across all 19 BDCs — rolled up into a single credit snapshot. Sponsors
+              with fewer than 30 positions across the universe are excluded as too thin a sample.
+              Mark-based percentages are position-count weighted (not dollar-weighted) so a
+              single mega-deal doesn&apos;t dominate. Sponsor → company mapping comes from
+              bdctransparency.io.
+            </p>
+            <CsvDownloadButton
+              filename="credit-by-sponsor"
+              columns={["sponsor", "n_companies", "n_positions", "total_fv_usd", "pct_below_95", "pct_below_90", "pct_non_accrual", "pct_pik_now", "pct_modified"]}
+              rows={topSponsors.map((s) => [
+                s.sponsor, s.n_companies, s.n_positions, s.total_fv,
+                s.pct_below_95, s.pct_below_90, s.pct_non_accrual, s.pct_pik_now, s.pct_modified,
+              ])}
+            />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                <tr>
+                  {[
+                    "Sponsor", "# companies", "# positions", "Aggregate FV ($M)",
+                    "% non-accrual", "% below 95¢", "% below 90¢",
+                    "% currently PIK", "% modified cash→PIK",
+                  ].map((h) => (
+                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {topSponsors.map((s, i) => (
+                  <tr key={s.sponsor_slug} style={{
+                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                    borderBottom: "1px solid #1a1a28",
+                  }}>
+                    <td className="px-3 py-2 font-semibold" style={{ color: "#d1d5db" }}>
+                      <Link href={`/sponsors/${s.sponsor_slug}`} className="hover:text-white" style={{ color: "#a5b4fc" }}>
+                        {s.sponsor}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 font-mono" style={{ color: "#9ca3af" }}>{s.n_companies}</td>
+                    <td className="px-3 py-2 font-mono" style={{ color: "#9ca3af" }}>{s.n_positions}</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fafafa" }}>
+                      {(s.total_fv / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </td>
+                    <td className="px-3 py-2 font-mono text-right" style={{
+                      color: s.pct_non_accrual >= 3 ? "#fca5a5" : s.pct_non_accrual >= 1 ? "#fde68a" : "#9ca3af",
+                    }}>{s.pct_non_accrual.toFixed(2)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{
+                      color: s.pct_below_95 >= 25 ? "#fca5a5" : s.pct_below_95 >= 15 ? "#fdba74" : s.pct_below_95 >= 8 ? "#fde68a" : "#9ca3af",
+                    }}>{s.pct_below_95.toFixed(2)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{
+                      color: s.pct_below_90 >= 15 ? "#fca5a5" : s.pct_below_90 >= 8 ? "#fdba74" : "#9ca3af",
+                    }}>{s.pct_below_90.toFixed(2)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{
+                      color: s.pct_pik_now >= 25 ? "#d8b4fe" : s.pct_pik_now >= 12 ? "#c4b5fd" : "#9ca3af",
+                    }}>{s.pct_pik_now.toFixed(2)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{
+                      color: s.pct_modified >= 10 ? "#a855f7" : s.pct_modified >= 5 ? "#c084fc" : "#9ca3af",
+                    }}>{s.pct_modified.toFixed(2)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 7c — Compare BDCs */}
+      <section id="compare" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Compare BDCs <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · overlay multiple BDCs on the same metric
+          </span>
+        </h2>
+        <BDCComparePanel rows={compareRows} tickers={tickers} />
       </section>
 
       {/* Section 8 — Concentration */}
