@@ -13,6 +13,7 @@ import { stressedPositions } from "@/data/stressed_positions";
 import { borrowers } from "@/data/borrowers_index";
 import { borrowerHistory } from "@/data/borrowers_history";
 import { pikCascade } from "@/data/pik_cascade";
+import { sectorCredit } from "@/data/sector_credit";
 
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
 // commonly capture mark-based fields (par / cost / fv) cleanly even when
@@ -505,6 +506,7 @@ export default function CreditPage() {
           ["#composition", "Asset mix"],
           ["#spread", "Spread"],
           ["#stressed-loans", "Stressed loans"],
+          ["#sectors", "By sector"],
           ["#concentration", "Concentration"],
           ["#dispersion", "Mark dispersion"],
           ["#pik-cascade", "PIK cascade"],
@@ -871,6 +873,63 @@ export default function CreditPage() {
                         {p.f_pik === 1 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(168,85,247,0.15)", color: "#d8b4fe" }}>PIK</span>}
                       </span>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      {/* Section 7b — By sector */}
+      <section id="sectors" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Credit metrics by sector <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · {sectorCredit[0]?.period_end ?? ""} · industry-wide
+          </span>
+        </h2>
+        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+            <p className="text-xs" style={{ color: "#8b8ba8" }}>
+              Free-text industry tags from each SOI normalized to ~10 canonical sectors. Mark-based
+              metrics use the same debt-shape filter as the main heatmaps (par ≈ cost). &quot;Unclassified&quot;
+              is positions whose SOI didn&apos;t carry an industry tag; &quot;Other&quot; is industry tags that
+              didn&apos;t match any canonical sector. See <Link href="/methodology" className="hover:text-white underline" style={{ color: "#a5b4fc" }}>methodology</Link> for the mapping.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                <tr>
+                  {["Sector", "# positions", "Cost ($B)", "% non-accrual", "% below 95¢", "% below 90¢", "% PIK"].map((h) => (
+                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sectorCredit.map((r, i) => (
+                  <tr key={r.sector} style={{
+                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                    borderBottom: "1px solid #1a1a28",
+                    opacity: r.sector === "Other" || r.sector === "Unclassified" ? 0.7 : 1,
+                  }}>
+                    <td className="px-3 py-2 font-semibold" style={{ color: "#d1d5db" }}>{r.sector}</td>
+                    <td className="px-3 py-2 font-mono" style={{ color: "#9ca3af" }}>{r.n_positions.toLocaleString()}</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fafafa" }}>{r.total_cost_b.toFixed(1)}</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{
+                      color: r.pct_non_accrual >= 3 ? "#fca5a5" : r.pct_non_accrual >= 1 ? "#fde68a" : "#9ca3af",
+                    }}>{r.pct_non_accrual.toFixed(2)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{
+                      color: r.pct_below_95 >= 20 ? "#fca5a5" : r.pct_below_95 >= 10 ? "#fdba74" : r.pct_below_95 >= 5 ? "#fde68a" : "#9ca3af",
+                    }}>{r.pct_below_95.toFixed(2)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{
+                      color: r.pct_below_90 >= 10 ? "#fca5a5" : r.pct_below_90 >= 5 ? "#fdba74" : "#9ca3af",
+                    }}>{r.pct_below_90.toFixed(2)}%</td>
+                    <td className="px-3 py-2 font-mono text-right" style={{
+                      color: r.pct_pik >= 20 ? "#d8b4fe" : r.pct_pik >= 10 ? "#c4b5fd" : "#9ca3af",
+                    }}>{r.pct_pik.toFixed(2)}%</td>
                   </tr>
                 ))}
               </tbody>
