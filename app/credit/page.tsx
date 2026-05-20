@@ -1,8 +1,10 @@
+"use client";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import CreditHeatmap from "@/components/CreditHeatmap";
 import CsvDownloadButton from "@/components/CsvDownloadButton";
 import BDCComparePanel, { CompareRow } from "@/components/BDCComparePanel";
+import SortableTable, { Column } from "@/components/SortableTable";
 import CreditLensChart, { IndustryPoint } from "@/components/CreditLensChart";
 import AssetCompositionChart from "@/components/AssetCompositionChart";
 import SeverityStackedBars from "@/components/SeverityStackedBars";
@@ -909,76 +911,66 @@ export default function CreditPage() {
             · {stressedLatestPeriod} · biggest absolute write-downs across the industry
           </span>
         </h2>
-        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
-              Ranked by absolute markdown (cost − fair value) in the most recent quarter we have
-              position-level data for. Useful for spotting where the largest dollar losses are
-              accumulating right now. Mark is fair value as a percent of par.
-            </p>
-            <CsvDownloadButton
-              filename={`credit-top-stressed-loans-${stressedLatestPeriod}`}
-              columns={["rank", "ticker", "period_end", "company", "investment_type", "industry", "cost_m", "fv_m", "markdown_m", "mark_at_par", "f_na", "f_below_95", "f_below_90", "f_below_80", "f_pik"]}
-              rows={topStressed.map((p, i) => [
-                i + 1, p.ticker, p.period_end, p.company, p.investment_type, p.industry,
-                p.cost_m, p.fv_m, p.markdown_m, p.mark_at_par,
-                p.f_na, p.f_below_95, p.f_below_90, p.f_below_80, p.f_pik,
-              ])}
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-                <tr>
-                  {["Rank", "BDC", "Borrower", "Type", "Cost ($M)", "FV ($M)", "Markdown ($M)", "Mark", "Flags"].map((h) => (
-                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {topStressed.map((p, i) => (
-                  <tr key={`${p.ticker}-${p.company}-${i}`} style={{
-                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
-                    borderBottom: "1px solid #1a1a28",
-                  }}>
-                    <td className="px-3 py-2 font-mono" style={{ color: "#6b6b88" }}>{i + 1}</td>
-                    <td className="px-3 py-2 font-mono">
-                      <Link href={`/bdcs/${p.ticker.toLowerCase()}`} className="hover:text-white" style={{ color: "#a5b4fc" }}>
-                        {p.ticker}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2" style={{ color: "#d1d5db", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {p.company}
-                    </td>
-                    <td className="px-3 py-2" style={{ color: "#9ca3af" }}>{p.investment_type ?? "—"}</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fafafa" }}>{p.cost_m.toFixed(1)}</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fafafa" }}>{p.fv_m.toFixed(1)}</td>
-                    <td className="px-3 py-2 font-mono text-right font-semibold" style={{ color: "#fca5a5" }}>
-                      {p.markdown_m.toFixed(1)}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-right" style={{
-                      color: p.mark_at_par === null ? "#6b6b88" :
-                        p.mark_at_par < 0.8 ? "#fca5a5" :
-                        p.mark_at_par < 0.9 ? "#fdba74" : "#fde68a",
-                    }}>
-                      {p.mark_at_par === null ? "—" : `${(p.mark_at_par * 100).toFixed(0)}¢`}
-                    </td>
-                    <td className="px-3 py-2 text-[10px]">
-                      <span className="flex gap-1 flex-wrap">
-                        {p.f_na === 1 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(239,68,68,0.15)", color: "#fca5a5" }}>NA</span>}
-                        {p.f_below_80 === 1 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(220,38,38,0.15)", color: "#fca5a5" }}>&lt;80¢</span>}
-                        {p.f_below_90 === 1 && p.f_below_80 === 0 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(249,115,22,0.15)", color: "#fdba74" }}>&lt;90¢</span>}
-                        {p.f_pik === 1 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(168,85,247,0.15)", color: "#d8b4fe" }}>PIK</span>}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <SortableTable
+          data={topStressed}
+          rowKey={(r) => `${r.ticker}-${r.company}-${r.investment_type ?? ""}-${r.maturity_date ?? ""}`}
+          dense
+          initialSort={{ key: "markdown_m", dir: "desc" }}
+          headerSlot={
+            <div className="px-5 py-4 flex items-start justify-between gap-3">
+              <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
+                Ranked by absolute markdown (cost − fair value) in the most recent quarter we have
+                position-level data for. Click any column header to sort.
+              </p>
+              <CsvDownloadButton
+                filename={`credit-top-stressed-loans-${stressedLatestPeriod}`}
+                columns={["ticker", "period_end", "company", "investment_type", "industry", "cost_m", "fv_m", "markdown_m", "mark_at_par", "f_na", "f_below_95", "f_below_90", "f_below_80", "f_pik"]}
+                rows={topStressed.map((p) => [
+                  p.ticker, p.period_end, p.company, p.investment_type, p.industry,
+                  p.cost_m, p.fv_m, p.markdown_m, p.mark_at_par,
+                  p.f_na, p.f_below_95, p.f_below_90, p.f_below_80, p.f_pik,
+                ])}
+              />
+            </div>
+          }
+          columns={[
+            { key: "ticker", label: "BDC", render: (r) => (
+              <Link href={`/bdcs/${r.ticker.toLowerCase()}`} className="font-mono hover:text-white" style={{ color: "#a5b4fc" }}>{r.ticker}</Link>
+            ) },
+            { key: "company", label: "Borrower", render: (r) => (
+              <span style={{ display: "inline-block", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.company}</span>
+            ) },
+            { key: "investment_type", label: "Type", render: (r) => (
+              <span style={{ color: "#9ca3af" }}>{r.investment_type ?? "—"}</span>
+            ) },
+            { key: "cost_m", label: "Cost ($M)", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#fafafa" }}>{r.cost_m.toFixed(1)}</span>
+            ) },
+            { key: "fv_m", label: "FV ($M)", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#fafafa" }}>{r.fv_m.toFixed(1)}</span>
+            ) },
+            { key: "markdown_m", label: "Markdown ($M)", align: "right", render: (r) => (
+              <span className="font-mono font-semibold" style={{ color: "#fca5a5" }}>{r.markdown_m.toFixed(1)}</span>
+            ) },
+            { key: "mark_at_par", label: "Mark", align: "right", render: (r) => (
+              <span className="font-mono" style={{
+                color: r.mark_at_par === null ? "#6b6b88" :
+                  r.mark_at_par < 0.8 ? "#fca5a5" :
+                  r.mark_at_par < 0.9 ? "#fdba74" : "#fde68a",
+              }}>
+                {r.mark_at_par === null ? "—" : `${(r.mark_at_par * 100).toFixed(0)}¢`}
+              </span>
+            ) },
+            { key: "flags", label: "Flags", sortable: false, render: (r) => (
+              <span className="flex gap-1 flex-wrap text-[10px]">
+                {r.f_na === 1 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(239,68,68,0.15)", color: "#fca5a5" }}>NA</span>}
+                {r.f_below_80 === 1 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(220,38,38,0.15)", color: "#fca5a5" }}>&lt;80¢</span>}
+                {r.f_below_90 === 1 && r.f_below_80 === 0 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(249,115,22,0.15)", color: "#fdba74" }}>&lt;90¢</span>}
+                {r.f_pik === 1 && <span className="px-1.5 py-0.5 rounded" style={{ background: "rgba(168,85,247,0.15)", color: "#d8b4fe" }}>PIK</span>}
+              </span>
+            ) },
+          ] as Column<typeof topStressed[number]>[]}
+        />
       </section>
 
       {/* Section 7b — By sector */}
@@ -988,62 +980,65 @@ export default function CreditPage() {
             · {sectorCredit[0]?.period_end ?? ""} · industry-wide
           </span>
         </h2>
-        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
-              Free-text industry tags from each SOI normalized to ~10 canonical sectors. Mark-based
-              metrics use the same debt-shape filter as the main heatmaps (par ≈ cost). &quot;Unclassified&quot;
-              is positions whose SOI didn&apos;t carry an industry tag; &quot;Other&quot; is industry tags that
-              didn&apos;t match any canonical sector. See <Link href="/methodology" className="hover:text-white underline" style={{ color: "#a5b4fc" }}>methodology</Link> for the mapping.
-            </p>
-            <CsvDownloadButton
-              filename={`credit-by-sector-${sectorCredit[0]?.period_end ?? "latest"}`}
-              columns={["sector", "period_end", "n_positions", "total_cost_b", "debt_cost_b", "pct_below_95", "pct_below_90", "pct_non_accrual", "pct_pik"]}
-              rows={sectorCredit.map((r) => [
-                r.sector, r.period_end, r.n_positions, r.total_cost_b, r.debt_cost_b,
-                r.pct_below_95, r.pct_below_90, r.pct_non_accrual, r.pct_pik,
-              ])}
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-                <tr>
-                  {["Sector", "# positions", "Cost ($B)", "% non-accrual", "% below 95¢", "% below 90¢", "% PIK"].map((h) => (
-                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sectorCredit.map((r, i) => (
-                  <tr key={r.sector} style={{
-                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
-                    borderBottom: "1px solid #1a1a28",
-                    opacity: r.sector === "Other" || r.sector === "Unclassified" ? 0.7 : 1,
-                  }}>
-                    <td className="px-3 py-2 font-semibold" style={{ color: "#d1d5db" }}>{r.sector}</td>
-                    <td className="px-3 py-2 font-mono" style={{ color: "#9ca3af" }}>{r.n_positions.toLocaleString()}</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fafafa" }}>{r.total_cost_b.toFixed(1)}</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{
-                      color: r.pct_non_accrual >= 3 ? "#fca5a5" : r.pct_non_accrual >= 1 ? "#fde68a" : "#9ca3af",
-                    }}>{r.pct_non_accrual.toFixed(2)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{
-                      color: r.pct_below_95 >= 20 ? "#fca5a5" : r.pct_below_95 >= 10 ? "#fdba74" : r.pct_below_95 >= 5 ? "#fde68a" : "#9ca3af",
-                    }}>{r.pct_below_95.toFixed(2)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{
-                      color: r.pct_below_90 >= 10 ? "#fca5a5" : r.pct_below_90 >= 5 ? "#fdba74" : "#9ca3af",
-                    }}>{r.pct_below_90.toFixed(2)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{
-                      color: r.pct_pik >= 20 ? "#d8b4fe" : r.pct_pik >= 10 ? "#c4b5fd" : "#9ca3af",
-                    }}>{r.pct_pik.toFixed(2)}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <SortableTable
+          data={sectorCredit}
+          rowKey={(r) => r.sector}
+          dense
+          initialSort={{ key: "total_cost_b", dir: "desc" }}
+          headerSlot={
+            <div className="px-5 py-4 flex items-start justify-between gap-3">
+              <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
+                Free-text industry tags from each SOI normalized to ~10 canonical sectors.
+                Mark-based metrics use the same debt-shape filter as the main heatmaps
+                (par ≈ cost). &quot;Unclassified&quot; is positions whose SOI didn&apos;t carry
+                an industry tag; &quot;Other&quot; is industry tags that didn&apos;t match any
+                canonical sector. See <Link href="/methodology" className="hover:text-white underline" style={{ color: "#a5b4fc" }}>methodology</Link> for the mapping.
+              </p>
+              <CsvDownloadButton
+                filename={`credit-by-sector-${sectorCredit[0]?.period_end ?? "latest"}`}
+                columns={["sector", "period_end", "n_positions", "total_cost_b", "debt_cost_b", "pct_below_95", "pct_below_90", "pct_non_accrual", "pct_pik"]}
+                rows={sectorCredit.map((r) => [
+                  r.sector, r.period_end, r.n_positions, r.total_cost_b, r.debt_cost_b,
+                  r.pct_below_95, r.pct_below_90, r.pct_non_accrual, r.pct_pik,
+                ])}
+              />
+            </div>
+          }
+          columns={[
+            { key: "sector", label: "Sector", render: (r) => (
+              <span className="font-semibold" style={{
+                color: "#d1d5db",
+                opacity: r.sector === "Other" || r.sector === "Unclassified" ? 0.7 : 1,
+              }}>{r.sector}</span>
+            ) },
+            { key: "n_positions", label: "# positions", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#9ca3af" }}>{r.n_positions.toLocaleString()}</span>
+            ) },
+            { key: "total_cost_b", label: "Cost ($B)", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#fafafa" }}>{r.total_cost_b.toFixed(1)}</span>
+            ) },
+            { key: "pct_non_accrual", label: "% non-accrual", align: "right", render: (r) => (
+              <span className="font-mono" style={{
+                color: r.pct_non_accrual >= 3 ? "#fca5a5" : r.pct_non_accrual >= 1 ? "#fde68a" : "#9ca3af",
+              }}>{r.pct_non_accrual.toFixed(2)}%</span>
+            ) },
+            { key: "pct_below_95", label: "% below 95¢", align: "right", render: (r) => (
+              <span className="font-mono" style={{
+                color: r.pct_below_95 >= 20 ? "#fca5a5" : r.pct_below_95 >= 10 ? "#fdba74" : r.pct_below_95 >= 5 ? "#fde68a" : "#9ca3af",
+              }}>{r.pct_below_95.toFixed(2)}%</span>
+            ) },
+            { key: "pct_below_90", label: "% below 90¢", align: "right", render: (r) => (
+              <span className="font-mono" style={{
+                color: r.pct_below_90 >= 10 ? "#fca5a5" : r.pct_below_90 >= 5 ? "#fdba74" : "#9ca3af",
+              }}>{r.pct_below_90.toFixed(2)}%</span>
+            ) },
+            { key: "pct_pik", label: "% PIK", align: "right", render: (r) => (
+              <span className="font-mono" style={{
+                color: r.pct_pik >= 20 ? "#d8b4fe" : r.pct_pik >= 10 ? "#c4b5fd" : "#9ca3af",
+              }}>{r.pct_pik.toFixed(2)}%</span>
+            ) },
+          ] as Column<typeof sectorCredit[number]>[]}
+        />
       </section>
 
       {/* Section 7b2 — By sponsor */}
@@ -1053,77 +1048,75 @@ export default function CreditPage() {
             · top 20 by aggregate fair value · position-count weighted
           </span>
         </h2>
-        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
-              For each PE sponsor in our mapping, every borrower we&apos;ve attributed to that
-              sponsor — across all 19 BDCs — rolled up into a single credit snapshot. Sponsors
-              with fewer than 30 positions across the universe are excluded as too thin a sample.
-              Mark-based percentages are position-count weighted (not dollar-weighted) so a
-              single mega-deal doesn&apos;t dominate. Sponsor → company mapping comes from
-              bdctransparency.io.
-            </p>
-            <CsvDownloadButton
-              filename="credit-by-sponsor"
-              columns={["sponsor", "n_companies", "n_positions", "total_fv_usd", "pct_below_95", "pct_below_90", "pct_non_accrual", "pct_pik_now", "pct_modified"]}
-              rows={topSponsors.map((s) => [
-                s.sponsor, s.n_companies, s.n_positions, s.total_fv,
-                s.pct_below_95, s.pct_below_90, s.pct_non_accrual, s.pct_pik_now, s.pct_modified,
-              ])}
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-                <tr>
-                  {[
-                    "Sponsor", "# companies", "# positions", "Aggregate FV ($M)",
-                    "% non-accrual", "% below 95¢", "% below 90¢",
-                    "% currently PIK", "% modified cash→PIK",
-                  ].map((h) => (
-                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {topSponsors.map((s, i) => (
-                  <tr key={s.sponsor_slug} style={{
-                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
-                    borderBottom: "1px solid #1a1a28",
-                  }}>
-                    <td className="px-3 py-2 font-semibold" style={{ color: "#d1d5db" }}>
-                      <Link href={`/sponsors/${s.sponsor_slug}`} className="hover:text-white" style={{ color: "#a5b4fc" }}>
-                        {s.sponsor}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 font-mono" style={{ color: "#9ca3af" }}>{s.n_companies}</td>
-                    <td className="px-3 py-2 font-mono" style={{ color: "#9ca3af" }}>{s.n_positions}</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fafafa" }}>
-                      {(s.total_fv / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-right" style={{
-                      color: s.pct_non_accrual >= 3 ? "#fca5a5" : s.pct_non_accrual >= 1 ? "#fde68a" : "#9ca3af",
-                    }}>{s.pct_non_accrual.toFixed(2)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{
-                      color: s.pct_below_95 >= 25 ? "#fca5a5" : s.pct_below_95 >= 15 ? "#fdba74" : s.pct_below_95 >= 8 ? "#fde68a" : "#9ca3af",
-                    }}>{s.pct_below_95.toFixed(2)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{
-                      color: s.pct_below_90 >= 15 ? "#fca5a5" : s.pct_below_90 >= 8 ? "#fdba74" : "#9ca3af",
-                    }}>{s.pct_below_90.toFixed(2)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{
-                      color: s.pct_pik_now >= 25 ? "#d8b4fe" : s.pct_pik_now >= 12 ? "#c4b5fd" : "#9ca3af",
-                    }}>{s.pct_pik_now.toFixed(2)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{
-                      color: s.pct_modified >= 10 ? "#a855f7" : s.pct_modified >= 5 ? "#c084fc" : "#9ca3af",
-                    }}>{s.pct_modified.toFixed(2)}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <SortableTable
+          data={topSponsors}
+          rowKey={(s) => s.sponsor_slug}
+          dense
+          initialSort={{ key: "total_fv", dir: "desc" }}
+          headerSlot={
+            <div className="px-5 py-4 flex items-start justify-between gap-3">
+              <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
+                For each PE sponsor in our mapping, every borrower we&apos;ve attributed to that
+                sponsor — across all 19 BDCs — rolled up into a single credit snapshot. Sponsors
+                with fewer than 30 positions across the universe are excluded as too thin a sample.
+                Mark-based percentages are position-count weighted (not dollar-weighted) so a
+                single mega-deal doesn&apos;t dominate. Sponsor → company mapping comes from
+                bdctransparency.io.
+              </p>
+              <CsvDownloadButton
+                filename="credit-by-sponsor"
+                columns={["sponsor", "n_companies", "n_positions", "total_fv_usd", "pct_below_95", "pct_below_90", "pct_non_accrual", "pct_pik_now", "pct_modified"]}
+                rows={topSponsors.map((s) => [
+                  s.sponsor, s.n_companies, s.n_positions, s.total_fv,
+                  s.pct_below_95, s.pct_below_90, s.pct_non_accrual, s.pct_pik_now, s.pct_modified,
+                ])}
+              />
+            </div>
+          }
+          columns={[
+            { key: "sponsor", label: "Sponsor", render: (s) => (
+              <Link href={`/sponsors/${s.sponsor_slug}`} className="font-semibold hover:text-white" style={{ color: "#a5b4fc" }}>
+                {s.sponsor}
+              </Link>
+            ) },
+            { key: "n_companies", label: "# companies", align: "right", render: (s) => (
+              <span className="font-mono" style={{ color: "#9ca3af" }}>{s.n_companies}</span>
+            ) },
+            { key: "n_positions", label: "# positions", align: "right", render: (s) => (
+              <span className="font-mono" style={{ color: "#9ca3af" }}>{s.n_positions}</span>
+            ) },
+            { key: "total_fv", label: "Aggregate FV ($M)", align: "right", render: (s) => (
+              <span className="font-mono" style={{ color: "#fafafa" }}>
+                {(s.total_fv / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            ) },
+            { key: "pct_non_accrual", label: "% non-accrual", align: "right", render: (s) => (
+              <span className="font-mono" style={{
+                color: s.pct_non_accrual >= 3 ? "#fca5a5" : s.pct_non_accrual >= 1 ? "#fde68a" : "#9ca3af",
+              }}>{s.pct_non_accrual.toFixed(2)}%</span>
+            ) },
+            { key: "pct_below_95", label: "% below 95¢", align: "right", render: (s) => (
+              <span className="font-mono" style={{
+                color: s.pct_below_95 >= 25 ? "#fca5a5" : s.pct_below_95 >= 15 ? "#fdba74" : s.pct_below_95 >= 8 ? "#fde68a" : "#9ca3af",
+              }}>{s.pct_below_95.toFixed(2)}%</span>
+            ) },
+            { key: "pct_below_90", label: "% below 90¢", align: "right", render: (s) => (
+              <span className="font-mono" style={{
+                color: s.pct_below_90 >= 15 ? "#fca5a5" : s.pct_below_90 >= 8 ? "#fdba74" : "#9ca3af",
+              }}>{s.pct_below_90.toFixed(2)}%</span>
+            ) },
+            { key: "pct_pik_now", label: "% currently PIK", align: "right", render: (s) => (
+              <span className="font-mono" style={{
+                color: s.pct_pik_now >= 25 ? "#d8b4fe" : s.pct_pik_now >= 12 ? "#c4b5fd" : "#9ca3af",
+              }}>{s.pct_pik_now.toFixed(2)}%</span>
+            ) },
+            { key: "pct_modified", label: "% modified cash→PIK", align: "right", render: (s) => (
+              <span className="font-mono" style={{
+                color: s.pct_modified >= 10 ? "#a855f7" : s.pct_modified >= 5 ? "#c084fc" : "#9ca3af",
+              }}>{s.pct_modified.toFixed(2)}%</span>
+            ) },
+          ] as Column<typeof topSponsors[number]>[]}
+        />
       </section>
 
       {/* Section 7c — Compare BDCs */}
@@ -1143,63 +1136,55 @@ export default function CreditPage() {
             · top borrowers by aggregate cost across all covered BDCs
           </span>
         </h2>
-        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
-              Direct-lending borrowers ranked by total amortized cost summed across every BDC
-              that holds them. The right-hand column shows what share of the entire universe&apos;s
-              parsed cost the borrower represents. Obvious aggregator rows (JV vehicles, &quot;Senior
-              Direct Lending Program&quot;, etc.) are excluded.
-            </p>
-            <CsvDownloadButton
-              filename="credit-concentration-top-borrowers"
-              columns={["rank", "name", "industry", "n_holders", "total_cost_usd", "pct_of_industry"]}
-              rows={topByCost.map((b, i) => [
-                i + 1, b.name, b.industry || "",
-                b.n_holders, b.total_cost,
-                (100 * b.total_cost) / industryTotalCost,
-              ])}
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-                <tr>
-                  {["Rank", "Borrower", "Industry", "BDC holders", "Aggregate cost ($M)", "% of industry"].map((h) => (
-                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {topByCost.map((b, i) => (
-                  <tr key={b.slug} style={{
-                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
-                    borderBottom: "1px solid #1a1a28",
-                  }}>
-                    <td className="px-3 py-2 font-mono" style={{ color: "#6b6b88" }}>{i + 1}</td>
-                    <td className="px-3 py-2">
-                      <Link href={`/borrowers/${b.slug}`} className="hover:text-white" style={{ color: "#a5b4fc" }}>
-                        {b.name}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2" style={{ color: "#9ca3af" }}>{b.industry || "—"}</td>
-                    <td className="px-3 py-2 font-mono" style={{ color: b.n_holders >= 5 ? "#fdba74" : "#d1d5db" }}>
-                      {b.n_holders}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fafafa" }}>
-                      {(b.total_cost / 1e6).toFixed(0)}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#9ca3af" }}>
-                      {((100 * b.total_cost) / industryTotalCost).toFixed(2)}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <SortableTable
+          data={topByCost.map((b) => ({
+            ...b,
+            pct_of_industry: (100 * b.total_cost) / industryTotalCost,
+          }))}
+          rowKey={(b) => b.slug}
+          dense
+          initialSort={{ key: "total_cost", dir: "desc" }}
+          headerSlot={
+            <div className="px-5 py-4 flex items-start justify-between gap-3">
+              <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
+                Direct-lending borrowers ranked by total amortized cost summed across every BDC
+                that holds them. The right-hand column shows what share of the entire
+                universe&apos;s parsed cost the borrower represents. Obvious aggregator rows (JV
+                vehicles, &quot;Senior Direct Lending Program&quot;, etc.) are excluded.
+              </p>
+              <CsvDownloadButton
+                filename="credit-concentration-top-borrowers"
+                columns={["name", "industry", "n_holders", "total_cost_usd", "pct_of_industry"]}
+                rows={topByCost.map((b) => [
+                  b.name, b.industry || "",
+                  b.n_holders, b.total_cost,
+                  (100 * b.total_cost) / industryTotalCost,
+                ])}
+              />
+            </div>
+          }
+          columns={[
+            { key: "name", label: "Borrower", render: (b) => (
+              <Link href={`/borrowers/${b.slug}`} className="hover:text-white" style={{ color: "#a5b4fc" }}>
+                {b.name}
+              </Link>
+            ) },
+            { key: "industry", label: "Industry", render: (b) => (
+              <span style={{ color: "#9ca3af" }}>{b.industry || "—"}</span>
+            ) },
+            { key: "n_holders", label: "BDC holders", align: "right", render: (b) => (
+              <span className="font-mono" style={{ color: b.n_holders >= 5 ? "#fdba74" : "#d1d5db" }}>
+                {b.n_holders}
+              </span>
+            ) },
+            { key: "total_cost", label: "Aggregate cost ($M)", align: "right", render: (b) => (
+              <span className="font-mono" style={{ color: "#fafafa" }}>{(b.total_cost / 1e6).toFixed(0)}</span>
+            ) },
+            { key: "pct_of_industry", label: "% of industry", align: "right", render: (b) => (
+              <span className="font-mono" style={{ color: "#9ca3af" }}>{b.pct_of_industry.toFixed(2)}%</span>
+            ) },
+          ] as Column<typeof topByCost[number] & { pct_of_industry: number }>[]}
+        />
       </section>
 
       {/* Section 9 — Cross-BDC mark dispersion */}
@@ -1209,74 +1194,67 @@ export default function CreditPage() {
             · {dispersionLatest} · same loan, different BDCs, different marks
           </span>
         </h2>
-        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
-              When three or more BDCs hold the same borrower, their marks should agree (it&apos;s the
-              same credit). Large dispersion means BDCs disagree on the credit quality — worth
-              investigating. Marks are fair value / cost.
-            </p>
-            <CsvDownloadButton
-              filename={`credit-mark-dispersion-${dispersionLatest}`}
-              columns={["name", "n_holders", "min_mark", "max_mark", "spread_pp", "total_cost_usd", "holder_detail"]}
-              rows={dispersionRows.map((r) => [
-                r.name, r.holders.length,
-                r.min_mark, r.max_mark, r.spread * 100,
-                r.total_cost,
-                r.holders.sort((a, b) => a.mark - b.mark)
-                  .map((h) => `${h.ticker}=${(h.mark * 100).toFixed(1)}c`).join("; "),
-              ])}
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-                <tr>
-                  {["Borrower", "Holders", "Min mark", "Max mark", "Spread (pp)", "Total cost ($M)", "Detail"].map((h) => (
-                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {dispersionRows.map((r, i) => (
-                  <tr key={r.slug} style={{
-                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
-                    borderBottom: "1px solid #1a1a28",
-                  }}>
-                    <td className="px-3 py-2">
-                      <Link href={`/borrowers/${r.slug}`} className="hover:text-white" style={{ color: "#a5b4fc" }}>
-                        {r.name}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 font-mono" style={{ color: "#d1d5db" }}>{r.holders.length}</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fca5a5" }}>
-                      {(r.min_mark * 100).toFixed(1)}¢
-                    </td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#86efac" }}>
-                      {(r.max_mark * 100).toFixed(1)}¢
-                    </td>
-                    <td className="px-3 py-2 font-mono text-right font-semibold" style={{
-                      color: r.spread > 0.15 ? "#fca5a5" : r.spread > 0.05 ? "#fdba74" : "#9ca3af",
-                    }}>
-                      {(r.spread * 100).toFixed(1)}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#9ca3af" }}>
-                      {(r.total_cost / 1e6).toFixed(0)}
-                    </td>
-                    <td className="px-3 py-2 text-[10px]" style={{ color: "#8b8ba8" }}>
-                      {r.holders
-                        .sort((a, b) => a.mark - b.mark)
-                        .map((h) => `${h.ticker}: ${(h.mark * 100).toFixed(0)}¢`)
-                        .join(" · ")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <SortableTable
+          data={dispersionRows.map((r) => ({
+            ...r,
+            n_holders: r.holders.length,
+            spread_pp: r.spread * 100,
+            holder_detail: r.holders
+              .slice().sort((a, b) => a.mark - b.mark)
+              .map((h) => `${h.ticker}: ${(h.mark * 100).toFixed(0)}¢`)
+              .join(" · "),
+          }))}
+          rowKey={(r) => r.slug}
+          dense
+          initialSort={{ key: "spread_pp", dir: "desc" }}
+          headerSlot={
+            <div className="px-5 py-4 flex items-start justify-between gap-3">
+              <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
+                When three or more BDCs hold the same borrower, their marks should agree
+                (it&apos;s the same credit). Large dispersion means BDCs disagree on the credit
+                quality — worth investigating. Marks are fair value / cost.
+              </p>
+              <CsvDownloadButton
+                filename={`credit-mark-dispersion-${dispersionLatest}`}
+                columns={["name", "n_holders", "min_mark", "max_mark", "spread_pp", "total_cost_usd", "holder_detail"]}
+                rows={dispersionRows.map((r) => [
+                  r.name, r.holders.length,
+                  r.min_mark, r.max_mark, r.spread * 100,
+                  r.total_cost,
+                  r.holders.slice().sort((a, b) => a.mark - b.mark)
+                    .map((h) => `${h.ticker}=${(h.mark * 100).toFixed(1)}c`).join("; "),
+                ])}
+              />
+            </div>
+          }
+          columns={[
+            { key: "name", label: "Borrower", render: (r) => (
+              <Link href={`/borrowers/${r.slug}`} className="hover:text-white" style={{ color: "#a5b4fc" }}>
+                {r.name}
+              </Link>
+            ) },
+            { key: "n_holders", label: "Holders", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#d1d5db" }}>{r.n_holders}</span>
+            ) },
+            { key: "min_mark", label: "Min mark", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#fca5a5" }}>{(r.min_mark * 100).toFixed(1)}¢</span>
+            ) },
+            { key: "max_mark", label: "Max mark", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#86efac" }}>{(r.max_mark * 100).toFixed(1)}¢</span>
+            ) },
+            { key: "spread_pp", label: "Spread (pp)", align: "right", render: (r) => (
+              <span className="font-mono font-semibold" style={{
+                color: r.spread_pp > 15 ? "#fca5a5" : r.spread_pp > 5 ? "#fdba74" : "#9ca3af",
+              }}>{r.spread_pp.toFixed(1)}</span>
+            ) },
+            { key: "total_cost", label: "Total cost ($M)", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#9ca3af" }}>{(r.total_cost / 1e6).toFixed(0)}</span>
+            ) },
+            { key: "holder_detail", label: "Detail", sortable: false, render: (r) => (
+              <span className="text-[10px]" style={{ color: "#8b8ba8" }}>{r.holder_detail}</span>
+            ) },
+          ] as Column<typeof dispersionRows[number] & { n_holders: number; spread_pp: number; holder_detail: string }>[]}
+        />
       </section>
 
       {/* Section 10 — PIK cascade (loan-tranche level) */}
@@ -1286,73 +1264,62 @@ export default function CreditPage() {
             · what happens to a loan 4 quarters after it flips cash → PIK
           </span>
         </h2>
-        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: "#1e1e2e" }}>
-            <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
-              For every loan-tranche we observed switching from cash-pay to PIK, where was it
-              4 quarters later? Tracked at the <b>loan_id</b> level so a borrower with multiple
-              tranches gets attributed to each tranche&apos;s separate fate.{" "}
-              <b>Still PIK · distress</b> (mark &lt; 80¢) is the worst outcome; <b>cured</b> means
-              the loan went back to cash-pay; <b>exited</b> means it left our parsed data (refi,
-              write-off, sale, or paydown — we can&apos;t distinguish without realized-loss
-              tracking). Cohorts with fewer than 10 flips omitted. Rows where the flip is too
-              recent to have full T+4 follow-up are dimmed.
-            </p>
-            <CsvDownloadButton
-              filename="credit-pik-cascade-by-year"
-              columns={["flip_year", "n_tranches", "pct_cured", "pct_pik_strong", "pct_pik_weak", "pct_pik_distress", "pct_exited", "follow_up_incomplete"]}
-              rows={cascadeRows.map((r) => [
-                r.year, r.flips, r.pct_cured, r.pct_pik_strong,
-                r.pct_pik_weak, r.pct_pik_distress, r.pct_exited,
-                r.incomplete ? 1 : 0,
-              ])}
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-                <tr>
-                  {[
-                    "Flip year", "# tranches", "% cured",
-                    "% PIK · steady (≥90¢)", "% PIK · weak (80–90¢)",
-                    "% PIK · distress (<80¢)", "% exited",
-                  ].map((h) => (
-                    <th key={h} className="px-3 py-2.5 text-left font-semibold uppercase tracking-wider text-[10px]" style={{ color: "#8b8ba8" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {cascadeRows.map((r, i) => (
-                  <tr key={r.year} style={{
-                    background: i % 2 === 0 ? "#111118" : "#0f0f16",
-                    borderBottom: "1px solid #1a1a28",
-                    opacity: r.incomplete ? 0.55 : 1,
-                  }}>
-                    <td className="px-3 py-2 font-mono" style={{ color: "#d1d5db" }}>
-                      {r.year}{r.incomplete && <span className="ml-1 text-[10px]" style={{ color: "#fdba74" }}>(follow-up incomplete)</span>}
-                    </td>
-                    <td className="px-3 py-2 font-mono" style={{ color: "#fafafa" }}>{r.flips}</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#86efac" }}>{r.pct_cured.toFixed(1)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fde68a" }}>{r.pct_pik_strong.toFixed(1)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#fdba74" }}>{r.pct_pik_weak.toFixed(1)}%</td>
-                    <td className="px-3 py-2 font-mono text-right font-semibold" style={{ color: "#fca5a5" }}>{r.pct_pik_distress.toFixed(1)}%</td>
-                    <td className="px-3 py-2 font-mono text-right" style={{ color: "#9ca3af" }}>{r.pct_exited.toFixed(1)}%</td>
-                  </tr>
-                ))}
-                {cascadeRows.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-3 py-6 text-center" style={{ color: "#6b6b88" }}>
-                      Insufficient longitudinal cash → PIK observations yet (need more quarters
-                      of consecutive loan-tranche data).
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <SortableTable
+          data={cascadeRows}
+          rowKey={(r) => r.year}
+          dense
+          initialSort={{ key: "year", dir: "desc" }}
+          emptyMessage="Insufficient longitudinal cash → PIK observations yet (need more quarters of consecutive loan-tranche data)."
+          headerSlot={
+            <div className="px-5 py-4 flex items-start justify-between gap-3">
+              <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
+                For every loan-tranche we observed switching from cash-pay to PIK, where was it
+                4 quarters later? Tracked at the <b>loan_id</b> level so a borrower with multiple
+                tranches gets attributed to each tranche&apos;s separate fate.{" "}
+                <b>Still PIK · distress</b> (mark &lt; 80¢) is the worst outcome; <b>cured</b> means
+                the loan went back to cash-pay; <b>exited</b> means it left our parsed data (refi,
+                write-off, sale, or paydown — we can&apos;t distinguish without realized-loss
+                tracking). Cohorts with fewer than 10 flips omitted. Rows where the flip is too
+                recent to have full T+4 follow-up are dimmed.
+              </p>
+              <CsvDownloadButton
+                filename="credit-pik-cascade-by-year"
+                columns={["flip_year", "n_tranches", "pct_cured", "pct_pik_strong", "pct_pik_weak", "pct_pik_distress", "pct_exited", "follow_up_incomplete"]}
+                rows={cascadeRows.map((r) => [
+                  r.year, r.flips, r.pct_cured, r.pct_pik_strong,
+                  r.pct_pik_weak, r.pct_pik_distress, r.pct_exited,
+                  r.incomplete ? 1 : 0,
+                ])}
+              />
+            </div>
+          }
+          columns={[
+            { key: "year", label: "Flip year", render: (r) => (
+              <span style={{ opacity: r.incomplete ? 0.55 : 1 }}>
+                <span className="font-mono" style={{ color: "#d1d5db" }}>{r.year}</span>
+                {r.incomplete && <span className="ml-1 text-[10px]" style={{ color: "#fdba74" }}>(follow-up incomplete)</span>}
+              </span>
+            ) },
+            { key: "flips", label: "# tranches", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#fafafa", opacity: r.incomplete ? 0.55 : 1 }}>{r.flips}</span>
+            ) },
+            { key: "pct_cured", label: "% cured", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#86efac", opacity: r.incomplete ? 0.55 : 1 }}>{r.pct_cured.toFixed(1)}%</span>
+            ) },
+            { key: "pct_pik_strong", label: "% PIK · steady (≥90¢)", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#fde68a", opacity: r.incomplete ? 0.55 : 1 }}>{r.pct_pik_strong.toFixed(1)}%</span>
+            ) },
+            { key: "pct_pik_weak", label: "% PIK · weak (80–90¢)", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#fdba74", opacity: r.incomplete ? 0.55 : 1 }}>{r.pct_pik_weak.toFixed(1)}%</span>
+            ) },
+            { key: "pct_pik_distress", label: "% PIK · distress (<80¢)", align: "right", render: (r) => (
+              <span className="font-mono font-semibold" style={{ color: "#fca5a5", opacity: r.incomplete ? 0.55 : 1 }}>{r.pct_pik_distress.toFixed(1)}%</span>
+            ) },
+            { key: "pct_exited", label: "% exited", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#9ca3af", opacity: r.incomplete ? 0.55 : 1 }}>{r.pct_exited.toFixed(1)}%</span>
+            ) },
+          ] as Column<typeof cascadeRows[number]>[]}
+        />
       </section>
 
       <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>

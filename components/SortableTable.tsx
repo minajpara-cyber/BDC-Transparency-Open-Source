@@ -18,6 +18,13 @@ interface SortableTableProps<T> {
   rowKey: (row: T) => string;
   emptyMessage?: string;
   stickyHeader?: boolean;
+  /** Optional header content rendered above the table inside the same
+   *  rounded wrapper. Use for descriptions, download buttons, etc. */
+  headerSlot?: ReactNode;
+  /** Initial sort column + direction. Falls back to unsorted (original order). */
+  initialSort?: { key: string; dir?: "asc" | "desc" };
+  /** Smaller padding + font for dense tables. */
+  dense?: boolean;
 }
 
 export default function SortableTable<T>({
@@ -27,9 +34,12 @@ export default function SortableTable<T>({
   rowKey,
   emptyMessage = "No data available",
   stickyHeader = false,
+  headerSlot,
+  initialSort,
+  dense = false,
 }: SortableTableProps<T>) {
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sortKey, setSortKey] = useState<string | null>(initialSort?.key ?? null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(initialSort?.dir ?? "asc");
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -55,15 +65,25 @@ export default function SortableTable<T>({
     return 0;
   });
 
+  const cellPx = dense ? "px-3 py-2" : "px-4 py-3";
+  const textSize = dense ? "text-xs" : "text-sm";
+  const hdrPx = dense ? "px-3 py-2.5" : "px-4 py-3";
+
   return (
-    <div className="overflow-x-auto rounded-xl border" style={{ borderColor: "#1e1e2e" }}>
-      <table className="w-full text-sm">
-        <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+    <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+      {headerSlot && (
+        <div className="border-b" style={{ borderColor: "#1e1e2e" }}>
+          {headerSlot}
+        </div>
+      )}
+      <div className="overflow-x-auto">
+      <table className={`w-full ${textSize}`}>
+        <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e", ...(stickyHeader ? { position: "sticky", top: 0, zIndex: 1 } : {}) }}>
           <tr>
             {columns.map((col) => (
               <th
                 key={String(col.key)}
-                className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider whitespace-nowrap ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"} ${col.className ?? ""}`}
+                className={`${hdrPx} ${dense ? "text-[10px]" : "text-xs"} font-semibold uppercase tracking-wider whitespace-nowrap ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"} ${col.className ?? ""}`}
                 style={{ color: "#8b8ba8" }}
               >
                 {col.sortable !== false ? (
@@ -117,7 +137,7 @@ export default function SortableTable<T>({
                 {columns.map((col) => (
                   <td
                     key={String(col.key)}
-                    className={`px-4 py-3 ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"} ${col.className ?? ""}`}
+                    className={`${cellPx} ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"} ${col.className ?? ""}`}
                     style={{ color: "#d1d5db" }}
                   >
                     {col.render
@@ -130,6 +150,7 @@ export default function SortableTable<T>({
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
