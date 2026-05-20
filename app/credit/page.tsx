@@ -13,16 +13,32 @@ import { spreadAnalysis } from "@/data/spread_analysis";
 // Known parser-coverage caveats — cells from these (ticker, period_end<=cutoff)
 // combinations show in muted/italic style and are excluded from industry charts.
 const COVERAGE_CAVEATS: Array<{ ticker: string; until: string; reason: string }> = [
-  { ticker: "FSK", until: "2022-05-31", reason: "Pre-XBRL FSK parser captures partial sections" },
+  { ticker: "FSK",  until: "2022-05-31", reason: "Pre-XBRL FSK parser captures partial sections" },
   { ticker: "OBDC", until: "2022-05-31", reason: "Pre-XBRL OBDC parser captures partial sections" },
+  { ticker: "CCAP", until: "2022-02-28", reason: "Pre-XBRL CCAP filings parsed financial-statement summary rows instead of SOI positions" },
+  { ticker: "OCSL", until: "2022-12-31", reason: "Pre-XBRL OCSL SOI extraction is patchy; par data missing for many quarters" },
   { ticker: "MFIC", until: "2025-11-30", reason: "MFIC SOI lacks per-position non-accrual footnotes" },
 ];
+
+// Drop BDC-quarter rows with too few positions from industry aggregates and
+// heatmap cells — stub/comparative filings can produce 10-position snapshots
+// that aren't representative of the BDC's actual book.
+const MIN_POSITIONS_FOR_RELIABLE = 30;
 
 function isReliable(ticker: string, period_end: string): boolean {
   for (const c of COVERAGE_CAVEATS) {
     if (c.ticker === ticker && period_end <= c.until) return false;
   }
   return true;
+}
+
+// Restrict the time-series view to calendar-quarter ends. BDCs with offset
+// fiscal years (e.g. BCRED's mid-2021 stub) and partial-period filings can
+// produce orphan period_ends like 2021-05-28 or 2022-02-28 that show up as
+// noisy spikes on the line charts with a handful of positions.
+const QUARTER_END_SUFFIXES = new Set(["03-31", "06-30", "09-30", "12-31"]);
+function isQuarterEnd(period_end: string): boolean {
+  return QUARTER_END_SUFFIXES.has(period_end.slice(5));
 }
 
 // ----- helpers ----------------------------------------------------------------
@@ -36,9 +52,13 @@ type NumericKeys =
 function buildCreditCellMap(field: NumericKeys) {
   const m = new Map<string, { value: number | null; reliable?: boolean }>();
   for (const r of creditQuality) {
+    if (!isQuarterEnd(r.period_end)) continue;
+    const reliable =
+      isReliable(r.ticker, r.period_end) &&
+      r.n_positions >= MIN_POSITIONS_FOR_RELIABLE;
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r[field] as number,
-      reliable: isReliable(r.ticker, r.period_end),
+      reliable,
     });
   }
   return m;
@@ -54,7 +74,9 @@ function buildCreditCellMap(field: NumericKeys) {
 function buildIndustrySeries(field: NumericKeys): IndustryPoint[] {
   const byPeriod = new Map<string, { sumW: number; sumWV: number; coverage: number }>();
   for (const r of creditQuality) {
+    if (!isQuarterEnd(r.period_end)) continue;
     if (!isReliable(r.ticker, r.period_end)) continue;
+    if (r.ticker !== "industry" && r.n_positions < MIN_POSITIONS_FOR_RELIABLE) continue;
     const w = r.n_positions;
     if (!w) continue;
     if (!byPeriod.has(r.period_end))
@@ -83,6 +105,7 @@ function buildIndustrySeries(field: NumericKeys): IndustryPoint[] {
 function buildModCellMap() {
   const m = new Map<string, { value: number | null; reliable?: boolean }>();
   for (const r of modificationRate) {
+    if (!isQuarterEnd(r.period_end)) continue;
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r.pct_new_cost,
       reliable: isReliable(r.ticker, r.period_end),
@@ -102,6 +125,7 @@ function buildModIndustrySeries(): IndustryPoint[] {
     { newCost: number; totalCost: number; coverage: number }
   >();
   for (const r of modificationRate) {
+    if (!isQuarterEnd(r.period_end)) continue;
     if (!isReliable(r.ticker, r.period_end)) continue;
     if (!byPeriod.has(r.period_end))
       byPeriod.set(r.period_end, { newCost: 0, totalCost: 0, coverage: 0 });
@@ -125,6 +149,7 @@ function buildModIndustrySeries(): IndustryPoint[] {
 function buildFirstLienCellMap() {
   const m = new Map<string, { value: number | null; reliable?: boolean }>();
   for (const r of assetComposition) {
+    if (!isQuarterEnd(r.period_end)) continue;
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r.pct_first_lien,
       reliable: isReliable(r.ticker, r.period_end),
@@ -137,6 +162,7 @@ function buildFirstLienCellMap() {
 function buildEquityCellMap() {
   const m = new Map<string, { value: number | null; reliable?: boolean }>();
   for (const r of assetComposition) {
+    if (!isQuarterEnd(r.period_end)) continue;
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r.pct_equity,
       reliable: isReliable(r.ticker, r.period_end),
@@ -148,7 +174,7 @@ function buildEquityCellMap() {
 /** Per-BDC stacked-composition time series rolled to the chart's bucket model. */
 function buildCompositionSeries(ticker: string) {
   return assetComposition
-    .filter((r) => r.ticker === ticker)
+    .filter((r) => r.ticker === ticker && isQuarterEnd(r.period_end))
     .sort((a, b) => a.period_end.localeCompare(b.period_end))
     .map((r) => ({
       period_end: r.period_end,
@@ -175,6 +201,7 @@ function buildIndustryComposition() {
     sjv: number; eq: number; other: number;
   }>();
   for (const r of assetComposition) {
+    if (!isQuarterEnd(r.period_end)) continue;
     if (!isReliable(r.ticker, r.period_end)) continue;
     const w = weightLookup.get(`${r.ticker}|${r.period_end}`) ?? 1;
     if (!byPeriod.has(r.period_end))
@@ -207,6 +234,7 @@ function buildIndustryComposition() {
 function buildSpreadCellMap(field: "avg_spread_book_bps" | "avg_spread_new_bps") {
   const m = new Map<string, { value: number | null; reliable?: boolean }>();
   for (const r of spreadAnalysis) {
+    if (!isQuarterEnd(r.period_end)) continue;
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r[field] as number | null,
       reliable: isReliable(r.ticker, r.period_end),
@@ -221,6 +249,7 @@ function buildSpreadIndustry(field: "avg_spread_book_bps" | "avg_spread_new_bps"
                               weightField: "n_positions_priced" | "n_new"): IndustryPoint[] {
   const byPeriod = new Map<string, { num: number; den: number; coverage: number }>();
   for (const r of spreadAnalysis) {
+    if (!isQuarterEnd(r.period_end)) continue;
     if (!isReliable(r.ticker, r.period_end)) continue;
     const v = r[field];
     const w = r[weightField];
@@ -245,12 +274,14 @@ function buildSpreadIndustry(field: "avg_spread_book_bps" | "avg_spread_new_bps"
 
 export default function CreditPage() {
   // Axes — union of period_ends across all datasets, ascending.
+  // Restrict to calendar-quarter ends so off-quarter stubs don't show up
+  // as empty columns on every heatmap.
   const periodSet = new Set<string>();
   creditQuality.forEach((r: CreditQuality) => periodSet.add(r.period_end));
   modificationRate.forEach((r: ModificationRate) => periodSet.add(r.period_end));
   assetComposition.forEach((r) => periodSet.add(r.period_end));
   spreadAnalysis.forEach((r) => periodSet.add(r.period_end));
-  const periods = Array.from(periodSet).sort();
+  const periods = Array.from(periodSet).filter(isQuarterEnd).sort();
   const tickers = Array.from(new Set(creditQuality.map((r) => r.ticker))).sort();
 
   const firstLienMap = buildFirstLienCellMap();
@@ -278,6 +309,7 @@ export default function CreditPage() {
     minimalCost: number; moderateCost: number; severeCost: number; totalCost: number;
   }>();
   for (const r of pikModifications) {
+    if (!isQuarterEnd(r.period_end)) continue;
     if (!isReliable(r.ticker, r.period_end)) continue;
     if (!sevByPeriod.has(r.period_end))
       sevByPeriod.set(r.period_end, { minimalCost: 0, moderateCost: 0, severeCost: 0, totalCost: 0 });
@@ -298,6 +330,7 @@ export default function CreditPage() {
 
   // Per-(ticker, period) severity rows for the recent table (latest 8 quarters).
   const recentPeriods = Array.from(new Set(pikModifications.map((r) => r.period_end)))
+    .filter(isQuarterEnd)
     .sort()
     .slice(-8);
   const severityTableRows = pikModifications
@@ -369,10 +402,13 @@ export default function CreditPage() {
         <AlertTriangle size={14} className="mt-0.5 shrink-0" />
         <div className="leading-relaxed">
           <span className="font-semibold">Partial coverage:</span>{" "}
-          The SOI parsing pipeline has known gaps for some pre-2022 filings (especially FSK and OBDC).
-          Cells from those quarters appear in italics and muted color and are excluded from the
-          industry-aggregate line charts. MFIC&apos;s SOI does not flag non-accrual at the position
-          level, so its non-accrual column is also flagged.
+          The SOI parsing pipeline has known gaps for some pre-2022 filings (especially FSK, OBDC,
+          CCAP, and OCSL). Cells from those quarters appear in italics and muted color and are
+          excluded from the industry-aggregate line charts. BDC-quarters with fewer than{" "}
+          {MIN_POSITIONS_FOR_RELIABLE} parsed positions are also flagged as unreliable — these
+          tend to be stub or partial-period filings. MFIC&apos;s SOI does not flag non-accrual
+          at the position level, so its non-accrual column is also flagged. Only calendar
+          quarter-ends (3/31, 6/30, 9/30, 12/31) are shown.
         </div>
       </div>
 
@@ -399,11 +435,11 @@ export default function CreditPage() {
       {/* Section 2 — Below 95¢ */}
       <section id="below-95" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
-          Marked below 95¢ of par <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· % of cost where FV / par &lt; 0.95</span>
+          Marked below 95¢ of par <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· % of debt cost where FV / par &lt; 0.95</span>
         </h2>
         <CreditHeatmap
-          title="% of cost marked below 95¢ of par"
-          description="Includes loans where the BDC has written the fair value below 95% of face. Cells colored 0% → 5% → 15% → ≥30%."
+          title="% of debt cost marked below 95¢ of par"
+          description="Debt positions whose fair value sits below 95% of face. Denominator is debt cost only — equity, warrants, JV and cash positions are excluded since par doesn't apply. Cells colored 0% → 5% → 15% → ≥30%."
           periods={periods}
           tickers={tickers}
           cellMap={lt95Map}
@@ -421,8 +457,8 @@ export default function CreditPage() {
           Marked below 90¢ of par <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· deeper distress</span>
         </h2>
         <CreditHeatmap
-          title="% of cost marked below 90¢ of par"
-          description="More severe markdown bucket. Cells colored 0% → 3% → 10% → ≥20%."
+          title="% of debt cost marked below 90¢ of par"
+          description="More severe markdown bucket. Denominator is debt cost only. Cells colored 0% → 3% → 10% → ≥20%."
           periods={periods}
           tickers={tickers}
           cellMap={lt90Map}
