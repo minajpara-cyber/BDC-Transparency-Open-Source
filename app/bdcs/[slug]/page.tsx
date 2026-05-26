@@ -16,6 +16,7 @@ import { pikModifications } from "@/data/pik_modifications";
 import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
 import { vintageRows } from "@/data/vintage_analysis";
+import { bdcSponsorExposure } from "@/data/bdc_sponsor_exposure";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -860,6 +861,121 @@ export default async function BDCDetailPage({ params }: PageProps) {
             <div className="text-xs mt-3" style={{ color: "#6b6b88" }}>
               See <Link href="/vintage" className="text-indigo-400 hover:underline">/vintage</Link> for the industry-wide curves and methodology.
             </div>
+          </section>
+        );
+      })()}
+
+      {(() => {
+        const exposure = bdcSponsorExposure
+          .filter((e) => e.ticker === bdc.ticker)
+          .sort((a, b) => b.total_fv - a.total_fv);
+        if (exposure.length === 0) return null;
+        const hhi = exposure.reduce((s, e) => s + e.share_of_bdc_fv ** 2, 0) * 10000;
+        const top5Share = exposure.slice(0, 5).reduce((s, e) => s + e.share_of_bdc_fv, 0) * 100;
+        const totalFvB = exposure.reduce((s, e) => s + e.total_fv, 0) / 1e9;
+        const topN = exposure.slice(0, 15);
+        const maxShare = topN[0]?.share_of_bdc_fv ?? 0;
+        // HHI buckets — DOJ/FTC market-concentration thresholds, applied to
+        // the sponsor-attributed slice of the BDC's portfolio.
+        const hhiBucket =
+          hhi < 1500 ? { label: "Diversified",     color: "#9ca3af" } :
+          hhi < 2500 ? { label: "Moderate",        color: "#fbbf24" } :
+                       { label: "Concentrated",    color: "#f87171" };
+        return (
+          <section className="mt-8">
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <h2 className="text-lg font-semibold text-white">Sponsor concentration</h2>
+              <span className="text-xs px-2 py-0.5 rounded border" style={{
+                color: hhiBucket.color,
+                background: `${hhiBucket.color}14`,
+                borderColor: `${hhiBucket.color}40`,
+              }}>
+                {hhiBucket.label}
+              </span>
+              <span className="text-xs px-2 py-0.5 rounded border" style={{
+                color: "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)",
+              }}>
+                {exposure.length} sponsors attributed
+              </span>
+            </div>
+            <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
+              How {bdc.ticker}&apos;s sponsor-attributed exposure is distributed across PE firms.
+              Shares are within the sponsor-attributed slice (${totalFvB.toFixed(2)}B FV across debt positions only —
+              not the full portfolio). Sponsor mapping comes from bdctransparency.io&apos;s curated company list,
+              joined via the entity matcher.
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+              <StatCard label="HHI (sponsor-attributed)" value={Math.round(hhi).toLocaleString()}
+                color={hhiBucket.color} />
+              <StatCard label="Top-5 share" value={`${top5Share.toFixed(1)}%`} />
+              <StatCard label="# sponsors" value={exposure.length.toString()} />
+              <StatCard label="Sponsor-attributed FV" value={`$${totalFvB.toFixed(2)}B`} />
+            </div>
+
+            <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
+                <h3 className="font-semibold text-white text-sm">Top sponsors by FV</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Sponsor</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>FV</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Positions</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Share</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topN.map((e, i) => {
+                      const sharePct = e.share_of_bdc_fv * 100;
+                      const barW = maxShare > 0 ? (e.share_of_bdc_fv / maxShare) * 100 : 0;
+                      return (
+                        <tr key={e.sponsor_slug} className="border-t" style={{
+                          borderColor: "#1a1a28",
+                          background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                        }}>
+                          <td className="px-4 py-2.5">
+                            <Link href={`/sponsors/${e.sponsor_slug}`}
+                                  className="text-sm font-medium text-white hover:text-indigo-400">
+                              {e.sponsor}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-sm font-mono text-white">
+                            ${(e.total_fv / 1e6).toFixed(1)}M
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-sm font-mono" style={{ color: "#9ca3af" }}>
+                            {e.n_positions}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 max-w-[180px] h-2 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
+                                <div style={{
+                                  width: `${barW}%`,
+                                  height: "100%",
+                                  background: "linear-gradient(90deg, #6366f1, #a5b4fc)",
+                                }} />
+                              </div>
+                              <span className="text-xs font-mono" style={{ color: "#d1d5db" }}>
+                                {sharePct.toFixed(1)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
+              HHI thresholds follow DOJ/FTC convention: &lt;1,500 diversified, 1,500–2,500 moderate,
+              &gt;2,500 concentrated. Note: HHI here is computed only on sponsor-attributed
+              positions, not on the BDC&apos;s full portfolio (un-mapped names are excluded).
+              Click any sponsor for cross-BDC detail.
+            </p>
           </section>
         );
       })()}

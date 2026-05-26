@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import StatCard from "@/components/StatCard";
+import SponsorHistoryChart from "@/components/SponsorHistoryChart";
 import { sponsors } from "@/data/sponsors_index";
+import { sponsorsHistory } from "@/data/sponsors_history";
 import { borrowers } from "@/data/borrowers_index";
 
 // Sponsors with fewer than this many attributed borrowers display a thin-
@@ -119,6 +121,32 @@ export default async function SponsorDetailPage({ params }: PageProps) {
           ))}
         </div>
       )}
+
+      {(() => {
+        const history = sponsorsHistory
+          .filter((h) => h.sponsor_slug === slug)
+          .sort((a, b) => a.period_end.localeCompare(b.period_end));
+        if (history.length < 2) return null;
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <h3 className="text-sm font-semibold text-white mb-1">Portfolio scale over time</h3>
+              <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
+                Aggregate fair value of attributed debt positions across all covered BDCs, by quarter.
+              </p>
+              <SponsorHistoryChart rows={history} mode="fv" height={220} />
+            </div>
+            <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <h3 className="text-sm font-semibold text-white mb-1">Credit lens over time</h3>
+              <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
+                Position-count weighted % marked &lt; 95¢ / on non-accrual / paying PIK.
+                Sponsor-quarters with fewer than 3 positions are filtered out.
+              </p>
+              <SponsorHistoryChart rows={history} mode="credit" height={220} />
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
