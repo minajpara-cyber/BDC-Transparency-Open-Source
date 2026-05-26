@@ -1,9 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import { sponsors } from "@/data/sponsors_index";
 import { borrowers } from "@/data/borrowers_index";
+
+// Sponsors with fewer than this many attributed borrowers display a thin-
+// coverage banner — their headline metrics may reflect a single concentrated
+// holding rather than a franchise-wide pattern.
+const THIN_COVERAGE = 5;
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -57,12 +62,40 @@ export default async function SponsorDetailPage({ params }: PageProps) {
           }}>
             Sponsor
           </span>
+          {s.n_companies < THIN_COVERAGE && (
+            <span className="px-2 py-0.5 rounded text-xs font-medium inline-flex items-center gap-1" style={{
+              background: "rgba(251,191,36,0.10)",
+              color: "#fbbf24",
+              border: "1px solid rgba(251,191,36,0.3)",
+            }}>
+              <AlertTriangle size={11} /> Thin coverage
+            </span>
+          )}
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{s.sponsor}</h1>
         <p className="text-sm" style={{ color: "#9ca3af" }}>
           {attributed.length} portfolio companies in our index funded by BDCs we cover.
         </p>
       </div>
+
+      {s.n_companies < THIN_COVERAGE && (
+        <div className="rounded-lg border p-3 mb-6 text-sm" style={{
+          background: "rgba(251,191,36,0.06)",
+          borderColor: "rgba(251,191,36,0.25)",
+          color: "#fbbf24",
+        }}>
+          <div className="font-medium mb-1 flex items-center gap-1.5">
+            <AlertTriangle size={14} /> Small attributable footprint
+          </div>
+          <div className="text-xs leading-relaxed" style={{ color: "#d4b86a" }}>
+            Only {s.n_companies} borrower{s.n_companies === 1 ? "" : "s"} in our parsed-BDC
+            scope map to {s.sponsor}. Headline credit metrics for this sponsor (mark below
+            95¢, non-accrual %, PIK %) likely reflect one or two concentrated holdings rather
+            than the sponsor&apos;s full franchise. Use as directional context, not as
+            franchise-wide credit signal.
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <StatCard label="Companies" value={attributed.length.toString()} />

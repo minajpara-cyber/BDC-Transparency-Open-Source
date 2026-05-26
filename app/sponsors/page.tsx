@@ -25,7 +25,14 @@ const NEGATIVE_KEYS = new Set<SortKey>([
   "pct_modified",
 ]);
 
-function pctColor(value: number, key: SortKey): string {
+// Sponsors with fewer than this many attributed borrowers get a muted /
+// asterisked presentation. Their headline metrics often reflect a single
+// concentrated holding rather than a franchise-wide pattern, so users should
+// not over-interpret them.
+const THIN_COVERAGE = 5;
+
+function pctColor(value: number, key: SortKey, thin: boolean): string {
+  if (thin) return "#6b6b88";
   if (!NEGATIVE_KEYS.has(key)) return "#d1d5db";
   if (value >= 25) return "#f87171";
   if (value >= 10) return "#fbbf24";
@@ -229,67 +236,78 @@ export default function SponsorsIndexPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((s, i) => (
+              {rows.map((s, i) => {
+                const thin = s.n_companies < THIN_COVERAGE;
+                const nameColor = thin ? "#8b8ba8" : "#ffffff";
+                const numColor  = thin ? "#6b6b88" : "#d1d5db";
+                const fvColor   = thin ? "#8b8ba8" : "#ffffff";
+                return (
                 <tr
                   key={s.sponsor_slug}
-                  className="border-t"
+                  className={`border-t ${thin ? "italic" : ""}`}
                   style={{
                     borderColor: "#1a1a28",
                     background: i % 2 === 0 ? "#111118" : "#0f0f16",
                   }}
+                  title={thin
+                    ? `Thin coverage: only ${s.n_companies} attributed borrower${s.n_companies === 1 ? "" : "s"} in our scope — sponsor-level metrics may reflect a single concentrated holding rather than a franchise pattern.`
+                    : undefined}
                 >
                   <td className="px-4 py-3">
                     <Link
                       href={`/sponsors/${s.sponsor_slug}`}
-                      className="text-sm font-medium text-white hover:text-indigo-400"
+                      className="text-sm font-medium hover:text-indigo-400"
+                      style={{ color: nameColor }}
                     >
                       {s.sponsor}
+                      {thin && <span style={{ color: "#6b6b88" }}>{" *"}</span>}
                     </Link>
                   </td>
-                  <td className="px-3 py-3 text-right text-sm text-white">{s.n_companies}</td>
-                  <td className="px-3 py-3 text-right text-sm" style={{ color: "#d1d5db" }}>
+                  <td className="px-3 py-3 text-right text-sm" style={{ color: nameColor }}>{s.n_companies}</td>
+                  <td className="px-3 py-3 text-right text-sm" style={{ color: numColor }}>
                     {s.n_positions}
                   </td>
-                  <td className="px-3 py-3 text-right text-xs" style={{ color: "#d1d5db" }}>
+                  <td className="px-3 py-3 text-right text-xs" style={{ color: numColor }}>
                     {s.avg_holders.toFixed(1)}
                   </td>
-                  <td className="px-3 py-3 text-right text-sm font-medium text-white">
+                  <td className="px-3 py-3 text-right text-sm font-medium" style={{ color: fvColor }}>
                     {fmtUSD(s.total_fv)}
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono border-l"
-                    style={{ borderColor: "#1a1a28", color: pctColor(s.pct_below_95, "pct_below_95") }}
+                    style={{ borderColor: "#1a1a28", color: pctColor(s.pct_below_95, "pct_below_95", thin) }}
                   >
                     {s.pct_below_95.toFixed(1)}%
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono"
-                    style={{ color: pctColor(s.pct_below_90, "pct_below_90") }}
+                    style={{ color: pctColor(s.pct_below_90, "pct_below_90", thin) }}
                   >
                     {s.pct_below_90.toFixed(1)}%
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono"
-                    style={{ color: pctColor(s.pct_non_accrual, "pct_non_accrual") }}
+                    style={{ color: pctColor(s.pct_non_accrual, "pct_non_accrual", thin) }}
                     title={`${s.n_positions_na} position${s.n_positions_na === 1 ? "" : "s"} in NA-coverage denominator`}
                   >
                     {s.pct_non_accrual.toFixed(1)}%
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono"
-                    style={{ color: pctColor(s.pct_pik_now, "pct_pik_now") }}
+                    style={{ color: pctColor(s.pct_pik_now, "pct_pik_now", thin) }}
                   >
                     {s.pct_pik_now.toFixed(1)}%
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono"
-                    style={{ color: pctColor(s.pct_modified, "pct_modified") }}
+                    style={{ color: pctColor(s.pct_modified, "pct_modified", thin) }}
                     title={`${s.n_positions_mod} position${s.n_positions_mod === 1 ? "" : "s"} in modification-coverage denominator`}
                   >
                     {s.pct_modified.toFixed(1)}%
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -301,6 +319,12 @@ export default function SponsorsIndexPage() {
         excluded from all credit metrics. Non-accrual denominator excludes MFIC because its
         SOI lacks per-position non-accrual tagging. Modified = loan flipped cash-pay → PIK
         within our observation window (from <code>loan_history.pik_modified_from_cash</code>).
+      </p>
+      <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+        <span style={{ color: "#8b8ba8" }}>*</span> Italicized / muted rows have fewer than {THIN_COVERAGE} attributed
+        borrowers in our scope — headline metrics may reflect a single concentrated holding
+        (e.g. Nordic Capital&apos;s Inovalon) rather than a sponsor-franchise pattern. Treat as
+        directional only.
       </p>
     </div>
   );
