@@ -183,11 +183,31 @@ export default function AboutPage() {
           vs 2018&apos;s 2% — consistent with the rate-shock-driven restructuring wave.
         </p>
 
+        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Sector classification &amp; borrower profiles</h3>
+        <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
+          Sectors come from the SOI&apos;s disclosed industry where available. BDCs that don&apos;t
+          disclose one (Main Street, and Barings before its parser was fixed) are filled by a layered
+          enrichment — the BDC&apos;s own prior-quarter label, then cross-BDC consensus on the same
+          borrower, then curated metadata, then a conservative borrower-name keyword classifier, else
+          &ldquo;Unclassified.&rdquo; A BDC whose disclosed industry is systematically unreliable can be
+          distrusted and routed through the same fallback (Golub&apos;s column was mis-tagged and has
+          since been fixed at the parser level).
+        </p>
+        <p className="text-xs leading-relaxed mb-3" style={{ color: "#9ca3af" }}>
+          The largest ~180 borrowers also carry a model-curated profile (canonical sector, sub-sector,
+          one-line business description), shown on the borrower pages and the{" "}
+          <Link href="/companies" className="text-indigo-400 hover:underline">watchlist</Link>.
+          <span className="text-white"> No revenue, EBITDA or sponsor figures are model-generated</span> —
+          only checkable classification fields, with cryptic shell-entity names left blank rather than
+          guessed. Sponsor attribution links borrowers to PE firms via the entity matcher plus a curated
+          sponsor map.
+        </p>
+
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Coverage caveats</h3>
         <ul className="text-xs leading-relaxed pl-5 list-disc" style={{ color: "#9ca3af" }}>
           <li>Vintage rollup excludes loans whose holder BDC&apos;s parser coverage started <em>after</em> their vintage_year (eliminates BCRED / ADS / ASIF / BBDC survivor bias from older vintages)</li>
           <li>Modification cross-BDC corroboration only fires for loans held by 2+ BDCs (~6% of universe by count, ~40% by cost) — solo-held loans rely on the &gt;15% threshold alone</li>
-          <li>BDC-disclosed acquisition_date is the latest amendment date in some filers, not original origination — under investigation</li>
+          <li>BDC-disclosed acquisition_date is the latest amendment date in some filers (notably non-traded BDCs), not original origination. We correct this with MIN-across-observations, cross-BDC consensus favoring public filers, and a LIBOR→SOFR retag detector; the residual 2021-cohort inflation (~2.25× neighbors vs Raymond James&apos;s ~1.5×) is the floor achievable without external origination data</li>
           <li>Pre-2018 vintages are excluded; FSK/OBDC pre-2022 excluded due to parser limitations</li>
         </ul>
       </div>
