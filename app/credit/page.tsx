@@ -11,6 +11,8 @@ import SeverityStackedBars from "@/components/SeverityStackedBars";
 import { creditQuality, CreditQuality } from "@/data/credit_quality";
 import { modificationRate, ModificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
+import { modificationEvents } from "@/data/modification_events";
+import ModificationEventsTable from "@/components/ModificationEventsTable";
 import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
 import { stressedPositions } from "@/data/stressed_positions";
@@ -806,6 +808,8 @@ export default function CreditPage() {
           counted as modifications — they could either have originated PIK or been modified before we
           had coverage. As back-book parsing improves, more of these will resolve into modifications.
         </p>
+
+        <ModificationEventsTable events={modificationEvents} />
       </section>
 
       {/* Section 5 — Asset composition (moved below modifications) */}
