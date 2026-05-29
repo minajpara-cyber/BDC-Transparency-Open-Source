@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { borrowers } from "@/data/borrowers_index";
+import { borrowerEnrichment } from "@/data/borrower_enrichment";
 
 const fmtUSD = (v: number) => {
   if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
@@ -13,6 +14,7 @@ export default function BorrowersIndexPage() {
   const rows = [...borrowers].sort((a, b) => b.total_fv - a.total_fv);
   const crossHeld = rows.filter((r) => r.n_holders >= 2);
   const totalFV = rows.reduce((s, r) => s + r.total_fv, 0);
+  const profiledCount = rows.filter((r) => borrowerEnrichment[r.slug]).length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -73,7 +75,8 @@ export default function BorrowersIndexPage() {
           <div>
             <h2 className="font-semibold text-white">Borrower index</h2>
             <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              Sorted by latest aggregate fair value across holders.
+              Sorted by latest aggregate fair value across holders. {profiledCount} borrower{profiledCount === 1 ? "" : "s"} carry a
+              curated sector profile (sector · sub-sector shown where available).
             </p>
           </div>
         </div>
@@ -81,7 +84,7 @@ export default function BorrowersIndexPage() {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                {["Borrower", "Category / Industry", "Sponsor", "Holders", "Latest FV", "Latest period"].map((h) => (
+                {["Borrower", "Sector / Industry", "Sponsor", "Holders", "Latest FV", "Latest period"].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap"
@@ -110,8 +113,17 @@ export default function BorrowersIndexPage() {
                       {b.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: b.category ? "#a5b4fc" : "#9ca3af" }}>
-                    {b.category || b.industry || "—"}
+                  <td className="px-4 py-3 text-xs">
+                    {(() => {
+                      const enr = borrowerEnrichment[b.slug];
+                      if (enr) return (
+                        <span>
+                          <span style={{ color: "#a5b4fc" }}>{enr.sector}</span>
+                          <span style={{ color: "#6b6b88" }}> · {enr.sub_sector}</span>
+                        </span>
+                      );
+                      return <span style={{ color: b.category ? "#a5b4fc" : "#9ca3af" }}>{b.category || b.industry || "—"}</span>;
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-xs" style={{ color: b.sponsors ? "#d8b4fe" : "#6b6b88" }}>
                     {b.sponsors ? b.sponsors.split(";")[0].trim() + (b.sponsors.includes(";") ? " +" : "") : "—"}
