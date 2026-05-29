@@ -275,5 +275,360 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sector": "Software & IT",
     "sub_sector": "Compliance / archiving",
     "description": "Communications compliance, capture and archiving software."
+  },
+  "catalent": {
+    "sector": "Healthcare",
+    "sub_sector": "Pharma services (CDMO)",
+    "description": "Pharma contract development and manufacturing (CDMO)."
+  },
+  "inspira-financial": {
+    "sector": "Financial Services",
+    "sub_sector": "Custody / retirement accounts",
+    "description": "Custodian for retirement, health and specialty financial accounts (f/k/a Millennium Trust)."
+  },
+  "minotaur-acquisition-inc": {
+    "sector": "Financial Services",
+    "sub_sector": "Custody / retirement accounts",
+    "description": "Custodian for retirement, health and specialty financial accounts (Inspira Financial)."
+  },
+  "service-express": {
+    "sector": "Software & IT",
+    "sub_sector": "IT services (data-center maintenance)",
+    "description": "Third-party data-center and IT hardware maintenance."
+  },
+  "stamps-com": {
+    "sector": "Software & IT",
+    "sub_sector": "E-commerce / shipping software",
+    "description": "E-commerce shipping and mailing software (Stamps.com / Auctane)."
+  },
+  "stamps-com-inc": {
+    "sector": "Software & IT",
+    "sub_sector": "E-commerce / shipping software",
+    "description": "E-commerce shipping and mailing software (Stamps.com / Auctane)."
+  },
+  "insight-global": {
+    "sector": "Professional Services",
+    "sub_sector": "Staffing",
+    "description": "IT and professional staffing services."
+  },
+  "consumer-cellular": {
+    "sector": "Software & IT",
+    "sub_sector": "Telecom services (MVNO)",
+    "description": "No-contract mobile wireless service for older consumers."
+  },
+  "recochem": {
+    "sector": "Materials & Chemicals",
+    "sub_sector": "Automotive & household fluids",
+    "description": "Manufacturer of automotive and household fluids (antifreeze, coolants)."
+  },
+  "the-npd-group-l-p": {
+    "sector": "Professional Services",
+    "sub_sector": "Market data & analytics",
+    "description": "Consumer market research and point-of-sale tracking (now Circana)."
+  },
+  "the-npd-l-p": {
+    "sector": "Professional Services",
+    "sub_sector": "Market data & analytics",
+    "description": "Consumer market research and point-of-sale tracking (now Circana)."
+  },
+  "donuts-inc": {
+    "sector": "Software & IT",
+    "sub_sector": "Internet infrastructure (domains)",
+    "description": "Domain-name registry operator (now Identity Digital)."
+  },
+  "donuts": {
+    "sector": "Software & IT",
+    "sub_sector": "Internet infrastructure (domains)",
+    "description": "Domain-name registry operator (now Identity Digital)."
+  },
+  "identity-digital-inc": {
+    "sector": "Software & IT",
+    "sub_sector": "Internet infrastructure (domains)",
+    "description": "Domain-name registry operator (Identity Digital)."
+  },
+  "identity-digital": {
+    "sector": "Software & IT",
+    "sub_sector": "Internet infrastructure (domains)",
+    "description": "Domain-name registry operator (Identity Digital)."
+  },
+  "imperial-dade": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Foodservice & janitorial distribution",
+    "description": "Distributor of foodservice packaging and janitorial supplies."
+  },
+  "dubois-chemical": {
+    "sector": "Materials & Chemicals",
+    "sub_sector": "Specialty chemicals",
+    "description": "Specialty cleaning and process chemicals."
+  },
+  "gaylord-chemical-l-l-c": {
+    "sector": "Materials & Chemicals",
+    "sub_sector": "Specialty chemicals",
+    "description": "Producer of dimethyl sulfoxide (DMSO) and specialty chemicals."
+  },
+  "prodege-international-holdings-llc": {
+    "sector": "Professional Services",
+    "sub_sector": "Consumer insights & rewards",
+    "description": "Online consumer rewards and market-research platform (Swagbucks)."
+  },
+  "anaplan-inc": {
+    "sector": "Software & IT",
+    "sub_sector": "Application software (planning)",
+    "description": "Cloud connected-planning and performance-management software."
+  },
+  "cambium-learning-group-inc": {
+    "sector": "Education",
+    "sub_sector": "EdTech / curriculum",
+    "description": "K-12 education software, assessment and curriculum."
+  },
+  "guidehouse-llp": {
+    "sector": "Professional Services",
+    "sub_sector": "Management consulting",
+    "description": "Management and public-sector advisory / consulting firm."
+  },
+  "guidehouse-inc": {
+    "sector": "Professional Services",
+    "sub_sector": "Management consulting",
+    "description": "Management and public-sector advisory / consulting firm."
+  },
+  "bazaarvoice-inc": {
+    "sector": "Software & IT",
+    "sub_sector": "Application software (retail)",
+    "description": "Retail ratings, reviews and user-generated-content platform."
+  },
+  "sailpoint-technologies-inc": {
+    "sector": "Software & IT",
+    "sub_sector": "Cybersecurity (identity)",
+    "description": "Identity security and governance software (SaaS)."
+  },
+  "sailpoint-technologies": {
+    "sector": "Software & IT",
+    "sub_sector": "Cybersecurity (identity)",
+    "description": "Identity security and governance software (SaaS)."
+  },
+  "color-intermediate-llc": {
+    "sector": "Healthcare",
+    "sub_sector": "Healthcare IT (claims)",
+    "description": "Healthcare claims-editing and payment-integrity software (ClaimsXten)."
+  },
+  "armstrong-bidco-limited": {
+    "sector": "Software & IT",
+    "sub_sector": "Application software (ERP)",
+    "description": "UK business-management and ERP software (The Access Group)."
+  },
+  "adenza": {
+    "sector": "Software & IT",
+    "sub_sector": "Fintech software",
+    "description": "Capital-markets trading and regulatory-reporting software (Calypso + AxiomSL)."
+  },
+  "axiomsl": {
+    "sector": "Software & IT",
+    "sub_sector": "Fintech software",
+    "description": "Regulatory reporting and risk software (now Adenza)."
+  },
+  "sedgwick-claims-management": {
+    "sector": "Insurance",
+    "sub_sector": "Claims management / TPA",
+    "description": "Third-party claims administration and loss adjusting."
+  },
+  "alera-group": {
+    "sector": "Insurance",
+    "sub_sector": "Brokerage & benefits",
+    "description": "Insurance brokerage and employee-benefits advisory."
+  },
+  "assuredpartners": {
+    "sector": "Insurance",
+    "sub_sector": "Brokerage",
+    "description": "Retail insurance brokerage (P&C and benefits)."
+  },
+  "world-insurance-associates": {
+    "sector": "Insurance",
+    "sub_sector": "Brokerage",
+    "description": "Retail insurance brokerage and agency platform."
+  },
+  "higginbotham-insurance": {
+    "sector": "Insurance",
+    "sub_sector": "Brokerage & benefits",
+    "description": "Insurance brokerage and employee benefits."
+  },
+  "selectquote-inc": {
+    "sector": "Insurance",
+    "sub_sector": "Distribution (direct)",
+    "description": "Direct-to-consumer insurance distribution and comparison."
+  },
+  "simplicity-financial-marketing": {
+    "sector": "Insurance",
+    "sub_sector": "Distribution / IMO",
+    "description": "Insurance marketing organization and distribution."
+  },
+  "commscope": {
+    "sector": "Software & IT",
+    "sub_sector": "Communications equipment",
+    "description": "Network infrastructure and broadband/telecom equipment."
+  },
+  "infoblox-inc": {
+    "sector": "Software & IT",
+    "sub_sector": "Network security (DDI)",
+    "description": "DNS / DHCP / IP-address management and network security software."
+  },
+  "point-broadband": {
+    "sector": "Software & IT",
+    "sub_sector": "Telecom (broadband ISP)",
+    "description": "Rural fiber broadband internet provider."
+  },
+  "global-music-rights": {
+    "sector": "Media & Entertainment",
+    "sub_sector": "Music rights",
+    "description": "Music performance-rights organization."
+  },
+  "production-resource": {
+    "sector": "Media & Entertainment",
+    "sub_sector": "Live-event production",
+    "description": "Entertainment and live-event staging, lighting and rigging (PRG)."
+  },
+  "peraton": {
+    "sector": "Professional Services",
+    "sub_sector": "Defense / government IT",
+    "description": "Defense, intelligence and government technology services."
+  },
+  "sts-aviation": {
+    "sector": "Industrial",
+    "sub_sector": "Aerospace (MRO / services)",
+    "description": "Aviation maintenance, repair and staffing services."
+  },
+  "maclean-power-systems": {
+    "sector": "Utilities & Energy",
+    "sub_sector": "Grid equipment",
+    "description": "Manufacturer of electric-utility transmission and distribution hardware."
+  },
+  "pike-electric": {
+    "sector": "Utilities & Energy",
+    "sub_sector": "Infrastructure services",
+    "description": "Electric and telecom infrastructure construction and maintenance."
+  },
+  "highpeak-energy": {
+    "sector": "Utilities & Energy",
+    "sub_sector": "Oil & gas E&P",
+    "description": "Oil and gas exploration and production (Permian Basin)."
+  },
+  "covetrus": {
+    "sector": "Healthcare",
+    "sub_sector": "Animal health",
+    "description": "Animal-health technology, supply and prescription management."
+  },
+  "premise-health": {
+    "sector": "Healthcare",
+    "sub_sector": "Provider (workplace clinics)",
+    "description": "Operator of employer-sponsored workplace health centers."
+  },
+  "the-gi-alliance-management-llc": {
+    "sector": "Healthcare",
+    "sub_sector": "Provider (physician group)",
+    "description": "Gastroenterology physician practice-management group."
+  },
+  "bristol-hospice-l-l-c": {
+    "sector": "Healthcare",
+    "sub_sector": "Provider (hospice)",
+    "description": "Hospice and palliative-care services."
+  },
+  "dentalcorp-health": {
+    "sector": "Healthcare",
+    "sub_sector": "Dental (DSO)",
+    "description": "Canadian dental practice network."
+  },
+  "trialcard": {
+    "sector": "Healthcare",
+    "sub_sector": "Pharma patient services",
+    "description": "Pharma patient-affordability and market-access services (Mercalis)."
+  },
+  "edifecs": {
+    "sector": "Software & IT",
+    "sub_sector": "Healthcare IT",
+    "description": "Healthcare data-exchange and interoperability software."
+  },
+  "one-call": {
+    "sector": "Healthcare",
+    "sub_sector": "Workers'-comp care management",
+    "description": "Workers'-compensation medical care-management network."
+  },
+  "klick": {
+    "sector": "Healthcare",
+    "sub_sector": "Marketing services",
+    "description": "Healthcare-focused commercial and marketing agency."
+  },
+  "inception-fertility-ventures": {
+    "sector": "Healthcare",
+    "sub_sector": "Provider (fertility)",
+    "description": "Fertility clinics and reproductive-health services."
+  },
+  "inception-fertility-ventures-llc": {
+    "sector": "Healthcare",
+    "sub_sector": "Provider (fertility)",
+    "description": "Fertility clinics and reproductive-health services."
+  },
+  "unified-physician-management-llc": {
+    "sector": "Healthcare",
+    "sub_sector": "Provider (women's health)",
+    "description": "Women's-health physician practice management."
+  },
+  "perkinelmer-u-s": {
+    "sector": "Healthcare",
+    "sub_sector": "Life-science tools",
+    "description": "Life-science instruments, diagnostics and reagents (Revvity)."
+  },
+  "material-holdings-llc": {
+    "sector": "Professional Services",
+    "sub_sector": "Market research & experience",
+    "description": "Consumer insights, brand strategy and experience consulting (Material)."
+  },
+  "trace3": {
+    "sector": "Software & IT",
+    "sub_sector": "IT solutions / reseller",
+    "description": "Enterprise IT solutions, data and cloud integration."
+  },
+  "gannett-fleming": {
+    "sector": "Professional Services",
+    "sub_sector": "Engineering / infrastructure",
+    "description": "Infrastructure engineering and design consulting."
+  },
+  "radwell-international-llc": {
+    "sector": "Industrial",
+    "sub_sector": "Automation parts distribution",
+    "description": "Distributor of industrial automation and electrical parts."
+  },
+  "galls": {
+    "sector": "Industrial",
+    "sub_sector": "Public-safety equipment",
+    "description": "Supplier of uniforms and equipment for public-safety agencies."
+  },
+  "mavis-tire-express-services": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Auto services / tire retail",
+    "description": "Tire and automotive service retail chain."
+  },
+  "eagle-family-foods": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Packaged food",
+    "description": "Branded and private-label sweetened condensed milk and dessert products."
+  },
+  "vitamin-well": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Functional beverages",
+    "description": "Functional and vitamin-enhanced beverages (Nordic)."
+  },
+  "weiman-products-llc": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Household products",
+    "description": "Specialty household cleaning and care products."
+  },
+  "bradyplus": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Janitorial & packaging distribution",
+    "description": "Distributor of janitorial, packaging and foodservice supplies."
+  },
+  "enstructure": {
+    "sector": "Industrial",
+    "sub_sector": "Marine logistics",
+    "description": "Operator of marine terminals and bulk-logistics services."
   }
 };
