@@ -5,6 +5,7 @@ import StatCard from "@/components/StatCard";
 import BorrowerHistoryChart from "@/components/BorrowerHistoryChart";
 import { borrowers } from "@/data/borrowers_index";
 import { borrowerHistory } from "@/data/borrowers_history";
+import { borrowerEnrichment } from "@/data/borrower_enrichment";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -162,6 +163,30 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
           {tickers.length} holder{tickers.length === 1 ? "" : "s"} · {periods.length} quarter{periods.length === 1 ? "" : "s"} of history
           · {periods[0]} → {periods[periods.length - 1]}
         </p>
+        {(() => {
+          const enr = borrowerEnrichment[slug];
+          if (!enr) return null;
+          return (
+            <div className="mt-3 rounded-lg border p-3" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <p className="text-sm" style={{ color: "#d1d5db" }}>{enr.description}</p>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <span className="px-2 py-0.5 rounded text-xs font-medium border" style={{
+                  color: "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.25)",
+                }}>
+                  {enr.sector}
+                </span>
+                <span className="px-2 py-0.5 rounded text-xs border" style={{
+                  color: "#9ca3af", background: "#0f0f16", borderColor: "#2d2d45",
+                }}>
+                  {enr.sub_sector}
+                </span>
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: "#6b6b88" }}>
+                  curated profile
+                </span>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Stat strip */}
