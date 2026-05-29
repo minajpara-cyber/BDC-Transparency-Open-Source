@@ -3,9 +3,13 @@ import { ArrowRight, AlertTriangle, TrendingDown, DollarSign, BarChart3, Shield,
 import StatCard from "@/components/StatCard";
 import AlertBadge from "@/components/AlertBadge";
 import { marketStats } from "@/data/bdcs";
-import { recentAlerts, bdcSectorExposure, topBDCSoftwareExposure } from "@/data/market";
+import { recentAlerts } from "@/data/market";
 import { portfolioCompanies } from "@/data/companies";
 import { computeDerivedMarketStats } from "@/lib/marketStatsDerived";
+import {
+  bdcSoftwareExposureActual,
+  industrySectorAllocationActual,
+} from "@/lib/sectorActual";
 
 export default function HomePage() {
   const nonAccrualCompanies = portfolioCompanies.filter(
@@ -16,6 +20,11 @@ export default function HomePage() {
   );
 
   const derived = computeDerivedMarketStats();
+  // Real sector / software exposure from parsed SOI (replaces former static
+  // constants). Same shapes as the old arrays, so the sections below are
+  // unchanged.
+  const bdcSectorExposure = industrySectorAllocationActual();
+  const topBDCSoftwareExposure = bdcSoftwareExposureActual().slice(0, 12);
   // Helpers for Δ display
   const fmtDeltaPP = (d: number | null): string | undefined => {
     if (d == null) return undefined;
@@ -187,7 +196,7 @@ export default function HomePage() {
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
             <h2 className="font-semibold text-white">BDC Sector Exposure</h2>
-            <span className="text-xs" style={{ color: "#8b8ba8" }}>Weighted average</span>
+            <span className="text-xs" style={{ color: "#8b8ba8" }}>Cost-weighted, parsed SOI</span>
           </div>
           <div className="p-5 space-y-3">
             {bdcSectorExposure.map((sector) => (
@@ -215,7 +224,7 @@ export default function HomePage() {
         <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
           <div>
             <h2 className="font-semibold text-white">Highest Software Exposure BDCs</h2>
-            <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>Ranked by % portfolio in software companies</p>
+            <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>Software &amp; IT share of attributed book, parsed from SOI</p>
           </div>
           <Link href="/bdcs" className="text-xs hover:text-white transition-colors" style={{ color: "#6366f1" }}>
             Full BDC list →

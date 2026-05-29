@@ -19,8 +19,6 @@ import {
   bdcAumHistory,
   softwareExposureHistory,
   bdcSalesHistory,
-  bdcSectorExposure,
-  topBDCSoftwareExposure,
 } from "@/data/market";
 import { portfolioCompanies } from "@/data/companies";
 import {
@@ -30,6 +28,11 @@ import {
   filterBroad,
 } from "@/lib/marketHistoryActual";
 import { computeDerivedMarketStats } from "@/lib/marketStatsDerived";
+import {
+  bdcSoftwareExposureActual,
+  industrySectorAllocationActual,
+  sectorAsOf,
+} from "@/lib/sectorActual";
 
 const CHART_COLORS = {
   primary: "#6366f1",
@@ -48,6 +51,13 @@ const tooltipStyle = {
 };
 
 export default function MarketPage() {
+  // Real sector / software exposure from our parsed SOI (industry-enrichment
+  // pipeline), replacing the former hand-entered constants. Same shapes as the
+  // old static arrays, so the charts below are unchanged.
+  const bdcSectorExposure = industrySectorAllocationActual();
+  const topBDCSoftwareExposure = bdcSoftwareExposureActual().slice(0, 12);
+  const sectorPeriod = sectorAsOf();
+
   const aiRiskBreakdown = [
     { name: "Critical", count: portfolioCompanies.filter(c => c.aiRisk === "Critical").length, color: "#ef4444" },
     { name: "High", count: portfolioCompanies.filter(c => c.aiRisk === "High").length, color: "#f97316" },
@@ -270,7 +280,9 @@ export default function MarketPage() {
         {/* Sector Exposure Pie */}
         <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <h2 className="font-semibold text-white mb-1">BDC Sector Allocation</h2>
-          <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>Weighted average across all tracked BDCs</p>
+          <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
+            Cost-weighted across covered BDCs, from parsed SOI{sectorPeriod ? ` · as of ${sectorPeriod}` : ""}
+          </p>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie
@@ -300,7 +312,9 @@ export default function MarketPage() {
       {/* Software Exposure by BDC */}
       <div className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <h2 className="font-semibold text-white mb-1">Software Exposure by BDC</h2>
-        <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>Top 10 BDCs ranked by software portfolio exposure (%)</p>
+        <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
+          BDCs ranked by Software &amp; IT share of attributed book, from parsed SOI{sectorPeriod ? ` · as of ${sectorPeriod}` : ""}
+        </p>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={topBDCSoftwareExposure} layout="vertical" margin={{ left: 180 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
