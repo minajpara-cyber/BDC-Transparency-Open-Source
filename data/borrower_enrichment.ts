@@ -630,5 +630,135 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sector": "Industrial",
     "sub_sector": "Marine logistics",
     "description": "Operator of marine terminals and bulk-logistics services."
+  },
+  "barbri": {
+    "sector": "Education",
+    "sub_sector": "Legal exam prep",
+    "description": "Bar-exam preparation and legal education."
+  },
+  "risk-strategies": {
+    "sector": "Insurance",
+    "sub_sector": "Brokerage",
+    "description": "Specialty insurance brokerage and risk management."
+  },
+  "transperfect-global": {
+    "sector": "Professional Services",
+    "sub_sector": "Translation / localization",
+    "description": "Language translation and localization services."
+  },
+  "acron-aviation": {
+    "sector": "Industrial",
+    "sub_sector": "Aerospace (avionics)",
+    "description": "Commercial-aviation avionics and flight systems (ex-L3Harris)."
+  },
+  "curia-global": {
+    "sector": "Healthcare",
+    "sub_sector": "Pharma services (CDMO)",
+    "description": "Pharma contract research and manufacturing (ex-AMRI)."
+  },
+  "mannkind": {
+    "sector": "Healthcare",
+    "sub_sector": "Biopharma",
+    "description": "Biopharmaceutical company (inhaled insulin / Tyvaso DPI)."
+  },
+  "infiltrator-systems-inc": {
+    "sector": "Industrial",
+    "sub_sector": "Building products (water)",
+    "description": "Septic and stormwater management systems."
+  },
+  "west-monroe": {
+    "sector": "Professional Services",
+    "sub_sector": "Digital consulting",
+    "description": "Digital and management consulting firm."
+  },
+  "endries": {
+    "sector": "Industrial",
+    "sub_sector": "Fastener distribution",
+    "description": "Distributor of fasteners and C-class production components."
+  },
+  "allied-benefit-systems": {
+    "sector": "Insurance",
+    "sub_sector": "Benefits administration / TPA",
+    "description": "Third-party administrator for self-funded health plans."
+  },
+  "customink": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Custom apparel e-commerce",
+    "description": "Custom-printed apparel and promotional products."
+  },
+  "quirch-foods": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Food distribution",
+    "description": "Distributor of protein and Hispanic / ethnic foods."
+  },
+  "gehl-foods": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Packaged food",
+    "description": "Aseptic dairy, cheese-sauce and beverage manufacturing."
+  },
+  "werner-finco": {
+    "sector": "Industrial",
+    "sub_sector": "Building products",
+    "description": "Ladders, climbing equipment and jobsite products (Werner)."
+  },
+  "2u": {
+    "sector": "Education",
+    "sub_sector": "EdTech / online programs",
+    "description": "Online degree and short-course platform (owns edX)."
+  },
+  "ensemble-rcm": {
+    "sector": "Healthcare",
+    "sub_sector": "Revenue-cycle management",
+    "description": "Hospital revenue-cycle management services."
+  },
+  "pregis": {
+    "sector": "Materials & Chemicals",
+    "sub_sector": "Protective packaging",
+    "description": "Protective and flexible packaging products."
+  },
+  "gainwell": {
+    "sector": "Software & IT",
+    "sub_sector": "Government healthcare IT",
+    "description": "Medicaid and health-and-human-services IT for governments."
+  },
+  "trinity-air-consultants": {
+    "sector": "Professional Services",
+    "sub_sector": "Environmental consulting",
+    "description": "Environmental, air-quality and EHS consulting."
+  },
+  "coretrust-purchasing": {
+    "sector": "Professional Services",
+    "sub_sector": "Group purchasing (GPO)",
+    "description": "Group purchasing organization for indirect spend."
+  },
+  "access-cig": {
+    "sector": "Professional Services",
+    "sub_sector": "Records & information mgmt",
+    "description": "Records storage and information-governance services."
+  },
+  "team-technologies": {
+    "sector": "Healthcare",
+    "sub_sector": "Medical device manufacturing",
+    "description": "Contract manufacturer of medical and oral-care products."
+  },
+  "saber-power": {
+    "sector": "Utilities & Energy",
+    "sub_sector": "Power services",
+    "description": "Electrical power infrastructure engineering and services."
+  },
+  "heelstone-renewable-energy": {
+    "sector": "Utilities & Energy",
+    "sub_sector": "Renewables (solar)",
+    "description": "Solar power development and generation."
+  },
+  "united-risk": {
+    "sector": "Insurance",
+    "sub_sector": "Specialty / MGA",
+    "description": "Specialty insurance and managing-general-agent platform."
+  },
+  "the-better-being": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Vitamins & supplements",
+    "description": "Vitamins and nutritional supplements (ex-Nutraceutical)."
   }
 };
