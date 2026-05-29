@@ -17,6 +17,7 @@ import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
 import { vintageRows } from "@/data/vintage_analysis";
 import { bdcSponsorExposure } from "@/data/bdc_sponsor_exposure";
+import { bdcSectorExposure } from "@/data/bdc_sector_exposure";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -861,6 +862,127 @@ export default async function BDCDetailPage({ params }: PageProps) {
             <div className="text-xs mt-3" style={{ color: "#6b6b88" }}>
               See <Link href="/vintage" className="text-indigo-400 hover:underline">/vintage</Link> for the industry-wide curves and methodology.
             </div>
+          </section>
+        );
+      })()}
+
+      {(() => {
+        const sectors = bdcSectorExposure
+          .filter((e) => e.ticker === bdc.ticker)
+          .sort((a, b) => b.total_cost - a.total_cost);
+        if (sectors.length === 0) return null;
+        const period = sectors[0].period_end;
+        const totalCostB = sectors.reduce((s, e) => s + e.total_cost, 0) / 1e9;
+        const software = sectors.find((e) => e.sector === "Software & IT");
+        const unclassified = sectors.find((e) => e.sector === "Unclassified");
+        const swPct = software ? software.share_of_bdc * 100 : 0;
+        const uncPct = unclassified ? unclassified.share_of_bdc * 100 : 0;
+        const maxShare = sectors[0].share_of_bdc;
+        // Industry-coverage caveat: when a large share is Unclassified the
+        // sector mix is only partial. MAIN discloses business descriptions we
+        // don't parse; GBDC's industry column is mis-tagged (we route it
+        // through cross-BDC consensus, leaving the rest unclassified).
+        const lowCoverage = uncPct >= 25;
+        return (
+          <section className="mt-8">
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <h2 className="text-lg font-semibold text-white">Sector exposure</h2>
+              <span className="text-xs px-2 py-0.5 rounded border" style={{
+                color: "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)",
+              }}>
+                as of {period}
+              </span>
+              {lowCoverage && (
+                <span className="text-xs px-2 py-0.5 rounded border" style={{
+                  color: "#fbbf24", background: "rgba(251,191,36,0.08)", borderColor: "rgba(251,191,36,0.25)",
+                }}>
+                  partial — {uncPct.toFixed(0)}% unclassified
+                </span>
+              )}
+            </div>
+            <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
+              {bdc.ticker}&apos;s latest-quarter portfolio mix across canonical sectors
+              (${totalCostB.toFixed(2)}B at cost). Industries are taken from the SOI where
+              disclosed, then filled via the enrichment layer (within-BDC carry, cross-BDC
+              consensus, curated metadata, name keywords) for issuers that don&apos;t disclose.
+              {lowCoverage && (
+                <> {" "}<span style={{ color: "#fbbf24" }}>
+                  A large share of {bdc.ticker}&apos;s book couldn&apos;t be placed into a sector
+                  {bdc.ticker === "MAIN" ? " (MAIN discloses business descriptions our parser doesn't capture)"
+                   : bdc.ticker === "GBDC" ? " (GBDC's disclosed industry column is mis-tagged; we use cross-BDC consensus where available)"
+                   : ""}, so the mix below is partial.
+                </span></>
+              )}
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+              <StatCard label="Software & IT" value={`${swPct.toFixed(1)}%`}
+                color={swPct >= 25 ? "#a5b4fc" : undefined} />
+              <StatCard label="Sectors represented" value={sectors.filter((e) => e.sector !== "Unclassified").length.toString()} />
+              <StatCard label="Classified" value={`${(100 - uncPct).toFixed(0)}%`}
+                color={uncPct >= 25 ? "#fbbf24" : "#22c55e"} />
+            </div>
+
+            <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Sector</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Cost</th>
+                      <th className="px-3 py-3 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Positions</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Share</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sectors.map((e, i) => {
+                      const sharePct = e.share_of_bdc * 100;
+                      const barW = maxShare > 0 ? (e.share_of_bdc / maxShare) * 100 : 0;
+                      const muted = e.sector === "Unclassified" || e.sector === "Other";
+                      return (
+                        <tr key={e.sector} className="border-t" style={{
+                          borderColor: "#1a1a28",
+                          background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                        }}>
+                          <td className="px-4 py-2.5 text-sm font-medium" style={{ color: muted ? "#6b6b88" : "#fff" }}>
+                            {e.sector}
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-sm font-mono text-white">
+                            ${(e.total_cost / 1e9).toFixed(2)}B
+                          </td>
+                          <td className="px-3 py-2.5 text-right text-sm font-mono" style={{ color: "#9ca3af" }}>
+                            {e.n_positions}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 max-w-[180px] h-2 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
+                                <div style={{
+                                  width: `${barW}%`,
+                                  height: "100%",
+                                  background: muted
+                                    ? "linear-gradient(90deg, #4b5563, #6b7280)"
+                                    : "linear-gradient(90deg, #6366f1, #a5b4fc)",
+                                }} />
+                              </div>
+                              <span className="text-xs font-mono" style={{ color: "#d1d5db" }}>
+                                {sharePct.toFixed(1)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
+              Sectors normalized from free-text SOI industry strings. &quot;Other&quot; = an
+              industry tag that didn&apos;t map to a canonical sector; &quot;Unclassified&quot; =
+              no usable industry. See <Link href="/credit" className="text-indigo-400 hover:underline">/credit</Link> for
+              the industry-wide sector credit view.
+            </p>
           </section>
         );
       })()}
