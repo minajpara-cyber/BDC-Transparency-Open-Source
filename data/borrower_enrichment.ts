@@ -760,5 +760,150 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sector": "Consumer / Retail",
     "sub_sector": "Vitamins & supplements",
     "description": "Vitamins and nutritional supplements (ex-Nutraceutical)."
+  },
+  "r-r-donnelley-sons": {
+    "sector": "Professional Services",
+    "sub_sector": "Marketing & print services",
+    "description": "Commercial printing, marketing and business communications (RR Donnelley)."
+  },
+  "surescripts": {
+    "sector": "Healthcare",
+    "sub_sector": "Health IT (e-prescribing)",
+    "description": "Health-information network for e-prescribing and clinical data."
+  },
+  "tivity-health": {
+    "sector": "Healthcare",
+    "sub_sector": "Wellness / fitness benefits",
+    "description": "Health and fitness benefit programs (SilverSneakers)."
+  },
+  "crunch-fitness": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Fitness clubs",
+    "description": "Operator and franchisor of fitness clubs."
+  },
+  "city-brewing": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Contract beverage manufacturing",
+    "description": "Contract manufacturer of beer, seltzer and canned beverages."
+  },
+  "waste-pro": {
+    "sector": "Professional Services",
+    "sub_sector": "Environmental / waste services",
+    "description": "Solid-waste collection, recycling and disposal."
+  },
+  "lignetics": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Home heating fuel",
+    "description": "Manufacturer of wood pellets and fire-starting products."
+  },
+  "ppc-flexible-packaging": {
+    "sector": "Materials & Chemicals",
+    "sub_sector": "Flexible packaging",
+    "description": "Manufacturer of flexible and printed packaging."
+  },
+  "genuine-cable": {
+    "sector": "Industrial",
+    "sub_sector": "Wire & cable distribution",
+    "description": "Distributor of wire, cable and connectivity products."
+  },
+  "kodiak-bp": {
+    "sector": "Industrial",
+    "sub_sector": "Building-products distribution",
+    "description": "Distributor of building products (Kodiak Building Partners)."
+  },
+  "duro-dyne-national": {
+    "sector": "Industrial",
+    "sub_sector": "HVAC products",
+    "description": "Manufacturer of HVAC sheet-metal accessories and equipment."
+  },
+  "ap-plasman": {
+    "sector": "Industrial",
+    "sub_sector": "Auto components",
+    "description": "Manufacturer of automotive exterior plastic components."
+  },
+  "a-p-plasman": {
+    "sector": "Industrial",
+    "sub_sector": "Auto components",
+    "description": "Manufacturer of automotive exterior plastic components."
+  },
+  "ascent-resources-utica": {
+    "sector": "Utilities & Energy",
+    "sub_sector": "Oil & gas E&P",
+    "description": "Natural-gas exploration and production (Utica shale)."
+  },
+  "ascent-resources-utica-llc": {
+    "sector": "Utilities & Energy",
+    "sub_sector": "Oil & gas E&P",
+    "description": "Natural-gas exploration and production (Utica shale)."
+  },
+  "veregy-consolidated": {
+    "sector": "Utilities & Energy",
+    "sub_sector": "Energy services (ESCO)",
+    "description": "Energy-efficiency and infrastructure services."
+  },
+  "sagesure": {
+    "sector": "Insurance",
+    "sub_sector": "MGA (coastal property)",
+    "description": "Managing general agent for coastal residential property insurance."
+  },
+  "progress-residential-pm": {
+    "sector": "Real Estate",
+    "sub_sector": "Single-family rental",
+    "description": "Single-family rental home ownership and management."
+  },
+  "trillium-flow-technologies": {
+    "sector": "Industrial",
+    "sub_sector": "Flow control (valves/pumps)",
+    "description": "Manufacturer of industrial valves, pumps and flow-control equipment."
+  },
+  "great-day-improvements-llc": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Home improvement",
+    "description": "Home remodeling and improvement products and installation."
+  },
+  "hilb": {
+    "sector": "Insurance",
+    "sub_sector": "Brokerage",
+    "description": "Insurance brokerage and risk management (Hilb Group)."
+  },
+  "pantherx": {
+    "sector": "Healthcare",
+    "sub_sector": "Specialty pharmacy",
+    "description": "Specialty and rare-disease pharmacy."
+  },
+  "medical-knowledge-group-llc": {
+    "sector": "Healthcare",
+    "sub_sector": "Medical communications",
+    "description": "Medical communications, data and marketing for life sciences."
+  },
+  "mavis-tire-supply": {
+    "sector": "Consumer / Retail",
+    "sub_sector": "Auto services / tire retail",
+    "description": "Tire and automotive service retail (Mavis)."
+  },
+  "baker-tilly-advisory-l-p": {
+    "sector": "Professional Services",
+    "sub_sector": "Accounting & advisory",
+    "description": "Accounting, tax and advisory firm (Baker Tilly)."
+  },
+  "infostretch-corporation": {
+    "sector": "Software & IT",
+    "sub_sector": "IT services / digital engineering",
+    "description": "Digital engineering and quality-assurance services (Apexon)."
+  },
+  "paysimple": {
+    "sector": "Software & IT",
+    "sub_sector": "Payments software",
+    "description": "SMB payments and billing software (EverCommerce)."
+  },
+  "electro-switch-business-trust": {
+    "sector": "Industrial",
+    "sub_sector": "Electrical equipment",
+    "description": "Manufacturer of electrical switches and controls."
+  },
+  "foundation-consumer": {
+    "sector": "Healthcare",
+    "sub_sector": "Consumer health (OTC)",
+    "description": "Over-the-counter consumer healthcare products."
   }
 };
