@@ -1,0 +1,390 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  ResponsiveContainer,
+  LineChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  Line,
+} from "recharts";
+import StatCard from "@/components/StatCard";
+import SortableTable, { Column } from "@/components/SortableTable";
+import CsvDownloadButton from "@/components/CsvDownloadButton";
+import { watchlist, WatchlistRow } from "@/data/early_warning";
+import { watchlistByManager } from "@/data/early_warning_history";
+import { signalBacktest } from "@/data/signal_backtest";
+
+const TIER_COLOR: Record<string, string> = {
+  High: "#ef4444",
+  Elevated: "#f59e0b",
+  Watch: "#eab308",
+};
+const LINE_COLORS = [
+  "#6366f1", "#ef4444", "#22c55e", "#f59e0b", "#06b6d4",
+  "#ec4899", "#a855f7", "#84cc16",
+];
+
+function fmtM(v: number): string {
+  return v >= 1000 ? `$${(v / 1000).toFixed(1)}B` : `$${v.toFixed(0)}M`;
+}
+
+/** Tiny inline sparkline of the trailing mark trajectory (values 0..1). */
+function Sparkline({ data }: { data: number[] }) {
+  if (!data || data.length < 2) return <span style={{ color: "#4b4b66" }}>—</span>;
+  const w = 64, h = 18, pad = 2;
+  const lo = Math.min(...data), hi = Math.max(...data);
+  const span = hi - lo || 1;
+  const pts = data.map((v, i) => {
+    const x = pad + (i / (data.length - 1)) * (w - 2 * pad);
+    const y = pad + (1 - (v - lo) / span) * (h - 2 * pad);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const last = data[data.length - 1], first = data[0];
+  const stroke = last < first ? "#ef4444" : "#22c55e";
+  return (
+    <svg width={w} height={h} style={{ display: "inline-block", verticalAlign: "middle" }}>
+      <polyline points={pts.join(" ")} fill="none" stroke={stroke} strokeWidth={1.5} />
+    </svg>
+  );
+}
+
+function TierBadge({ tier }: { tier: string }) {
+  const c = TIER_COLOR[tier] ?? "#8b8ba8";
+  return (
+    <span className="px-2 py-0.5 rounded text-xs font-semibold"
+      style={{ background: `${c}22`, color: c, border: `1px solid ${c}55` }}>
+      {tier}
+    </span>
+  );
+}
+
+export default function WatchlistPage() {
+  const [tier, setTier] = useState<string>("All");
+  const [mgr, setMgr] = useState<string>("All");
+  const [q, setQ] = useState<string>("");
+  const [newOnly, setNewOnly] = useState(false);
+  const [hideStructured, setHideStructured] = useState(true);
+
+  const latest = watchlist[0]?.period_end ?? "—";
+  const managers = useMemo(
+    () => Array.from(new Set(watchlist.map((r) => r.manager))).sort(),
+    [],
+  );
+
+  const rows = useMemo(() => {
+    return watchlist.filter((r) => {
+      if (tier !== "All" && r.tier !== tier) return false;
+      if (mgr !== "All" && r.manager !== mgr) return false;
+      if (newOnly && !r.is_new) return false;
+      if (hideStructured && r.is_structured) return false;
+      if (q && !r.company.toLowerCase().includes(q.toLowerCase())
+            && !r.ticker.toLowerCase().includes(q.toLowerCase())) return false;
+      return true;
+    });
+  }, [tier, mgr, q, newOnly, hideStructured]);
+
+  const totalFV = rows.reduce((s, r) => s + r.fv_m, 0);
+  const nHigh = rows.filter((r) => r.tier === "High").length;
+  const nElevated = rows.filter((r) => r.tier === "Elevated").length;
+  const nNew = rows.filter((r) => r.is_new).length;
+  const newFV = rows.filter((r) => r.is_new).reduce((s, r) => s + r.fv_m, 0);
+
+  const highBacktest = signalBacktest.find((b) => b.signal === "tier: High");
+  const baseRate = signalBacktest.find((b) => b.signal === "ALL (base rate)");
+
+  // ---- by-manager rollup (latest quarter) ----
+  const mgrLatest = useMemo(() => {
+    const lp = watchlistByManager.reduce((m, r) => (r.period_end > m ? r.period_end : m), "");
+    return watchlistByManager
+      .filter((r) => r.period_end === lp)
+      .sort((a, b) => b.wl_fv - a.wl_fv);
+  }, []);
+
+  // ---- by-manager trend (% of book over time, top managers) ----
+  const trend = useMemo(() => {
+    const topMgrs = mgrLatest.slice(0, 6).map((r) => r.key);
+    const periods = Array.from(new Set(watchlistByManager.map((r) => r.period_end)))
+      .sort()
+      .slice(-14);
+    const byKey: Record<string, Record<string, number>> = {};
+    watchlistByManager.forEach((r) => {
+      if (!byKey[r.period_end]) byKey[r.period_end] = {};
+      if (r.pct_book != null) byKey[r.period_end][r.key] = r.pct_book;
+    });
+    const data = periods.map((p) => {
+      const row: Record<string, number | string> = { period_end: p.slice(2, 7) };
+      topMgrs.forEach((m) => { if (byKey[p]?.[m] != null) row[m] = byKey[p][m]; });
+      return row;
+    });
+    return { data, topMgrs };
+  }, [mgrLatest]);
+
+  const columns: Column<WatchlistRow>[] = [
+    {
+      key: "tier", label: "Tier", sortable: true,
+      render: (r) => <TierBadge tier={r.tier} />,
+    },
+    { key: "score", label: "Score", sortable: true, align: "right",
+      render: (r) => <span className="font-semibold text-white">{r.score}</span> },
+    {
+      key: "company", label: "Borrower", sortable: true,
+      render: (r) => (
+        <div>
+          <div className="flex items-center gap-1.5">
+            {r.borrower_slug
+              ? <Link href={`/borrowers/${r.borrower_slug}`} className="text-indigo-300 hover:text-indigo-200">{r.company}</Link>
+              : <span className="text-white">{r.company}</span>}
+            {r.is_new ? <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+              style={{ background: "#6366f122", color: "#a5b4fc", border: "1px solid #6366f155" }}>NEW</span> : null}
+          </div>
+          <div className="text-xs" style={{ color: "#6b6b88" }}>
+            {r.industry ?? "—"}{r.maturity_date ? ` · mat ${r.maturity_date}` : ""}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "ticker", label: "BDC", sortable: true,
+      render: (r) => (
+        <Link href={`/bdcs/${r.ticker.toLowerCase()}`} className="font-medium text-indigo-300 hover:text-indigo-200">
+          {r.ticker}
+        </Link>
+      ),
+    },
+    {
+      key: "manager", label: "Manager", sortable: true,
+      render: (r) => (
+        <span className="text-sm" style={{ color: "#c7c7e0" }}>
+          {r.manager}{r.parent ? <span style={{ color: "#6b6b88" }}> ({r.parent})</span> : null}
+        </span>
+      ),
+    },
+    {
+      key: "mark", label: "Mark", sortable: true, align: "right",
+      render: (r) => (
+        <div className="flex items-center justify-end gap-2">
+          <Sparkline data={r.spark} />
+          <span className="font-medium text-white tabular-nums">
+            {r.mark != null ? `${(r.mark * 100).toFixed(0)}¢` : "—"}
+          </span>
+        </div>
+      ),
+    },
+    { key: "fv_m", label: "$ at risk", sortable: true, align: "right",
+      render: (r) => <span className="font-semibold text-white tabular-nums">{fmtM(r.fv_m)}</span> },
+    {
+      key: "signals", label: "Signals",
+      render: (r) => (
+        <div className="flex flex-wrap gap-1" style={{ maxWidth: 320 }}>
+          {r.signals.map((s, i) => (
+            <span key={i} className="px-1.5 py-0.5 rounded text-[10px]"
+              style={{ background: "#1a1a28", color: "#b9b9d6", border: "1px solid #2d2d50" }}>{s}</span>
+          ))}
+        </div>
+      ),
+    },
+  ];
+
+  const csvRows = rows.map((r) => [
+    r.tier, r.score, r.company, r.ticker, r.manager, r.parent, r.industry,
+    r.maturity_date, r.mark, r.fv_m, r.cost_m, r.is_new, r.signals.join("; "),
+  ]);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Hero */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <h1 className="text-2xl font-bold text-white">Credit Early-Warning Watchlist</h1>
+          <span className="px-2 py-1 rounded text-xs font-medium"
+            style={{ background: "#1a1a28", color: "#a5b4fc", border: "1px solid #2d2d50" }}>
+            as of {latest}
+          </span>
+        </div>
+        <p className="text-sm max-w-3xl" style={{ color: "#9ca3af" }}>
+          Positions that are <span className="text-white">deteriorating but not yet on non-accrual</span> — the leading
+          edge of credit problems. Each loan gets a composite stress score from its mark level &amp; trajectory, cash→PIK
+          flips, amend-and-extends and spread cuts, then is ranked by dollars at risk. The score is back-tested below:
+          loans flagged <span style={{ color: TIER_COLOR.High }}>High</span> have historically gone non-accrual within a
+          year {highBacktest && baseRate
+            ? <span className="text-white">{highBacktest.lift_na}× as often as the average position</span>
+            : "far more often than average"}.
+        </p>
+      </div>
+
+      {/* Stat strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard label="$ at risk (watchlist)" value={fmtM(totalFV)}
+          sub={`${rows.length} positions, pre-non-accrual`} color="#f59e0b" highlight />
+        <StatCard label="High tier" value={String(nHigh)} color="#ef4444"
+          sub={`+ ${nElevated} elevated`} />
+        <StatCard label="New this quarter" value={String(nNew)} color="#6366f1"
+          sub={`${fmtM(newFV)} entered the watchlist`} />
+        <StatCard label="High → non-accrual ≤1yr"
+          value={highBacktest ? `${highBacktest.rate_na}%` : "—"} color="#ef4444"
+          trend="down" trendLabel={highBacktest ? `${highBacktest.lift_na}× base rate` : undefined}
+          sub={baseRate ? `vs ${baseRate.rate_na}% base` : undefined} />
+      </div>
+
+      {/* Back-test credibility panel */}
+      <section className="mb-8 rounded-xl border p-5" style={{ background: "#0d0d14", borderColor: "#1e1e2e" }}>
+        <h2 className="text-lg font-semibold text-white mb-1">Does the signal actually predict trouble?</h2>
+        <p className="text-sm mb-4" style={{ color: "#9ca3af" }}>
+          For every pre-non-accrual loan since 2018, we measured whether it went on to non-accrual within four quarters.
+          Each signal&apos;s hit-rate is shown against the {baseRate ? `${baseRate.rate_na}%` : ""} base rate across all loans.
+          Higher tiers and stacked signals are sharply more predictive — the score rank-orders risk.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ color: "#8b8ba8" }} className="text-xs uppercase tracking-wider">
+                <th className="text-left font-semibold py-2">Signal / tier</th>
+                <th className="text-right font-semibold py-2">Observations</th>
+                <th className="text-right font-semibold py-2">→ Non-accrual ≤1yr</th>
+                <th className="text-right font-semibold py-2">Lift</th>
+                <th className="text-right font-semibold py-2">→ NA or &lt;80¢</th>
+              </tr>
+            </thead>
+            <tbody>
+              {signalBacktest.map((b, i) => {
+                const isTier = b.signal.startsWith("tier:");
+                const isBase = b.signal.startsWith("ALL");
+                return (
+                  <tr key={i} style={{ borderTop: "1px solid #1a1a28",
+                    background: isTier ? "#12121c" : undefined }}>
+                    <td className="py-2 font-medium" style={{ color: isBase ? "#8b8ba8" : "#e5e5f0" }}>
+                      {isTier ? <TierBadge tier={b.signal.replace("tier: ", "")} /> : b.signal}
+                    </td>
+                    <td className="py-2 text-right tabular-nums" style={{ color: "#9ca3af" }}>{b.n.toLocaleString()}</td>
+                    <td className="py-2 text-right tabular-nums font-semibold text-white">{b.rate_na}%</td>
+                    <td className="py-2 text-right tabular-nums"
+                      style={{ color: (b.lift_na ?? 1) >= 3 ? "#ef4444" : "#9ca3af" }}>
+                      {b.lift_na != null ? `${b.lift_na}×` : "—"}
+                    </td>
+                    <td className="py-2 text-right tabular-nums" style={{ color: "#c7c7e0" }}>{b.rate_bad}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* By manager */}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-white mb-1">Where is the stress building — by manager</h2>
+        <p className="text-sm mb-4" style={{ color: "#9ca3af" }}>
+          Watchlist dollars rolled up to each platform&apos;s parent. Absolute $ favors the biggest books, so the
+          <span className="text-white"> % of book</span> column is the like-for-like read across managers.
+        </p>
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Summary table */}
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: "#1e1e2e" }}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background: "#12121c", color: "#8b8ba8" }} className="text-xs uppercase tracking-wider">
+                  <th className="text-left font-semibold py-2 px-3">Manager</th>
+                  <th className="text-right font-semibold py-2 px-3">$ at risk</th>
+                  <th className="text-right font-semibold py-2 px-3">% of book</th>
+                  <th className="text-right font-semibold py-2 px-3">High</th>
+                  <th className="text-right font-semibold py-2 px-3">Elev.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {mgrLatest.map((r, i) => (
+                  <tr key={i} style={{ borderTop: "1px solid #1a1a28" }}>
+                    <td className="py-2 px-3 font-medium text-white">{r.key}</td>
+                    <td className="py-2 px-3 text-right tabular-nums" style={{ color: "#e5e5f0" }}>{fmtM(r.wl_fv)}</td>
+                    <td className="py-2 px-3 text-right tabular-nums font-semibold"
+                      style={{ color: (r.pct_book ?? 0) >= 8 ? "#ef4444" : (r.pct_book ?? 0) >= 4 ? "#f59e0b" : "#22c55e" }}>
+                      {r.pct_book != null ? `${r.pct_book.toFixed(1)}%` : "—"}
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums" style={{ color: "#ef4444" }}>{r.n_High}</td>
+                    <td className="py-2 px-3 text-right tabular-nums" style={{ color: "#f59e0b" }}>{r.n_Elevated}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* Trend chart */}
+          <div className="rounded-xl border p-4" style={{ borderColor: "#1e1e2e", background: "#0d0d14" }}>
+            <div className="text-xs uppercase tracking-wider mb-2" style={{ color: "#8b8ba8" }}>
+              Watchlist % of book over time
+            </div>
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={trend.data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" />
+                <XAxis dataKey="period_end" tick={{ fill: "#8b8ba8", fontSize: 11 }} />
+                <YAxis tick={{ fill: "#8b8ba8", fontSize: 11 }} unit="%" />
+                <Tooltip contentStyle={{ background: "#111118", border: "1px solid #2d2d50", borderRadius: 8, fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                {trend.topMgrs.map((m, i) => (
+                  <Line key={m} type="monotone" dataKey={m} stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                    strokeWidth={2} dot={false} connectNulls />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </section>
+
+      {/* Filters + main table */}
+      <section>
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <h2 className="text-lg font-semibold text-white mr-2">The watchlist</h2>
+          {["All", "High", "Elevated", "Watch"].map((t) => (
+            <button key={t} onClick={() => setTier(t)}
+              className="px-2.5 py-1 rounded text-xs font-medium"
+              style={{
+                background: tier === t ? "#6366f122" : "#12121c",
+                color: tier === t ? "#a5b4fc" : "#9ca3af",
+                border: `1px solid ${tier === t ? "#6366f155" : "#1e1e2e"}`,
+              }}>{t}</button>
+          ))}
+          <select value={mgr} onChange={(e) => setMgr(e.target.value)}
+            className="px-2.5 py-1 rounded text-xs"
+            style={{ background: "#12121c", color: "#c7c7e0", border: "1px solid #1e1e2e" }}>
+            <option value="All">All managers</option>
+            {managers.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search borrower / BDC…"
+            className="px-2.5 py-1 rounded text-xs flex-1 min-w-[160px]"
+            style={{ background: "#12121c", color: "#c7c7e0", border: "1px solid #1e1e2e" }} />
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "#9ca3af" }}>
+            <input type="checkbox" checked={newOnly} onChange={(e) => setNewOnly(e.target.checked)} /> New only
+          </label>
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "#9ca3af" }}>
+            <input type="checkbox" checked={hideStructured} onChange={(e) => setHideStructured(e.target.checked)} /> Hide JV/structured
+          </label>
+          <CsvDownloadButton filename={`watchlist_${latest}`}
+            columns={["tier", "score", "company", "ticker", "manager", "parent", "industry",
+              "maturity", "mark", "fv_m", "cost_m", "is_new", "signals"]}
+            rows={csvRows} />
+        </div>
+        <SortableTable<WatchlistRow>
+          data={rows}
+          columns={columns}
+          rowKey={(r) => `${r.ticker}|${r.company}|${r.maturity_date}|${r.investment_type}`}
+          initialSort={{ key: "fv_m", dir: "desc" }}
+          dense
+          stickyHeader
+          emptyMessage="No positions match these filters."
+        />
+        <p className="text-xs mt-4 max-w-3xl" style={{ color: "#6b6b88" }}>
+          Methodology &amp; caveats: a position scores on mark band (&lt;90¢/&lt;80¢), a ≥3pt quarterly mark slide
+          (steeper if sustained two quarters), a cash→PIK flip, severe PIK, an amend-and-extend, or a spread cut.
+          Par cuts count only alongside another signal (a &gt;15% par drop alone is dominated by benign amortization).
+          Already-non-accrual and effectively-written-off (&lt;2¢) positions are excluded, as is preferred equity
+          (structurally PIK). JV/structured vehicles are hidden by default. MFIC discloses no per-position non-accrual
+          flag, so a few of its names may be under-excluded. Back-test base rates are weighted to 2018+ where loan
+          history is deepest.
+        </p>
+      </section>
+    </div>
+  );
+}
