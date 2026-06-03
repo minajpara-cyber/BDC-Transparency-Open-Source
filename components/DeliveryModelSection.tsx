@@ -15,7 +15,7 @@ function fmtB(m: number) {
 
 export default function DeliveryModelSection() {
   const totalSW = softwareByVertical.reduce((s, r) => s + r.fv_m, 0);
-  const horizontal = softwareByVertical.find((r) => r.vertical === "Horizontal tech")?.fv_m ?? 0;
+  const horizontal = softwareByVertical.find((r) => r.vertical === "Horizontal")?.fv_m ?? 0;
   const vertical = totalSW - horizontal;
   const healthSW = softwareByVertical.find((r) => r.vertical === "Healthcare")?.fv_m ?? 0;
 
@@ -46,7 +46,7 @@ export default function DeliveryModelSection() {
               <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" horizontal={false} />
               <XAxis type="number" tick={{ fill: "#8b8ba8", fontSize: 11 }}
                 tickFormatter={(v) => `$${(v / 1000).toFixed(0)}B`} />
-              <YAxis type="category" dataKey="vertical" width={90} interval={0}
+              <YAxis type="category" dataKey="vertical" width={118} interval={0}
                 tick={{ fill: "#c7c7e0", fontSize: 11 }} />
               <Tooltip contentStyle={{ background: "#0d0d14", border: "1px solid #2d2d50", borderRadius: 8, fontSize: 12 }}
                 formatter={(v) => [fmtB(Number(v)), "fair value"]} />
@@ -66,7 +66,7 @@ export default function DeliveryModelSection() {
             <BarChart data={mgrs} layout="vertical" margin={{ left: 24, right: 16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e1e2e" horizontal={false} />
               <XAxis type="number" tick={{ fill: "#8b8ba8", fontSize: 11 }} unit="%" />
-              <YAxis type="category" dataKey="key" width={90} interval={0} tick={{ fill: "#c7c7e0", fontSize: 11 }} />
+              <YAxis type="category" dataKey="key" width={114} interval={0} tick={{ fill: "#c7c7e0", fontSize: 11 }} />
               <Tooltip contentStyle={{ background: "#0d0d14", border: "1px solid #2d2d50", borderRadius: 8, fontSize: 12 }}
                 formatter={(v) => [`${v}%`, "software % of book"]} />
               <Bar dataKey="software_pct" radius={[0, 4, 4, 0]} fill="#6366f1" />
