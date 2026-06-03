@@ -7,9 +7,9 @@ import AssetCompositionChart from "@/components/AssetCompositionChart";
 import SeverityStackedBars from "@/components/SeverityStackedBars";
 import ComparisonChart, { ComparisonPoint } from "@/components/ComparisonChart";
 import BDCTimelineChart from "@/components/BDCTimelineChart";
+import BDCHoldingsTable from "@/components/BDCHoldingsTable";
 import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
-import { portfolioCompanies } from "@/data/companies";
 import { creditQuality } from "@/data/credit_quality";
 import { modificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
@@ -31,18 +31,6 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const bdc = bdcs.find((b) => b.slug === slug);
   if (!bdc) notFound();
-
-  // Find all portfolio companies held by this BDC
-  const holdings = portfolioCompanies.flatMap((company) => {
-    const holder = company.holders.find((h) => h.bdc === bdc.ticker);
-    if (!holder) return [];
-    return [{ company, holder }];
-  });
-
-  const totalFV = holdings.reduce((sum, h) => sum + h.holder.fairValue, 0);
-  const totalPrincipal = holdings.reduce((sum, h) => sum + h.holder.principalAmount, 0);
-  const nonAccruals = holdings.filter((h) => h.holder.status === "Non-Accrual");
-  const pikHoldings = holdings.filter((h) => h.holder.status === "PIK");
 
   const softwareRisk = bdc.softwareExposure >= 50 ? "Critical" : bdc.softwareExposure >= 25 ? "High" : bdc.softwareExposure >= 15 ? "Medium" : "Low";
 
@@ -521,92 +509,8 @@ export default async function BDCDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Tracked Holdings in this BDC */}
-      {holdings.length > 0 && (
-        <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: "#1e1e2e" }}>
-            <div>
-              <h2 className="font-semibold text-white">Tracked Software Holdings</h2>
-              <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-                {holdings.length} companies shown · ${(totalFV / 1000).toFixed(2)}B fair value tracked
-              </p>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-                <tr>
-                  {["Company", "Sector", "Loan Type", "Spread", "Maturity", "Fair Value", "Price/Face", "Status", "AI Risk"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap" style={{ color: "#8b8ba8" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {holdings.map(({ company, holder }, i) => {
-                  const statusColor = holder.status === "Non-Accrual" ? "#ef4444" : holder.status === "PIK" ? "#f97316" : holder.status === "Restructured" ? "#eab308" : "#22c55e";
-                  const priceColor = holder.priceToFaceValue >= 97 ? "#22c55e" : holder.priceToFaceValue >= 90 ? "#eab308" : "#ef4444";
-                  return (
-                    <tr key={company.slug} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
-                      <td className="px-4 py-3">
-                        <Link href={`/companies/${company.slug}`} className="text-sm font-medium text-white hover:text-indigo-400">
-                          {company.name}
-                        </Link>
-                        <div className="text-xs mt-0.5" style={{ color: "#6b6b88" }}>{company.sponsor}</div>
-                      </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{company.subsector}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{holder.loanType}</td>
-                      <td className="px-4 py-3 text-sm text-white">S+{holder.spread}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>
-                        {new Date(holder.maturity).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-white">
-                        ${holder.fairValue.toFixed(0)}M
-                      </td>
-                      <td className="px-4 py-3 text-sm font-semibold" style={{ color: priceColor }}>
-                        {holder.priceToFaceValue.toFixed(1)}¢
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-medium" style={{ color: statusColor }}>
-                          {holder.status}
-                          {holder.pikPercent && holder.status === "PIK" ? ` (${holder.pikPercent}%)` : ""}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <AlertBadge severity={company.aiRisk === "Critical" ? "Critical" : company.aiRisk === "High" ? "High" : company.aiRisk === "Medium" ? "Medium" : "Low"} label />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Non-Accruals */}
-      {nonAccruals.length > 0 && (
-        <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#7f1d1d" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: "#7f1d1d", background: "#1a0505" }}>
-            <h2 className="font-semibold" style={{ color: "#ef4444" }}>⚠ Non-Accrual Positions ({nonAccruals.length})</h2>
-          </div>
-          <div className="p-5 space-y-3">
-            {nonAccruals.map(({ company, holder }) => (
-              <div key={company.slug} className="flex items-center justify-between gap-4 p-3 rounded-lg" style={{ background: "#180505" }}>
-                <div>
-                  <Link href={`/companies/${company.slug}`} className="font-medium hover:text-red-300" style={{ color: "#ef4444" }}>
-                    {company.name}
-                  </Link>
-                  <div className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>{holder.loanType} · S+{holder.spread} · due {new Date(holder.maturity).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold" style={{ color: "#ef4444" }}>{holder.priceToFaceValue.toFixed(1)}¢</div>
-                  <div className="text-xs" style={{ color: "#8b8ba8" }}>${holder.fairValue}M FV / ${holder.principalAmount}M par</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Top exposures — real positions from parsed SOI (sortable / filterable) */}
+      <BDCHoldingsTable ticker={bdc.ticker} />
 
       {/* Investment Strategy Details */}
       <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
