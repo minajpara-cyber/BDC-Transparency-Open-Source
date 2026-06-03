@@ -15,6 +15,7 @@ import {
   Legend,
 } from "recharts";
 import AlertBadge from "@/components/AlertBadge";
+import DeliveryModelSection from "@/components/DeliveryModelSection";
 import {
   bdcAumHistory,
   softwareExposureHistory,
@@ -344,6 +345,9 @@ export default function MarketPage() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Delivery model × end-market (LLM dual-axis) */}
+      <DeliveryModelSection />
 
       {/* AI Risk */}
       <div className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
