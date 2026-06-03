@@ -83,6 +83,7 @@ export default function WatchlistPage() {
       if (newOnly && !r.is_new) return false;
       if (hideStructured && r.is_structured) return false;
       if (q && !r.company.toLowerCase().includes(q.toLowerCase())
+            && !(r.legal_name ?? "").toLowerCase().includes(q.toLowerCase())
             && !r.ticker.toLowerCase().includes(q.toLowerCase())) return false;
       return true;
     });
@@ -143,6 +144,7 @@ export default function WatchlistPage() {
               style={{ background: "#6366f122", color: "#a5b4fc", border: "1px solid #6366f155" }}>NEW</span> : null}
           </div>
           <div className="text-xs" style={{ color: "#6b6b88" }}>
+            {r.legal_name ? <span style={{ color: "#52526a" }}>{r.legal_name} · </span> : null}
             {r.industry ?? "—"}{r.maturity_date ? ` · mat ${r.maturity_date}` : ""}
           </div>
         </div>
