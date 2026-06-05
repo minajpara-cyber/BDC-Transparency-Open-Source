@@ -509,7 +509,7 @@ export default function VintagePage() {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                {["Vintage", "Loans", "Hi-Conf", "Cohort Size", "Latest Age", "Cum. Default %", "Ever Modified %", "On-book NA %", "Ever <80¢ %", "Current <90¢ %", "Coverage"].map((h) => (
+                {["Vintage", "Loans", "Hi-Conf", "Disclosed", "Cohort Size", "Latest Age", "Cum. Default %", "Ever Modified %", "On-book NA %", "Ever <80¢ %", "Current <90¢ %", "Coverage"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>{h}</th>
                 ))}
               </tr>
@@ -525,6 +525,9 @@ export default function VintagePage() {
                 const naColor  = r.pct_ever_na >= 3 ? "#ef4444" : r.pct_ever_na >= 1 ? "#f97316" : "#22c55e";
                 const b80Color = r.pct_ever_b80 >= 5 ? "#ef4444" : r.pct_ever_b80 >= 2 ? "#f97316" : "#22c55e";
                 const b90Color = r.pct_b90_alive >= 10 ? "#ef4444" : r.pct_b90_alive >= 5 ? "#f97316" : "#22c55e";
+                const discPct = r.cohort_entry_cost_b > 0 ? 100 * (r.cohort_high_conf_b ?? 0) / r.cohort_entry_cost_b : 0;
+                const discColor = discPct >= 75 ? "#22c55e" : discPct >= 50 ? "#eab308" : "#ef4444";
+                const altDef = hcOnly ? r.pct_ever_default : r.pct_ever_default_hc;
                 return (
                   <tr key={r.vintage_year} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
                     <td className="px-4 py-3 font-semibold text-white">{r.vintage_year}</td>
@@ -542,9 +545,21 @@ export default function VintagePage() {
                         </span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: discColor }}
+                        title="Share of cohort $ dated from a disclosed acquisition date or a cross-BDC peer — versus first-observed inference. Low = this vintage's metrics rest heavily on inferred dates; treat with caution.">
+                      {discPct.toFixed(0)}%
+                    </td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}>${r.cohort_entry_cost_b.toFixed(1)}B</td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }}>{r.age_years.toFixed(2)}y</td>
-                    <td className="px-4 py-3 text-sm font-bold" style={{ color: defColor }}>{defValue == null ? "—" : `${defValue.toFixed(2)}%`}</td>
+                    <td className="px-4 py-3 text-sm font-bold" style={{ color: defColor }}>
+                      {defValue == null ? "—" : `${defValue.toFixed(2)}%`}
+                      {altDef != null && defValue != null && Math.abs(altDef - defValue) >= 0.3 && (
+                        <span className="ml-1 text-xs font-normal" style={{ color: "#6b6b88" }}
+                              title={hcOnly ? "Rate INCLUDING first-observed-inferred dates" : "Rate on disclosed/anchored dates only"}>
+                          ({hcOnly ? "all" : "disc"} {altDef.toFixed(1)})
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-sm font-semibold" style={{ color: modColor }}>{modValue == null ? "—" : `${modValue.toFixed(2)}%`}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: naColor }}>{r.pct_ever_na.toFixed(2)}%</td>
                     <td className="px-4 py-3 text-sm" style={{ color: b80Color }}>{r.pct_ever_b80.toFixed(2)}%</td>
