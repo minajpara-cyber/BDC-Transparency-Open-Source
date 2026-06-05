@@ -374,7 +374,13 @@ export default function VintagePage() {
               onChange={(e) => setIncludePartial(e.target.checked)}
               className="cursor-pointer"
             />
-            Include vintages pre-dating parser coverage (shown dashed)
+            <span>
+              Include thin-coverage early vintages{" "}
+              <span style={{ color: "#6b6b88" }}>
+                (2018&ndash;2020: &lt;60% of BDCs were yet parsing, so the cohort under-samples
+                that year and over-weights survivors)
+              </span>
+            </span>
           </label>
         </div>
       </div>
