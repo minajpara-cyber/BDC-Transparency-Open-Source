@@ -18,6 +18,8 @@ import { spreadAnalysis } from "@/data/spread_analysis";
 import { vintageRows } from "@/data/vintage_analysis";
 import { bdcSponsorExposure } from "@/data/bdc_sponsor_exposure";
 import { bdcSectorExposure } from "@/data/bdc_sector_exposure";
+import { maturityByBdc, maturityMeta } from "@/data/maturity";
+import MaturityWallChart from "@/components/MaturityWallChart";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -451,6 +453,54 @@ export default async function BDCDetailPage({ params }: PageProps) {
           </div>
         </section>
       )}
+
+      {/* Debt maturity profile */}
+      {(() => {
+        const order = ["<=2025", "2026", "2027", "2028", "2029", "2030", "2031", "2032", "2033+"];
+        const mine = maturityByBdc.filter((r) => r.ticker === bdc.ticker);
+        if (mine.length === 0) return null;
+        const asOfYear = parseInt(maturityMeta.as_of.slice(0, 4), 10);
+        const byB = new Map(mine.map((r) => [r.bucket, r]));
+        const data = order.filter((b) => byB.has(b)).map((b) => byB.get(b)!);
+        const totalCost = mine.reduce((s, r) => s + r.cost_m, 0);
+        const near = mine.filter((r) => r.bucket === String(asOfYear) || r.bucket === String(asOfYear + 1))
+          .reduce((s, r) => s + r.cost_m, 0);
+        const nearPct = totalCost ? (near / totalCost) * 100 : 0;
+        const fmtB = (m: number) => (m >= 1000 ? `$${(m / 1000).toFixed(1)}B` : `$${m.toFixed(0)}M`);
+        return (
+          <section className="mb-6">
+            <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+              <div className="px-5 py-4 border-b flex items-center justify-between flex-wrap gap-2" style={{ borderColor: "#1e1e2e" }}>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Portfolio maturity profile</h2>
+                  <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
+                    When the loans this BDC holds come due — its debt investments at amortized cost, by year the borrower
+                    repays. Equity / structured positions (no fixed maturity) excluded.
+                  </p>
+                </div>
+                <Link href="/maturity" className="text-xs hover:text-white" style={{ color: "#a5b4fc" }}>
+                  Compare across BDCs →
+                </Link>
+              </div>
+              <div className="p-5">
+                <div className="flex flex-wrap gap-6 mb-4">
+                  <div>
+                    <div className="text-xs mb-0.5" style={{ color: "#8b8ba8" }}>Loan book (dated)</div>
+                    <div className="text-xl font-bold text-white tabular-nums">{fmtB(totalCost)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs mb-0.5" style={{ color: "#8b8ba8" }}>Loans maturing {asOfYear}–{asOfYear + 1}</div>
+                    <div className="text-xl font-bold tabular-nums" style={{ color: nearPct >= 18 ? "#f59e0b" : "#fafafa" }}>
+                      {fmtB(near)} <span className="text-sm font-medium" style={{ color: "#8b8ba8" }}>· {nearPct.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+                <MaturityWallChart data={data} metric="cost_m" asOfYear={asOfYear} height={260} />
+              </div>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Description */}
       <div className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>

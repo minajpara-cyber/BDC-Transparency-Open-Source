@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import StatCard from "@/components/StatCard";
 import SortableTable, { Column } from "@/components/SortableTable";
+import CrossHolderDivergence from "@/components/CrossHolderDivergence";
 import CsvDownloadButton from "@/components/CsvDownloadButton";
 import { watchlist, WatchlistRow } from "@/data/early_warning";
 import { watchlistByManager } from "@/data/early_warning_history";
@@ -334,6 +335,9 @@ export default function WatchlistPage() {
           </div>
         </div>
       </section>
+
+      {/* Cross-holder non-accrual divergence */}
+      <CrossHolderDivergence />
 
       {/* Filters + main table */}
       <section>

@@ -15,6 +15,7 @@ const navItems = [
   { href: "/credit", label: "Credit" },
   { href: "/watchlist", label: "Watchlist" },
   { href: "/vintage", label: "Vintage" },
+  { href: "/maturity", label: "Maturity" },
   { href: "/methodology", label: "Methodology" },
   { href: "/about", label: "About" },
 ];
