@@ -343,7 +343,14 @@ export default function VintagePage() {
           stability across quarters and across BDC holders — investigation showed disclosed
           acquisition_date is materially polluted by amendment retags (88% of intra-BDC drifts go
           forward by median 22 months; BCRED is the dominant late-discloser). LOW-tier loans are
-          excluded from the headline view by default; toggle off to include them.
+          excluded from the headline view by default; toggle off to include them.{" "}
+          <span className="text-white font-semibold">Validation (2026-06-05):</span> when ≥2 BDCs
+          hold the same loan their disclosed acquisition dates agree within 1 year{" "}
+          <span className="text-white">89%</span> of the time (median 0 days, n=563) — the empirical
+          error bar on disclosed vintages. Refinancings are now{" "}
+          <span className="text-white">stitched</span> (a maturity extension no longer resets or
+          double-counts the vintage), and loans we never watched originate are dated by{" "}
+          <span className="text-white">maturity − calibrated tenor</span> (1L ≈ 6yr) rather than dropped.
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
