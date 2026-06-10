@@ -20,6 +20,7 @@ import { bdcSponsorExposure } from "@/data/bdc_sponsor_exposure";
 import { bdcSectorExposure } from "@/data/bdc_sector_exposure";
 import { maturityByBdc, maturityMeta } from "@/data/maturity";
 import MaturityWallChart from "@/components/MaturityWallChart";
+import BDCVintageMix, { type VintageMixRow } from "@/components/BDCVintageMix";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -691,6 +692,49 @@ export default async function BDCDetailPage({ params }: PageProps) {
           </div>
         </section>
       )}
+
+      {/* Vintage mix & non-accrual performance — how much of the current book sits
+          in each origination vintage, and how each vintage has aged on a non-accrual
+          basis. Anchored to each cohort's latest observation; partials under-count. */}
+      {(() => {
+        const mine = vintageRows.filter((r) => r.ticker === bdc.ticker);
+        if (mine.length === 0) return null;
+        // Latest observation (max age) per vintage = the most current snapshot of
+        // that cohort. Older-than-7yr cohorts are capped at their 7-year mark.
+        const latest = new Map<number, (typeof mine)[number]>();
+        for (const r of mine) {
+          const prev = latest.get(r.vintage_year);
+          if (!prev || r.age_quarters > prev.age_quarters) latest.set(r.vintage_year, r);
+        }
+        const picked = Array.from(latest.values());
+        const totalAlive = picked.reduce((s, r) => s + r.alive_cost_b, 0);
+        if (totalAlive <= 0) return null;
+        // Industry baseline at the SAME (vintage, age) for an apples-to-apples delta.
+        const indAt = (vy: number, ageQ: number) =>
+          vintageRows.find((i) => i.ticker === "industry" && i.vintage_year === vy && i.age_quarters === ageQ);
+        const mixRows: VintageMixRow[] = picked
+          .filter((r) => r.alive_cost_b > 0)
+          .map((r) => {
+            const ind = indAt(r.vintage_year, r.age_quarters);
+            return {
+              vintage_year: r.vintage_year,
+              pct_of_book: (100 * r.alive_cost_b) / totalAlive,
+              alive_cost_b: r.alive_cost_b,
+              entry_cost_b: r.cohort_entry_cost_b,
+              age_years: r.age_years,
+              n_loans: r.n_loans_cohort,
+              pct_ever_na: r.pct_ever_na,
+              pct_ever_default: r.pct_ever_default,
+              ind_ever_na: ind ? ind.pct_ever_na : null,
+              ind_ever_default: ind ? ind.pct_ever_default : null,
+              is_partial: r.is_partial,
+              period_end: r.period_end,
+            };
+          });
+        if (mixRows.length === 0) return null;
+        const asOf = picked.reduce((a, r) => (r.period_end > a ? r.period_end : a), "");
+        return <BDCVintageMix ticker={bdc.ticker} asOf={asOf} rows={mixRows} />;
+      })()}
 
       {/* Vintage Performance — this BDC's per-vintage curves vs the industry average */}
       {(() => {
