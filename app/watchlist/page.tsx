@@ -301,7 +301,10 @@ export default function WatchlistPage() {
             <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
               Top 25 of {ewsRows.length} positions scoring ≥2, as of {ewsMeta.as_of}. Scores are per
               position (one borrower can appear via several tranches/holders). Loans already on
-              non-accrual are excluded by construction — this is the <em>pre</em>-non-accrual queue.
+              non-accrual are excluded by construction — this is the <em>pre</em>-non-accrual queue.{" "}
+              <Link href="/credit#forward-queue" className="text-indigo-400 hover:text-indigo-300">
+                Per-BDC rollup (implied NA formation) →
+              </Link>
             </p>
           </>
         )}

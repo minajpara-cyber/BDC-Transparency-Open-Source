@@ -10,6 +10,8 @@ import BDCTimelineChart from "@/components/BDCTimelineChart";
 import BDCHoldingsTable from "@/components/BDCHoldingsTable";
 import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
+import { ewsByBdc, ewsTopByBdc, ewsMeta, ewsHistory } from "@/data/early_warning_scores";
+import EwsTrendChart from "@/components/EwsTrendChart";
 import { creditQuality } from "@/data/credit_quality";
 import { modificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
@@ -265,6 +267,39 @@ export default async function BDCDetailPage({ params }: PageProps) {
         )}
       </div>
 
+      {/* Description */}
+      <div className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+        <p className="text-sm leading-relaxed" style={{ color: "#d1d5db" }}>{bdc.description}</p>
+        <div className="flex flex-wrap gap-2 mt-4">
+          {bdc.topSectors.map((s) => (
+            <span key={s} className="px-2 py-0.5 rounded text-xs border" style={{ background: "rgba(99,102,241,0.08)", borderColor: "#2d2d50", color: "#a5b4fc" }}>
+              {s}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Investment Strategy Details */}
+      <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+        <h2 className="font-semibold text-white mb-4">Investment Profile</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+          {[
+            { label: "Manager", value: bdc.manager },
+            { label: "Structure", value: `${bdc.type} BDC` },
+            { label: "Focus", value: bdc.focus },
+            { label: "Primary Loan Type", value: bdc.loanType },
+            ...(bdc.aum ? [{ label: "Manager AUM", value: `$${bdc.aum}B` }] : []),
+            ...(bdc.founded ? [{ label: "Founded", value: String(bdc.founded) }] : []),
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>{label}</div>
+              <div style={{ color: "#d1d5db" }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+
       {/* Credit analysis (parsed SOI data) */}
       {hasCredit && (
         <section className="mb-8">
@@ -455,6 +490,130 @@ export default async function BDCDetailPage({ params }: PageProps) {
         </section>
       )}
 
+      {/* Forward queue — validated 2Q early-warning score, this BDC vs industry,
+          plus its top queued (pre-non-accrual) positions. Companion to the
+          cash→PIK modification view on /credit. */}
+      {(() => {
+        const mine = ewsByBdc.find((r) => r.ticker === bdc.ticker);
+        if (!mine) return null;
+        const ind = ewsByBdc.find((r) => r.ticker === "industry");
+        const peers = ewsByBdc.filter((r) => r.ticker !== "industry");
+        const rank = peers.findIndex((r) => r.ticker === bdc.ticker) + 1;
+        const queue = ewsTopByBdc.filter((r) => r.ticker === bdc.ticker);
+        const vsInd = ind ? mine.implied_na_2q_pct / Math.max(ind.implied_na_2q_pct, 0.0001) : null;
+        const tone = vsInd == null ? "#9ca3af" : vsInd >= 1.25 ? "#ef4444" : vsInd >= 1 ? "#f59e0b" : "#22c55e";
+        return (
+          <div className="rounded-xl border p-5 mb-8" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+            <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <h2 className="font-semibold text-white">
+                  Forward queue: implied non-accrual formation{" "}
+                  <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+                    next 2 quarters · as of {ewsMeta.as_of}
+                  </span>
+                </h2>
+                <p className="text-xs mt-1 max-w-3xl" style={{ color: "#8b8ba8" }}>
+                  Every pre-non-accrual loan scored on out-of-sample-validated signals, converted to
+                  expected NA formation via measured bucket hit rates — the forward companion to the
+                  cash→PIK modification view.{" "}
+                  <Link href="/credit#forward-queue" className="text-indigo-400 hover:text-indigo-300">
+                    All BDCs ranked →
+                  </Link>
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4 text-sm">
+              <div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Implied NA formation</div>
+                <div className="text-xl font-bold" style={{ color: tone }}>
+                  {mine.implied_na_2q_pct.toFixed(2)}%
+                </div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>
+                  of eligible book{ind ? ` · industry ${ind.implied_na_2q_pct.toFixed(2)}%` : ""}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Implied dollars</div>
+                <div className="text-xl font-bold text-white">${mine.implied_na_2q_m.toFixed(0)}M</div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>over ~2 quarters</div>
+              </div>
+              <div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>High-score positions</div>
+                <div className="text-xl font-bold text-white">{mine.n_hi}</div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>{mine.pct_book_hi.toFixed(1)}% of book at score ≥5</div>
+              </div>
+              <div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Rank among 19 BDCs</div>
+                <div className="text-xl font-bold text-white">#{rank}</div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>#1 = most queued risk</div>
+              </div>
+            </div>
+            {(() => {
+              const mineH = ewsHistory.filter((r) => r.ticker === bdc.ticker);
+              if (mineH.length < 4) return null;
+              const indH = new Map(
+                ewsHistory.filter((r) => r.ticker === "industry")
+                  .map((r) => [r.period_end, r.implied_na_2q_pct]),
+              );
+              const trend = mineH.map((r) => ({
+                period_end: r.period_end,
+                bdc: r.implied_na_2q_pct,
+                industry: indH.get(r.period_end) ?? null,
+              }));
+              return (
+                <div className="mb-4">
+                  <EwsTrendChart data={trend} ticker={bdc.ticker} />
+                  <p className="text-xs mt-1" style={{ color: "#6b6b88" }}>
+                    Today&apos;s fitted signal points applied across history (trend view; thin-coverage
+                    quarters dropped). The out-of-sample validation applies to the score levels — the
+                    early history is in-sample by construction.
+                  </p>
+                </div>
+              );
+            })()}
+            {queue.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                    <tr>
+                      {["Borrower", "Score", "Fired signals", "FV", "Mark"].map((h) => (
+                        <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {queue.map((r, i) => (
+                      <tr key={i} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
+                        <td className="px-3 py-2" style={{ color: "#d1d5db" }}>{r.borrower}</td>
+                        <td className="px-3 py-2 font-bold" style={{ color: r.score >= 5 ? "#ef4444" : r.score >= 3 ? "#f97316" : "#eab308" }}>{r.score}</td>
+                        <td className="px-3 py-2">
+                          {r.signals.map((s) => (
+                            <span key={s} className="inline-block mr-1 mb-0.5 px-1.5 py-0.5 rounded text-xs"
+                              style={{ background: "rgba(239,68,68,0.10)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.2)" }}>
+                              {s.replace(/_/g, " ")}
+                            </span>
+                          ))}
+                        </td>
+                        <td className="px-3 py-2" style={{ color: "#9ca3af" }}>${r.fv_m.toFixed(0)}M</td>
+                        <td className="px-3 py-2 font-mono" style={{ color: "#9ca3af" }}>{r.mark == null ? "—" : `${Math.round(100 * r.mark)}¢`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+                  Top {queue.length} queued positions (score ≥2, not yet on non-accrual).{" "}
+                  <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Full watchlist →</Link>
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs" style={{ color: "#6b7280" }}>
+                No positions currently score ≥2 — the cleanest possible queue this quarter.
+              </p>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Debt maturity profile */}
       {(() => {
         const order = ["<=2025", "2026", "2027", "2028", "2029", "2030", "2031", "2032", "2033+"];
@@ -502,86 +661,6 @@ export default async function BDCDetailPage({ params }: PageProps) {
           </section>
         );
       })()}
-
-      {/* Description */}
-      <div className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-        <p className="text-sm leading-relaxed" style={{ color: "#d1d5db" }}>{bdc.description}</p>
-        <div className="flex flex-wrap gap-2 mt-4">
-          {bdc.topSectors.map((s) => (
-            <span key={s} className="px-2 py-0.5 rounded text-xs border" style={{ background: "rgba(99,102,241,0.08)", borderColor: "#2d2d50", color: "#a5b4fc" }}>
-              {s}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
-        <StatCard label="Portfolio FV" value={`$${bdc.portfolioFairValue.toFixed(1)}B`} />
-        <StatCard label="# Companies" value={bdc.portfolioCompanies.toString()} />
-        <StatCard label="Software Exp." value={`${bdc.softwareExposure.toFixed(1)}%`} color="#6366f1" />
-        <StatCard label="Non-Accrual" value={`${bdc.nonAccrualRate.toFixed(1)}%`} color={bdc.nonAccrualRate >= 3 ? "#ef4444" : "#22c55e"} />
-        <StatCard label="PIK Rate" value={`${bdc.pikRate.toFixed(1)}%`} color={bdc.pikRate >= 10 ? "#f97316" : "#eab308"} />
-        {bdc.dividendYield && <StatCard label="Div. Yield" value={`${bdc.dividendYield.toFixed(1)}%`} color="#22c55e" />}
-      </div>
-
-      {/* Software Exposure Detail */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-        <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-          <h2 className="font-semibold text-white">Software Exposure Analysis</h2>
-        </div>
-        <div className="p-5 grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <div>
-            <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Software Exposure</div>
-            <div className="text-2xl font-bold mb-2" style={{ color: bdc.softwareExposure >= 30 ? "#f97316" : "#a5b4fc" }}>
-              {bdc.softwareExposure.toFixed(1)}%
-            </div>
-            <div className="h-2 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
-              <div className="h-full rounded-full" style={{ width: `${bdc.softwareExposure}%`, background: "#6366f1" }} />
-            </div>
-            <div className="text-xs mt-1" style={{ color: "#6b6b88" }}>
-              vs. 29.0% BDC average
-            </div>
-          </div>
-          <div>
-            <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Total Tech Exposure</div>
-            <div className="text-2xl font-bold mb-2 text-white">{bdc.techExposure.toFixed(1)}%</div>
-            <div className="h-2 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
-              <div className="h-full rounded-full" style={{ width: `${bdc.techExposure}%`, background: "#8b5cf6" }} />
-            </div>
-            <div className="text-xs mt-1" style={{ color: "#6b6b88" }}>Software + adjacent tech</div>
-          </div>
-          <div>
-            <div className="text-xs mb-2" style={{ color: "#8b8ba8" }}>Loan Structure</div>
-            <div className="text-sm leading-relaxed" style={{ color: "#d1d5db" }}>{bdc.loanType}</div>
-            <div className="text-xs mt-2" style={{ color: "#8b8ba8" }}>Investment Focus</div>
-            <div className="text-sm mt-1" style={{ color: "#d1d5db" }}>{bdc.focus}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Top exposures — real positions from parsed SOI (sortable / filterable) */}
-      <BDCHoldingsTable ticker={bdc.ticker} />
-
-      {/* Investment Strategy Details */}
-      <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-        <h2 className="font-semibold text-white mb-4">Investment Profile</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-          {[
-            { label: "Manager", value: bdc.manager },
-            { label: "Structure", value: `${bdc.type} BDC` },
-            { label: "Focus", value: bdc.focus },
-            { label: "Primary Loan Type", value: bdc.loanType },
-            ...(bdc.aum ? [{ label: "Manager AUM", value: `$${bdc.aum}B` }] : []),
-            ...(bdc.founded ? [{ label: "Founded", value: String(bdc.founded) }] : []),
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>{label}</div>
-              <div style={{ color: "#d1d5db" }}>{value}</div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Through Time — portfolio size + modifications flow + quarterly snapshot table */}
       {hasTimeline && tlLatest && tlEarliest && (
@@ -1098,6 +1177,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
           </section>
         );
       })()}
+      {/* Full position list — the long tail, deliberately last */}
+      <BDCHoldingsTable ticker={bdc.ticker} />
+
     </div>
   );
 }

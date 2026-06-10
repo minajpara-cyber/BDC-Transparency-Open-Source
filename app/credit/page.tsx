@@ -13,6 +13,7 @@ import { creditQuality, CreditQuality } from "@/data/credit_quality";
 import { modificationRate, ModificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
 import { modificationEvents } from "@/data/modification_events";
+import { ewsByBdc, ewsMeta } from "@/data/early_warning_scores";
 import ModificationEventsTable from "@/components/ModificationEventsTable";
 import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
@@ -812,6 +813,76 @@ export default function CreditPage() {
         </p>
 
         <ModificationEventsTable events={modificationEvents} />
+      </section>
+
+      {/* Section 4b — Forward queue: per-BDC implied NA formation.
+          Companion to the cash→PIK table above: mods are the stress ACTIONS
+          managers took this quarter; this is the validated FORWARD view. */}
+      <section id="forward-queue" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Forward queue: implied non-accrual formation{" "}
+          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            next 2 quarters, as of {ewsMeta.as_of}
+          </span>
+        </h2>
+        <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+          <p className="text-xs mb-4 max-w-4xl" style={{ color: "#9ca3af" }}>
+            The modification tables above show the stress <span className="text-white">actions</span>{" "}
+            managers took this quarter; this is the validated <span className="text-white">forward</span>{" "}
+            view. Every pre-non-accrual loan is scored on out-of-sample-tested signals (mark level,
+            mark velocity, cash→PIK flips, cross-holder NA divergence), then converted to expected
+            non-accrual formation using the measured hit rate of each score bucket
+            ({ewsMeta.validation_buckets.map((b) => `${b.bucket}: ${b.hit_rate_pct}%`).join(" · ")} went
+            NA within 2 quarters on 2024–25 data the fit never saw). Per-loan queue and full method on
+            the <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Watchlist</Link>.
+          </p>
+          <div className="space-y-1.5">
+            {(() => {
+              const rows = ewsByBdc.filter((r) => r.ticker !== "industry");
+              const ind = ewsByBdc.find((r) => r.ticker === "industry");
+              const maxPct = Math.max(...rows.map((r) => r.implied_na_2q_pct));
+              return (
+                <>
+                  {rows.map((r) => (
+                    <div key={r.ticker} className="flex items-center gap-3 text-sm">
+                      <Link href={`/bdcs/${r.ticker.toLowerCase()}`}
+                        className="w-14 font-mono text-xs text-indigo-300 hover:text-indigo-200">
+                        {r.ticker}
+                      </Link>
+                      <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
+                        <div className="h-full rounded-full" style={{
+                          width: `${(100 * r.implied_na_2q_pct) / maxPct}%`,
+                          background: r.implied_na_2q_pct >= (ind?.implied_na_2q_pct ?? 0) * 1.25
+                            ? "#ef4444" : r.implied_na_2q_pct >= (ind?.implied_na_2q_pct ?? 0)
+                            ? "#f59e0b" : "#6366f1",
+                        }} />
+                      </div>
+                      <span className="w-14 text-right tabular-nums font-semibold text-white">
+                        {r.implied_na_2q_pct.toFixed(2)}%
+                      </span>
+                      <span className="w-24 text-right tabular-nums text-xs" style={{ color: "#9ca3af" }}>
+                        ${r.implied_na_2q_m.toFixed(0)}M impl.
+                      </span>
+                      <span className="hidden sm:inline w-44 text-right tabular-nums text-xs whitespace-nowrap" style={{ color: "#6b7280" }}>
+                        {r.n_hi} hi-score · {r.pct_book_hi.toFixed(1)}% of book
+                      </span>
+                    </div>
+                  ))}
+                  {ind && (
+                    <p className="text-xs pt-2" style={{ color: "#6b6b88" }}>
+                      Industry reference: {ind.implied_na_2q_pct.toFixed(2)}% of the eligible
+                      (pre-non-accrual) book, ${(ind.implied_na_2q_m / 1000).toFixed(1)}B implied across{" "}
+                      {ind.n_scored.toLocaleString()}{" "}
+                      positions. Bars are % of each BDC&apos;s own eligible
+                      debt book — red ≥1.25× industry, amber ≥industry. MFIC&apos;s SOI lacks per-position
+                      NA flags, so its score uses mark/PIK signals only.
+                    </p>
+                  )}
+                </>
+              );
+            })()}
+          </div>
+        </div>
       </section>
 
       {/* Section 5 — Asset composition (moved below modifications) */}
