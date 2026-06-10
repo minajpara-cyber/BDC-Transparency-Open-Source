@@ -19,6 +19,7 @@ import CsvDownloadButton from "@/components/CsvDownloadButton";
 import { watchlist, WatchlistRow } from "@/data/early_warning";
 import { watchlistByManager } from "@/data/early_warning_history";
 import { signalBacktest } from "@/data/signal_backtest";
+import { ewsRows, ewsMeta } from "@/data/early_warning_scores";
 
 const TIER_COLOR: Record<string, string> = {
   High: "#ef4444",
@@ -70,6 +71,7 @@ export default function WatchlistPage() {
   const [q, setQ] = useState<string>("");
   const [newOnly, setNewOnly] = useState(false);
   const [hideStructured, setHideStructured] = useState(true);
+  const [valTab, setValTab] = useState<"lifts" | "oos">("lifts");
 
   const latest = watchlist[0]?.period_end ?? "—";
   const managers = useMemo(
@@ -234,9 +236,77 @@ export default function WatchlistPage() {
           sub={baseRate ? `vs ${baseRate.rate_na}% base` : undefined} />
       </div>
 
-      {/* Back-test credibility panel */}
+      {/* Back-test credibility panel — two validation lenses, one card */}
       <section className="mb-8 rounded-xl border p-5" style={{ background: "#0d0d14", borderColor: "#1e1e2e" }}>
-        <h2 className="text-lg font-semibold text-white mb-1">Does the signal actually predict trouble?</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <h2 className="text-lg font-semibold text-white">Does the signal actually predict trouble?</h2>
+          <div className="flex items-center gap-1 text-xs">
+            {([["lifts", "Historical signal lifts"], ["oos", "Out-of-sample 2Q score"]] as const).map(([k, label]) => (
+              <button key={k} onClick={() => setValTab(k)}
+                className="px-2.5 py-1 rounded-md font-medium transition-colors"
+                style={{
+                  color: valTab === k ? "#a5b4fc" : "#8b8ba8",
+                  background: valTab === k ? "rgba(99,102,241,0.12)" : "transparent",
+                  border: `1px solid ${valTab === k ? "rgba(99,102,241,0.35)" : "#2d2d50"}`,
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {valTab === "oos" && (
+          <>
+            <p className="text-xs mt-1 mb-3" style={{ color: "#8b8ba8" }}>
+              The stricter lens: points per signal are{" "}
+              <span className="text-white">fitted purely on history through {ewsMeta.trained_through}</span>{" "}
+              (mark &lt;90¢ = {ewsMeta.signal_multipliers.mark_below_90}× the base non-accrual rate; a
+              ≥3pt quarterly mark drop = {ewsMeta.signal_multipliers.mark_drop_3pt}×; a cash→PIK flip ={" "}
+              {ewsMeta.signal_multipliers.pik_flip}×), then tested on 2024–25 data the fit never saw:{" "}
+              {ewsMeta.validation_buckets.map(b => `score ${b.bucket}: ${b.hit_rate_pct}%`).join(" · ")}{" "}
+              went on non-accrual within 2 quarters (top-50 scored: {ewsMeta.precision_at_50_pct}% vs a{" "}
+              {ewsMeta.validation_base_rate_pct}% base). Two honest negatives: broad modification flags
+              and junior ranking showed <span className="text-white">no</span> predictive lift and score
+              zero here.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                  <tr>
+                    {["BDC", "Borrower", "Score", "Fired signals", "FV", "Mark"].map(h => (
+                      <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ewsRows.slice(0, 25).map((r, i) => (
+                    <tr key={`${r.ticker}-${r.borrower}-${i}`} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
+                      <td className="px-3 py-2 text-xs font-semibold text-white">{r.ticker}</td>
+                      <td className="px-3 py-2 text-sm" style={{ color: "#d1d5db" }}>{r.borrower}</td>
+                      <td className="px-3 py-2 text-sm font-bold" style={{ color: r.score >= 5 ? "#ef4444" : r.score >= 3 ? "#f97316" : "#eab308" }}>{r.score}</td>
+                      <td className="px-3 py-2">
+                        {r.signals.map(s => (
+                          <span key={s} className="inline-block mr-1 mb-0.5 px-1.5 py-0.5 rounded text-xs"
+                                style={{ background: "rgba(239,68,68,0.10)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.2)" }}>
+                            {s.replace(/_/g, " ")}
+                          </span>
+                        ))}
+                      </td>
+                      <td className="px-3 py-2 text-sm" style={{ color: "#9ca3af" }}>${r.fv_m.toFixed(0)}M</td>
+                      <td className="px-3 py-2 text-sm font-mono" style={{ color: "#9ca3af" }}>{r.mark == null ? "—" : `${(100 * r.mark).toFixed(0)}¢`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+              Top 25 of {ewsRows.length} positions scoring ≥2, as of {ewsMeta.as_of}. Scores are per
+              position (one borrower can appear via several tranches/holders). Loans already on
+              non-accrual are excluded by construction — this is the <em>pre</em>-non-accrual queue.
+            </p>
+          </>
+        )}
+        {valTab === "lifts" && (
+        <>
         <p className="text-sm mb-4" style={{ color: "#9ca3af" }}>
           For every pre-non-accrual loan since 2018, we measured whether it went on to non-accrual within four quarters.
           Each signal&apos;s hit-rate is shown against the {baseRate ? `${baseRate.rate_na}%` : ""} base rate across all loans.
@@ -276,6 +346,8 @@ export default function WatchlistPage() {
             </tbody>
           </table>
         </div>
+        </>
+        )}
       </section>
 
       {/* By manager */}

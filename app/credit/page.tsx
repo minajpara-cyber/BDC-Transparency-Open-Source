@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import CreditNav from "@/components/CreditNav";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import CreditHeatmap from "@/components/CreditHeatmap";
 import CsvDownloadButton from "@/components/CsvDownloadButton";
@@ -521,6 +522,7 @@ export default function CreditPage() {
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <CreditNav />
       <Link
         href="/"
         className="inline-flex items-center gap-1.5 text-sm mb-6 hover:text-white transition-colors"

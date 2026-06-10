@@ -572,7 +572,6 @@ export default async function BDCDetailPage({ params }: PageProps) {
             { label: "Structure", value: `${bdc.type} BDC` },
             { label: "Focus", value: bdc.focus },
             { label: "Primary Loan Type", value: bdc.loanType },
-            { label: "NAV Per Share", value: `$${bdc.navPerShare.toFixed(2)}` },
             ...(bdc.aum ? [{ label: "Manager AUM", value: `$${bdc.aum}B` }] : []),
             ...(bdc.founded ? [{ label: "Founded", value: String(bdc.founded) }] : []),
           ].map(({ label, value }) => (

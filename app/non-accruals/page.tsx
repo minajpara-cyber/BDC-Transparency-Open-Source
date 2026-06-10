@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import CreditNav from "@/components/CreditNav";
 import Link from "next/link";
 import AlertBadge from "@/components/AlertBadge";
 import { portfolioCompanies } from "@/data/companies";
@@ -78,6 +79,7 @@ export default function NonAccrualsPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <CreditNav />
       <div className="mb-7">
         <div className="flex items-center gap-2 mb-2">
           <AlertBadge severity="Critical" label />

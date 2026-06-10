@@ -4,10 +4,11 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "BDC Transparency | Software Private Credit Tracker",
+  title: "BDC Transparency | Private credit, from the filings",
   description:
-    "Tracking software private credit across Business Development Companies. BDC portfolio exposure, non-accruals, PIK loans, and market trends.",
-  keywords: "BDC, business development company, private credit, software, ARR loans, non-accrual, PIK, Ares, Blue Owl",
+    "Position-level BDC credit data parsed from SEC filings: non-accruals, vintage default curves, maturity walls, sponsor performance, and an early-warning watchlist across 19 BDCs.",
+  keywords:
+    "BDC, business development company, private credit, direct lending, non-accrual, PIK, vintage, default rates, maturity wall, Ares, Blackstone, Blue Owl, FS KKR",
 };
 
 export default function RootLayout({

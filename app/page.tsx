@@ -1,387 +1,254 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowRight, AlertTriangle, TrendingDown, DollarSign, BarChart3, Shield, Activity } from "lucide-react";
-import StatCard from "@/components/StatCard";
-import AlertBadge from "@/components/AlertBadge";
-import { marketStats } from "@/data/bdcs";
-import { recentAlerts } from "@/data/market";
-import { portfolioCompanies } from "@/data/companies";
-import { computeDerivedMarketStats } from "@/lib/marketStatsDerived";
-import {
-  bdcSoftwareExposureActual,
-  industrySectorAllocationActual,
-} from "@/lib/sectorActual";
+import { useMemo } from "react";
+import { ArrowRight, AlertTriangle, TrendingDown, Clock, Users } from "lucide-react";
+import { siteMeta } from "@/data/site_meta";
+import { bdcsHistory } from "@/data/bdcs_history";
+import { creditQuality } from "@/data/credit_quality";
+import { nonAccrualFlow } from "@/data/non_accrual_events";
+import { ewsRows, ewsMeta } from "@/data/early_warning_scores";
+import { maturityComparison } from "@/data/maturity";
+import { sponsors } from "@/data/sponsors_index";
+
+const card: React.CSSProperties = {
+  background: "#12121c",
+  border: "1px solid #1e1e2e",
+  borderRadius: 12,
+};
+
+function Section({
+  title, sub, href, linkLabel, children,
+}: {
+  title: string; sub?: string; href: string; linkLabel: string; children: React.ReactNode;
+}) {
+  return (
+    <div style={card} className="p-5">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <h2 className="font-semibold text-white">{title}</h2>
+          {sub && <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>{sub}</p>}
+        </div>
+        <Link href={href} className="flex items-center gap-1 text-xs whitespace-nowrap text-indigo-400 hover:text-indigo-300">
+          {linkLabel} <ArrowRight size={12} />
+        </Link>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+const fmtB = (v: number) => `$${v.toFixed(1)}B`;
+const fmtM = (v: number | null) =>
+  v == null ? "—" : v >= 1000 ? `$${(v / 1000).toFixed(1)}B` : `$${v.toFixed(0)}M`;
 
 export default function HomePage() {
-  const nonAccrualCompanies = portfolioCompanies.filter(
-    (c) => c.holders.some((h) => h.status === "Non-Accrual")
-  );
-  const pikCompanies = portfolioCompanies.filter(
-    (c) => c.holders.some((h) => h.status === "PIK")
-  );
+  const stats = useMemo(() => {
+    // Latest reported quarter per BDC (fiscal-year filers can lag a quarter)
+    const latestByTicker = new Map<string, (typeof bdcsHistory)[number]>();
+    for (const r of bdcsHistory) {
+      const prev = latestByTicker.get(r.ticker);
+      if (!prev || r.period_end > prev.period_end) latestByTicker.set(r.ticker, r);
+    }
+    const totCost = [...latestByTicker.values()].reduce((s, r) => s + r.total_cost_b, 0);
 
-  const derived = computeDerivedMarketStats();
-  // Real sector / software exposure from parsed SOI (replaces former static
-  // constants). Same shapes as the old arrays, so the sections below are
-  // unchanged.
-  const bdcSectorExposure = industrySectorAllocationActual();
-  const topBDCSoftwareExposure = bdcSoftwareExposureActual().slice(0, 12);
-  // Helpers for Δ display
-  const fmtDeltaPP = (d: number | null): string | undefined => {
-    if (d == null) return undefined;
-    return `${d >= 0 ? "+" : ""}${d.toFixed(2)} pp vs prior Q`;
-  };
-  const fmtDeltaB = (d: number | null): string | undefined => {
-    if (d == null) return undefined;
-    return `${d >= 0 ? "+" : ""}$${d.toFixed(2)}B vs prior Q`;
-  };
-  const trendForPP = (d: number | null, lowerIsBetter = true): "up" | "down" | "neutral" => {
-    if (d == null || Math.abs(d) < 0.005) return "neutral";
-    if (lowerIsBetter) return d < 0 ? "down" : "up";
-    return d > 0 ? "up" : "down";
-  };
-  // Friendly display for the as-of date.
-  const asOfLabel = derived.latest_period
-    ? new Date(derived.latest_period).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-    : "—";
+    const ind = creditQuality
+      .filter((r) => r.ticker === "industry")
+      .sort((a, b) => a.period_end.localeCompare(b.period_end));
+    const naNow = ind[ind.length - 1];
+    const naPrev = ind[ind.length - 2];
+
+    const newNAsRaw = nonAccrualFlow.filter(
+      (f) => f.event === "new_na" && f.period_end === siteMeta.latest_period,
+    );
+    // One borrower often flips several tranches at once — collapse to
+    // (ticker, borrower) for the briefing table, summing FV.
+    const byKey = new Map<string, { ticker: string; company: string; fv: number }>();
+    for (const f of newNAsRaw) {
+      const key = `${f.ticker}|${f.company_norm}`;
+      const cur = byKey.get(key) ?? { ticker: f.ticker, company: f.company, fv: 0 };
+      cur.fv += f.prv_fv_m ?? f.cur_fv_m ?? 0;
+      byKey.set(key, cur);
+    }
+    const newNAs = [...byKey.values()].sort((a, b) => b.fv - a.fv);
+    const cured = nonAccrualFlow.filter(
+      (f) => f.event === "cured" && f.period_end === siteMeta.latest_period,
+    );
+    const hotWatch = ewsRows.filter((r) => r.score >= 5);
+    const oosTop = ewsMeta.validation_buckets[ewsMeta.validation_buckets.length - 1];
+    return { totCost, naNow, naPrev, newNAs, nNewPositions: newNAsRaw.length, cured, hotWatch, oosTop };
+  }, []);
+
+  const naDeltaBp = Math.round((stats.naNow.pct_non_accrual - stats.naPrev.pct_non_accrual) * 100);
+  const topNear = [...maturityComparison].sort((a, b) => b.pct_near24m - a.pct_near24m).slice(0, 4);
+  const sponsorFlags = sponsors
+    .filter((s) => s.n_exits >= 8)
+    .sort((a, b) => b.pct_exits_distress - a.pct_exits_distress)
+    .slice(0, 4);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Hero */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider" style={{ background: "rgba(99,102,241,0.15)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.3)" }}>
-            Live Tracking
-          </span>
-          <span className="text-xs" style={{ color: "#8b8ba8" }}>
-            Parsed data as of {asOfLabel} · {derived.n_bdcs_latest} traded BDCs from EDGAR · {marketStats.totalBDCCount} BDCs catalogued
-          </span>
-        </div>
-        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3 leading-tight">
-          BDC Software Private Credit<br />
-          <span style={{ color: "#6366f1" }}>Transparency Tracker</span>
+      <div>
+        <h1 className="text-2xl font-bold text-white">
+          BDC credit, straight from the filings — {siteMeta.latest_quarter}
         </h1>
-        <p className="text-base sm:text-lg max-w-2xl" style={{ color: "#9ca3af" }}>
-          Aggregating public data on software company exposure across all Business Development Companies.
-          Track valuations, non-accruals, PIK loans, and AI disruption risk — with ${derived.totalPortfolioFairValue_b.toFixed(1)}B of fair value parsed directly from {derived.n_bdcs_latest} BDC Schedule-of-Investments filings.
+        <p className="text-sm mt-1" style={{ color: "#8b8ba8" }}>
+          Position-level data parsed from {siteMeta.n_filings} SEC filings across{" "}
+          {siteMeta.n_bdcs} BDCs · latest quarter ends {siteMeta.latest_period} · refreshed{" "}
+          {siteMeta.generated_at}
         </p>
-        <div className="flex gap-3 mt-5">
-          <Link
-            href="/bdcs"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-            style={{ background: "#6366f1", color: "white" }}
-          >
-            Explore BDCs <ArrowRight size={14} />
-          </Link>
-          <Link
-            href="/companies"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all border"
-            style={{ borderColor: "#2d2d50", color: "#a5b4fc", background: "rgba(99,102,241,0.08)" }}
-          >
-            Portfolio Companies
-          </Link>
-        </div>
       </div>
 
-      {/* Key Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          label="Parsed Portfolio FV"
-          value={`$${derived.totalPortfolioFairValue_b.toFixed(1)}B`}
-          sub={`${derived.n_bdcs_latest} BDCs · as of ${asOfLabel}`}
-          trend={derived.delta_fv_b != null ? (derived.delta_fv_b >= 0 ? "up" : "down") : "neutral"}
-          trendLabel={fmtDeltaB(derived.delta_fv_b)}
-          icon={<DollarSign size={16} />}
-          highlight
-        />
-        <StatCard
-          label="Non-Accrual Rate"
-          value={`${derived.averageNonAccrualRate.toFixed(2)}%`}
-          sub="cost-weighted across covered BDCs"
-          trend={trendForPP(derived.delta_na, true)}
-          trendLabel={fmtDeltaPP(derived.delta_na)}
-          icon={<Shield size={16} />}
-          color="#ef4444"
-        />
-        <StatCard
-          label="PIK Rate"
-          value={`${derived.averagePikRate.toFixed(2)}%`}
-          sub="cost-weighted across covered BDCs"
-          trend={trendForPP(derived.delta_pik, true)}
-          trendLabel={fmtDeltaPP(derived.delta_pik)}
-          icon={<TrendingDown size={16} />}
-          color="#eab308"
-        />
-        <StatCard
-          label="Below 95¢ at Par"
-          value={`${derived.averageBelow95.toFixed(2)}%`}
-          sub="cost-weighted debt marks"
-          trend="neutral"
-          icon={<Activity size={16} />}
-          color="#f97316"
-        />
+      {/* Headline stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: "Tracked portfolio (cost)", value: fmtB(stats.totCost), note: `${siteMeta.n_bdcs} BDCs, latest reported` },
+          {
+            label: "Industry non-accrual",
+            value: `${stats.naNow.pct_non_accrual.toFixed(2)}%`,
+            note: `${naDeltaBp >= 0 ? "+" : ""}${naDeltaBp}bp vs prior qtr (at cost)`,
+          },
+          {
+            label: "New non-accrual borrowers this qtr",
+            value: String(stats.newNAs.length),
+            note: `${stats.nNewPositions} positions · ${fmtM(stats.newNAs.reduce((s, f) => s + f.fv, 0))} prior-qtr FV · ${stats.cured.length} cured`,
+          },
+          {
+            label: "High early-warning scores",
+            value: String(stats.hotWatch.length),
+            note: `score ≥5 · ${stats.oosTop.hit_rate_pct.toFixed(1)}% went NA within 2q out-of-sample`,
+          },
+        ].map((s) => (
+          <div key={s.label} style={card} className="p-4">
+            <div className="text-xs" style={{ color: "#8b8ba8" }}>{s.label}</div>
+            <div className="text-2xl font-bold text-white mt-1">{s.value}</div>
+            <div className="text-xs mt-1" style={{ color: "#6b7280" }}>{s.note}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Second row stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          label="Below 90¢ at Par"
-          value={`${derived.averageBelow90.toFixed(2)}%`}
-          sub="cost-weighted debt marks"
-          trend="neutral"
-          color="#dc2626"
-        />
-        <StatCard
-          label="Software Loans Tracked"
-          value="$152.6B"
-          sub="principal outstanding"
-          trend="up"
-          trendLabel="29% of BDC total"
-          color="#8b5cf6"
-        />
-        <StatCard
-          label="AI High-Risk Companies"
-          value={String(portfolioCompanies.filter(c => c.aiRisk === "High" || c.aiRisk === "Critical").length)}
-          sub="in tracked portfolio"
-          trend="up"
-          trendLabel="growing threat"
-          icon={<AlertTriangle size={16} />}
-          color="#f97316"
-        />
-        <StatCard
-          label="Maturities Before 2028"
-          value="10%"
-          sub="of software loans"
-          trend="neutral"
-          trendLabel="near-term refi"
-          color="#14b8a6"
-        />
-      </div>
-
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Recent Alerts */}
-        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <h2 className="font-semibold text-white">Market Alerts</h2>
-            <Link href="/non-accruals" className="text-xs hover:text-white transition-colors" style={{ color: "#6366f1" }}>
-              View all →
-            </Link>
-          </div>
-          <div className="divide-y" style={{ borderColor: "#1a1a28" }}>
-            {recentAlerts.slice(0, 5).map((alert, i) => (
-              <div key={i} className="px-5 py-3.5">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5">
-                    <AlertBadge severity={alert.severity} label />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-white leading-snug mb-1">{alert.title}</div>
-                    <div className="text-xs leading-relaxed" style={{ color: "#8b8ba8" }}>{alert.description}</div>
-                    <div className="text-xs mt-1" style={{ color: "#6b6b88" }}>
-                      {new Date(alert.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      {alert.bdc !== "Sector" && alert.bdc !== "Multiple" && (
-                        <span className="ml-2 px-1.5 py-0.5 rounded text-xs" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc" }}>
-                          {alert.bdc}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Sector Exposure Breakdown */}
-        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <h2 className="font-semibold text-white">BDC Sector Exposure</h2>
-            <span className="text-xs" style={{ color: "#8b8ba8" }}>Cost-weighted, parsed SOI</span>
-          </div>
-          <div className="p-5 space-y-3">
-            {bdcSectorExposure.map((sector) => (
-              <div key={sector.sector}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm" style={{ color: "#d1d5db" }}>{sector.sector}</span>
-                  <span className="text-sm font-medium" style={{ color: sector.sector.includes("Software") ? "#a5b4fc" : "#9ca3af" }}>
-                    {sector.percent.toFixed(1)}%
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${sector.percent}%`, background: sector.color, transition: "width 0.5s ease" }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Top Software Exposed BDCs */}
-      <div className="rounded-xl border overflow-hidden mb-8" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-          <div>
-            <h2 className="font-semibold text-white">Highest Software Exposure BDCs</h2>
-            <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>Software &amp; IT share of attributed book, parsed from SOI</p>
-          </div>
-          <Link href="/bdcs" className="text-xs hover:text-white transition-colors" style={{ color: "#6366f1" }}>
-            Full BDC list →
-          </Link>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr style={{ borderBottom: "1px solid #1a1a28" }}>
-                {["Rank", "BDC", "Ticker", "Type", "Software Exposure", "Risk Level"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left" style={{ color: "#8b8ba8" }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+      {/* What changed */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <Section
+          title="New non-accruals this quarter"
+          sub={`Positions newly flagged NA at ${siteMeta.latest_period}`}
+          href="/non-accruals"
+          linkLabel="All non-accrual events"
+        >
+          <table className="w-full text-sm">
             <tbody>
-              {topBDCSoftwareExposure.map((bdc, i) => {
-                const risk = bdc.softwareExposure >= 50 ? "Critical" : bdc.softwareExposure >= 25 ? "High" : bdc.softwareExposure >= 15 ? "Medium" : "Low";
-                return (
-                  <tr
-                    key={bdc.ticker}
-                    className="border-t"
-                    style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}
-                  >
-                    <td className="px-4 py-3 text-sm font-medium" style={{ color: "#6b6b88" }}>#{i + 1}</td>
-                    <td className="px-4 py-3">
-                      <Link href={`/bdcs/${bdc.ticker.toLowerCase()}`} className="text-sm font-medium hover:text-indigo-400 transition-colors text-white">
-                        {bdc.bdc}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 rounded text-xs font-mono font-bold" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.2)" }}>
-                        {bdc.ticker}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm" style={{ color: bdc.type === "Non-Traded" ? "#eab308" : "#22c55e" }}>
-                      {bdc.type}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${Math.min(bdc.softwareExposure, 100)}%`,
-                              background: bdc.softwareExposure >= 50 ? "#ef4444" : bdc.softwareExposure >= 25 ? "#f97316" : "#6366f1",
-                            }}
-                          />
-                        </div>
-                        <span className="text-sm font-semibold text-white">{bdc.softwareExposure.toFixed(1)}%</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <AlertBadge severity={risk as "Critical" | "High" | "Medium" | "Low"} label />
-                    </td>
-                  </tr>
-                );
-              })}
+              {stats.newNAs.slice(0, 8).map((f, i) => (
+                <tr key={i} className="border-t" style={{ borderColor: "#1e1e2e" }}>
+                  <td className="py-1.5 pr-2 font-mono text-xs text-indigo-300">{f.ticker}</td>
+                  <td className="py-1.5 pr-2 text-gray-200">{f.company.slice(0, 44)}</td>
+                  <td className="py-1.5 text-right text-gray-400">{fmtM(f.fv)}</td>
+                </tr>
+              ))}
+              {stats.newNAs.length === 0 && (
+                <tr><td className="py-2 text-gray-500 text-xs">None detected in the latest quarter.</td></tr>
+              )}
             </tbody>
           </table>
-        </div>
+          {stats.cured.length > 0 && (
+            <p className="text-xs mt-2" style={{ color: "#6b7280" }}>
+              <span className="text-emerald-400">{stats.cured.length} cured</span>
+              {": "}
+              {stats.cured.slice(0, 3).map((c) => c.company.split("(")[0].trim()).join("; ")}
+              {stats.cured.length > 3 ? "…" : ""}
+            </p>
+          )}
+        </Section>
+
+        <Section
+          title="Early-warning leaders"
+          sub="Out-of-sample validated 2-quarter score — signals fitted on pre-2024 data only"
+          href="/watchlist"
+          linkLabel="Full watchlist"
+        >
+          <table className="w-full text-sm">
+            <tbody>
+              {ewsRows.slice(0, 8).map((r, i) => (
+                <tr key={i} className="border-t" style={{ borderColor: "#1e1e2e" }}>
+                  <td className="py-1.5 pr-2 font-mono text-xs text-indigo-300">{r.ticker}</td>
+                  <td className="py-1.5 pr-2 text-gray-200">{r.borrower.slice(0, 36)}</td>
+                  <td className="py-1.5 pr-2 text-right">
+                    <span className="px-1.5 py-0.5 rounded text-xs font-semibold"
+                      style={{ background: r.score >= 8 ? "rgba(239,68,68,.15)" : "rgba(245,158,11,.15)", color: r.score >= 8 ? "#f87171" : "#fbbf24" }}>
+                      {r.score}
+                    </span>
+                  </td>
+                  <td className="py-1.5 pr-2 text-right text-gray-400">{fmtM(r.fv_m)}</td>
+                  <td className="py-1.5 text-right text-gray-500 text-xs">{r.mark != null ? `${Math.round(r.mark * 100)}¢` : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+
+        <Section
+          title="Nearest maturity walls"
+          sub="Share of loan book due within 24 months (cost-weighted)"
+          href="/maturity"
+          linkLabel="Maturity walls"
+        >
+          <table className="w-full text-sm">
+            <tbody>
+              {topNear.map((m) => (
+                <tr key={m.ticker} className="border-t" style={{ borderColor: "#1e1e2e" }}>
+                  <td className="py-1.5 pr-2 font-mono text-xs text-indigo-300 w-14">{m.ticker}</td>
+                  <td className="py-1.5 pr-2">
+                    <div className="h-2 rounded-full" style={{ background: "#1e1e2e" }}>
+                      <div className="h-2 rounded-full" style={{ width: `${Math.min(m.pct_near24m * 3, 100)}%`, background: "#f59e0b" }} />
+                    </div>
+                  </td>
+                  <td className="py-1.5 text-right text-gray-300 w-16">{m.pct_near24m.toFixed(1)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
+
+        <Section
+          title="Sponsor distress league"
+          sub="% of completed exits ending in distress (≥8 exits in our panel)"
+          href="/sponsors"
+          linkLabel="All sponsors"
+        >
+          <table className="w-full text-sm">
+            <tbody>
+              {sponsorFlags.map((s) => (
+                <tr key={s.sponsor} className="border-t" style={{ borderColor: "#1e1e2e" }}>
+                  <td className="py-1.5 pr-2 text-gray-200">
+                    <Link href={`/sponsors/${s.sponsor_slug}`} className="hover:text-indigo-300">{s.sponsor}</Link>
+                  </td>
+                  <td className="py-1.5 pr-2 text-right text-red-400 font-medium">{s.pct_exits_distress.toFixed(0)}%</td>
+                  <td className="py-1.5 text-right text-gray-500 text-xs">{s.n_distress}/{s.n_exits} exits</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Section>
       </div>
 
-      {/* Non-Accruals & PIK Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Non-Accruals */}
-        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <div className="flex items-center gap-2">
-              <Shield size={16} className="text-red-400" />
-              <h2 className="font-semibold text-white">Non-Accrual Companies</h2>
-            </div>
-            <Link href="/non-accruals" className="text-xs hover:text-white" style={{ color: "#6366f1" }}>
-              Full list →
+      {/* Deep-dive directory */}
+      <div style={card} className="p-5">
+        <h2 className="font-semibold text-white mb-3">Deep dives</h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+          {[
+            { href: "/vintage", icon: TrendingDown, t: "Vintage analysis", d: "Cumulative default curves by origination year, validated against 85 documented deals" },
+            { href: "/credit", icon: AlertTriangle, t: "Credit quality", d: "Non-accruals, marks and PIK trends quarterly since 2018, with a 160-fund industry blend" },
+            { href: "/maturity", icon: Clock, t: "Maturity walls", d: "When each BDC's borrowers must repay or refinance" },
+            { href: "/borrowers", icon: Users, t: "Borrower universe", d: "1,900+ entity-resolved borrowers with cross-holder marks and history" },
+          ].map((x) => (
+            <Link key={x.href} href={x.href} className="p-3 rounded-lg border transition-colors hover:border-indigo-500/50" style={{ borderColor: "#1e1e2e" }}>
+              <x.icon size={15} className="text-indigo-400 mb-1.5" />
+              <div className="text-white font-medium">{x.t}</div>
+              <div className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>{x.d}</div>
             </Link>
-          </div>
-          <div className="divide-y" style={{ borderColor: "#1a1a28" }}>
-            {nonAccrualCompanies.map((company) => {
-              const naHolders = company.holders.filter((h) => h.status === "Non-Accrual");
-              const totalNaFV = naHolders.reduce((sum, h) => sum + h.fairValue, 0);
-              const totalPrincipal = naHolders.reduce((sum, h) => sum + h.principalAmount, 0);
-              const avgPrice = totalPrincipal > 0 ? (totalNaFV / totalPrincipal) * 100 : 0;
-              return (
-                <div key={company.slug} className="px-5 py-3.5 flex items-center justify-between gap-4">
-                  <div>
-                    <Link href={`/companies/${company.slug}`} className="text-sm font-medium text-white hover:text-indigo-400">
-                      {company.name}
-                    </Link>
-                    <div className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-                      {naHolders.length} BDC holder{naHolders.length > 1 ? "s" : ""} · {company.subsector}
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-sm font-semibold" style={{ color: "#ef4444" }}>
-                      {avgPrice.toFixed(1)}¢
-                    </div>
-                    <div className="text-xs" style={{ color: "#8b8ba8" }}>
-                      ${(totalNaFV / 1000).toFixed(1)}B FV
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {nonAccrualCompanies.length === 0 && (
-              <div className="px-5 py-6 text-sm text-center" style={{ color: "#8b8ba8" }}>No non-accruals in tracked portfolio</div>
-            )}
-          </div>
-        </div>
-
-        {/* PIK Companies */}
-        <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-orange-400" />
-              <h2 className="font-semibold text-white">PIK-Paying Companies</h2>
-            </div>
-            <span className="text-xs" style={{ color: "#8b8ba8" }}>Payment-in-Kind</span>
-          </div>
-          <div className="divide-y" style={{ borderColor: "#1a1a28" }}>
-            {pikCompanies.map((company) => {
-              const pikHolders = company.holders.filter((h) => h.status === "PIK");
-              const avgPik = pikHolders.reduce((sum, h) => sum + (h.pikPercent ?? 0), 0) / pikHolders.length;
-              const avgPrice = pikHolders.reduce((sum, h) => sum + h.priceToFaceValue, 0) / pikHolders.length;
-              return (
-                <div key={company.slug} className="px-5 py-3.5 flex items-center justify-between gap-4">
-                  <div>
-                    <Link href={`/companies/${company.slug}`} className="text-sm font-medium text-white hover:text-indigo-400">
-                      {company.name}
-                    </Link>
-                    <div className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-                      {avgPik.toFixed(0)}% PIK · {pikHolders.length} BDC holder{pikHolders.length > 1 ? "s" : ""}
-                    </div>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-sm font-semibold" style={{ color: "#eab308" }}>
-                      {avgPrice.toFixed(1)}¢
-                    </div>
-                    <div className="text-xs" style={{ color: "#8b8ba8" }}>avg price</div>
-                  </div>
-                </div>
-              );
-            })}
-            {pikCompanies.length === 0 && (
-              <div className="px-5 py-6 text-sm text-center" style={{ color: "#8b8ba8" }}>No PIK companies in tracked portfolio</div>
-            )}
-          </div>
+          ))}
         </div>
       </div>
-
-      {/* Disclaimer */}
-      <div className="rounded-lg px-5 py-4 text-xs border" style={{ background: "#0f0f16", borderColor: "#1e1e2e", color: "#6b6b88" }}>
-        <strong className="text-white">Disclaimer:</strong> Headline portfolio-FV, non-accrual, PIK, and mark-below-par numbers are parsed directly from each BDC&apos;s Schedule of Investments
-        (10-K / 10-Q filings on EDGAR), aggregated cost-weighted across the {derived.n_bdcs_latest} traded BDCs we cover. Coverage is as of {asOfLabel}.
-        The 155-BDC universe, AUM totals, software-exposure breakdowns, alerts, and AI-risk classifications remain curated from public reports.
-        For informational purposes only; not investment advice.
-      </div>
-    </div>
+    </main>
   );
 }

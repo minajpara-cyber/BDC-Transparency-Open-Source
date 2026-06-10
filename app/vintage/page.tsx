@@ -1,5 +1,7 @@
 "use client";
 import React, { useMemo, useState } from "react";
+import Link from "next/link";
+import CreditNav from "@/components/CreditNav";
 import VintageChart, { VintageSeries } from "@/components/VintageChart";
 import { vintageRows, VintageRow } from "@/data/vintage_analysis";
 import { vintageLGD } from "@/data/vintage_lgd";
@@ -9,7 +11,7 @@ type Metric = "pct_ever_default" | "pct_ever_modified" | "pct_ever_na" | "pct_ev
 const METRIC_META: Record<Metric, { label: string; sub: string; color: string }> = {
   pct_ever_default: {
     label: "% Cost Ever Defaulted (cumulative default exposure)",
-    sub: "Cumulative — share of vintage cost ever flagged non-accrual OR exited in distress (write-off, distressed sale, debt-for-equity). Matches Raymond James's published 'cumulative 1L default exposure' methodology. Primary vintage-performance metric.",
+    sub: "Cumulative — share of vintage cost ever flagged non-accrual OR exited in distress (write-off, distressed sale, debt-for-equity). Directionally comparable to Raymond James's 'cumulative 1L default exposure' (ours spans all instruments; RJ is 1L-only). Primary vintage-performance metric.",
     color: "#dc2626",
   },
   pct_ever_modified: {
@@ -36,13 +38,18 @@ const METRIC_META: Record<Metric, { label: string; sub: string; color: string }>
 
 // Compress raw rows into one series per vintage_year for a given metric.
 // When hcOnly=true and the metric has a *_hc counterpart, use that; rows
-// where the HC value is null (cohort had <5 HIGH+MED loans) are dropped.
-function buildSeries(rows: VintageRow[], metric: Metric, hcOnly: boolean = false): VintageSeries[] {
+// where the HC value is null (cohort had <15 HIGH+MED loans) are dropped.
+// l1Only switches the default metric to the first-lien-only RJ-comparable
+// series (overrides hcOnly for that metric — there is no HC∩1L variant).
+function buildSeries(rows: VintageRow[], metric: Metric, hcOnly: boolean = false, l1Only: boolean = false): VintageSeries[] {
   const hcVariant: Partial<Record<Metric, keyof VintageRow>> = {
     pct_ever_default: "pct_ever_default_hc",
     pct_ever_modified: "pct_ever_modified_hc",
   };
-  const useKey = (hcOnly && hcVariant[metric]) ? hcVariant[metric]! : metric;
+  const useKey: keyof VintageRow =
+    (l1Only && metric === "pct_ever_default") ? "pct_ever_default_1l"
+    : (hcOnly && hcVariant[metric]) ? hcVariant[metric]!
+    : metric;
   const byVintage = new Map<number, VintageRow[]>();
   for (const r of rows) {
     if (!byVintage.has(r.vintage_year)) byVintage.set(r.vintage_year, []);
@@ -108,7 +115,17 @@ function buildMatrix(
   bdcRows: VintageRow[],
   industryRows: VintageRow[],
   metric: Metric,
+  hcOnly: boolean = false,
 ): MatrixData {
+  // Honor the page-level HC toggle so the matrix shows the SAME flavor of
+  // the metric as the charts/table above (it previously always used the
+  // all-loans value, silently disagreeing with the headline view).
+  const hcVariantM: Partial<Record<Metric, keyof VintageRow>> = {
+    pct_ever_default: "pct_ever_default_hc",
+    pct_ever_modified: "pct_ever_modified_hc",
+  };
+  const mKey: keyof VintageRow =
+    (hcOnly && hcVariantM[metric]) ? hcVariantM[metric]! : metric;
   const cells = new Map<string, MatrixCell>();
 
   // Group BDC rows by (ticker, vintage) and take the latest age observed.
@@ -129,8 +146,9 @@ function buildMatrix(
       (i) => i.vintage_year === bdcR.vintage_year && i.age_quarters === bdcR.age_quarters && !i.is_partial,
     );
     if (!indR) continue;
-    const bdcVal = bdcR[metric] as number;
-    const indVal = indR[metric] as number;
+    const bdcVal = bdcR[mKey] as number | null;
+    const indVal = indR[mKey] as number | null;
+    if (bdcVal === null || bdcVal === undefined || indVal === null || indVal === undefined) continue;
     cells.set(`${bdcR.ticker}|${bdcR.vintage_year}`, {
       bdcVal,
       indVal,
@@ -172,7 +190,8 @@ function buildMatrix(
   }
   for (const vy of vintageSet) {
     const r = industryLatest.get(vy);
-    if (r) industryByVintage.set(vy, r[metric] as number);
+    const v = r ? (r[mKey] as number | null) : null;
+    if (v !== null && v !== undefined) industryByVintage.set(vy, v);
   }
 
   // Industry overall total: cohort-weighted across vintages
@@ -181,7 +200,9 @@ function buildMatrix(
   for (const vy of vintageSet) {
     const r = industryLatest.get(vy);
     if (!r) continue;
-    indNum += ((r[metric] as number) / 100) * r.cohort_entry_cost_b;
+    const v = r[mKey] as number | null;
+    if (v === null || v === undefined) continue;
+    indNum += (v / 100) * r.cohort_entry_cost_b;
     indDen += r.cohort_entry_cost_b;
   }
   const industryTotal = indDen > 0 ? (indNum / indDen) * 100 : 0;
@@ -194,6 +215,29 @@ function buildMatrix(
     industryByVintage,
     industryTotal,
   };
+}
+
+// Measured dating error by source bucket (golden-set validation 2026-06-10:
+// 85 documented financings, 1,200 loan-tranches — see methodology box).
+// Mean absolute error in YEARS, weighted within each bucket by sample size.
+const SRC_MAE = {
+  disclosed: 1.15,    // own_acq
+  corrected: 1.24,    // xbdc_earlier_peer (1.43) + retag override (0.38)
+  borrowed: 0.82,     // tranche-matched peer dates
+  name_matched: 1.23, // long-tail name match / sibling facility / DERA floor
+  inferred: 1.3,      // tenor model / first-observed heuristics
+};
+function cohortDatingError(r: VintageRow): number | null {
+  const parts: Array<[number, number]> = [
+    [r.n_src_disclosed ?? 0, SRC_MAE.disclosed],
+    [r.n_src_corrected ?? 0, SRC_MAE.corrected],
+    [r.n_src_borrowed ?? 0, SRC_MAE.borrowed],
+    [r.n_src_name_matched ?? 0, SRC_MAE.name_matched],
+    [r.n_src_inferred ?? 0, SRC_MAE.inferred],
+  ];
+  const n = parts.reduce((s, [c]) => s + c, 0);
+  if (!n) return null;
+  return parts.reduce((s, [c, mae]) => s + c * mae, 0) / n;
 }
 
 // Color helpers — picks a tinted background and a text color given a metric
@@ -237,6 +281,9 @@ export default function VintagePage() {
   // acq_dates likely indicating amendments not originations) shouldn't drive
   // the headline view. User can toggle off to see all-loans rollup.
   const [hcOnly, setHcOnly] = useState(true);
+  // First-lien-only RJ-comparable series for the default metric (numerator
+  // AND denominator restricted to 1L loans — matches RJ's universe).
+  const [l1Only, setL1Only] = useState(false);
   const [matrixMetric, setMatrixMetric] = useState<Metric>("pct_ever_default");
   const [matrixView, setMatrixView] = useState<ViewMode>("absolute");
   const [matrixSortKey, setMatrixSortKey] = useState<number | "total" | null>("total");
@@ -256,7 +303,7 @@ export default function VintagePage() {
     return industryRows.filter((r) => !r.is_partial);
   }, [industryRows, includePartial]);
 
-  const defaultSeries = useMemo(() => buildSeries(visibleRows, "pct_ever_default", hcOnly), [visibleRows, hcOnly]);
+  const defaultSeries = useMemo(() => buildSeries(visibleRows, "pct_ever_default", hcOnly, l1Only), [visibleRows, hcOnly, l1Only]);
   const modSeries     = useMemo(() => buildSeries(visibleRows, "pct_ever_modified", hcOnly), [visibleRows, hcOnly]);
   const naSeries  = useMemo(() => buildSeries(visibleRows, "pct_ever_na"),  [visibleRows]);
   const b80Series = useMemo(() => buildSeries(visibleRows, "pct_ever_b80"), [visibleRows]);
@@ -265,8 +312,8 @@ export default function VintagePage() {
   const tableRows = useMemo(() => latestPerVintage(visibleRows), [visibleRows]);
 
   const matrix = useMemo(
-    () => buildMatrix(bdcRows, industryRows, matrixMetric),
-    [bdcRows, industryRows, matrixMetric],
+    () => buildMatrix(bdcRows, industryRows, matrixMetric, hcOnly),
+    [bdcRows, industryRows, matrixMetric, hcOnly],
   );
 
   // Sort tickers by clicked column (vintage year or "total"). Default = sort by
@@ -321,36 +368,32 @@ export default function VintagePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <CreditNav />
       {/* Header */}
       <div className="mb-7">
         <h1 className="text-2xl font-bold text-white mb-2">Vintage Analysis</h1>
         <p className="text-sm" style={{ color: "#8b8ba8" }}>
           Cumulative credit performance by vintage year — sliced by{" "}
-          <span className="text-white">when each loan first appeared on a BDC&apos;s book</span> (the
+          <span className="text-white">when each loan first appeared on a BDC&apos;s book</span>{" "}
+          (the
           BDC&apos;s acquisition date when disclosed; otherwise the period of first
           observation in our parser). All metrics are <span className="text-white">cost-weighted</span>.
           MFIC excluded from non-accrual metrics — its SOI doesn&apos;t flag NA per position.
         </p>
         <div className="mt-3 rounded-lg border p-3 text-xs"
              style={{ background: "rgba(99,102,241,0.05)", borderColor: "rgba(99,102,241,0.2)", color: "#9ca3af" }}>
-          <span className="text-white font-semibold">Methodology (updated 2026-05-18):</span>{" "}
-          Primary metric is <span className="text-white">% Cost Ever Defaulted</span> — loans
-          flagged on-book non-accrual OR exited in distress (write-off, distressed sale, debt-for-equity).
-          Matches Raymond James&apos;s &ldquo;cumulative 1L default exposure&rdquo;.{" "}
-          Industry rollup excludes loans where the holder&apos;s coverage started <em>after</em> the
-          vintage year (eliminates BCRED/ADS/ASIF/BBDC survivor bias).{" "}
-          <span className="text-white">Vintage assignment is tiered HIGH/MED/LOW</span> by acq_date
-          stability across quarters and across BDC holders — investigation showed disclosed
-          acquisition_date is materially polluted by amendment retags (88% of intra-BDC drifts go
-          forward by median 22 months; BCRED is the dominant late-discloser). LOW-tier loans are
-          excluded from the headline view by default; toggle off to include them.{" "}
-          <span className="text-white font-semibold">Validation (2026-06-05):</span> when ≥2 BDCs
-          hold the same loan their disclosed acquisition dates agree within 1 year{" "}
-          <span className="text-white">89%</span> of the time (median 0 days, n=563) — the empirical
-          error bar on disclosed vintages. Refinancings are now{" "}
-          <span className="text-white">stitched</span> (a maturity extension no longer resets or
-          double-counts the vintage), and loans we never watched originate are dated by{" "}
-          <span className="text-white">maturity − calibrated tenor</span> (1L ≈ 6yr) rather than dropped.
+          <span className="text-white font-semibold">Methodology in one breath:</span>{" "}
+          primary metric is <span className="text-white">% Cost Ever Defaulted</span> (on-book
+          non-accrual ∪ distress exits — directionally comparable to Raymond James&apos;s 1L
+          cumulative default exposure), and every loan&apos;s vintage carries a confidence tier.{" "}
+          <span className="text-white">
+            Validated against 85 externally-documented financings: 73% of assigned vintages land
+            within ±1 year
+          </span>{" "}
+          (mean error 1.1y; the per-cohort ± badges below come from that scoring).{" "}
+          <Link href="/methodology#vintage" className="text-indigo-400 hover:text-indigo-300">
+            Full vintage methodology →
+          </Link>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
@@ -364,6 +407,21 @@ export default function VintagePage() {
               High-confidence vintage only{" "}
               <span style={{ color: "#6b6b88" }}>
                 (HIGH+MED tier: stable acq_date across quarters & holders; default on — see methodology)
+              </span>
+            </span>
+          </label>
+          <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
+            <input
+              type="checkbox"
+              checked={l1Only}
+              onChange={(e) => setL1Only(e.target.checked)}
+              className="cursor-pointer"
+            />
+            <span>
+              First-lien only{" "}
+              <span style={{ color: "#6b6b88" }}>
+                (the truly RJ-comparable universe; applies to the default metric and
+                overrides the HC filter for that chart)
               </span>
             </span>
           </label>
@@ -522,14 +580,15 @@ export default function VintagePage() {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                {["Vintage", "Loans", "Hi-Conf", "Disclosed", "Cohort Size", "Latest Age", "Cum. Default %", "Ever Modified %", "On-book NA %", "Ever <80¢ %", "Current <90¢ %", "Coverage"].map((h) => (
+                {["Vintage", "Loans", "Hi-Conf", "Dating", "Cohort Size", "Latest Age", l1Only ? "Cum. Default % (1L)" : "Cum. Default %", "Ever Modified %", "On-book NA %", "Ever <80¢ %", "Current <90¢ %", "Coverage"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {tableRows.map((r, i) => {
-                const defValue = hcOnly ? r.pct_ever_default_hc : r.pct_ever_default;
+                const defValue = l1Only ? r.pct_ever_default_1l
+                  : hcOnly ? r.pct_ever_default_hc : r.pct_ever_default;
                 const modValue = hcOnly ? r.pct_ever_modified_hc : r.pct_ever_modified;
                 const defColor = defValue == null ? "#444"
                   : defValue >= 8 ? "#dc2626" : defValue >= 4 ? "#f97316" : "#22c55e";
@@ -540,7 +599,8 @@ export default function VintagePage() {
                 const b90Color = r.pct_b90_alive >= 10 ? "#ef4444" : r.pct_b90_alive >= 5 ? "#f97316" : "#22c55e";
                 const discPct = r.cohort_entry_cost_b > 0 ? 100 * (r.cohort_high_conf_b ?? 0) / r.cohort_entry_cost_b : 0;
                 const discColor = discPct >= 75 ? "#22c55e" : discPct >= 50 ? "#eab308" : "#ef4444";
-                const altDef = hcOnly ? r.pct_ever_default : r.pct_ever_default_hc;
+                const altDef = (l1Only || hcOnly) ? r.pct_ever_default : r.pct_ever_default_hc;
+                const altLabel = (l1Only || hcOnly) ? "all" : "disc";
                 return (
                   <tr key={r.vintage_year} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
                     <td className="px-4 py-3 font-semibold text-white">{r.vintage_year}</td>
@@ -561,6 +621,35 @@ export default function VintagePage() {
                     <td className="px-4 py-3 text-sm font-semibold" style={{ color: discColor }}
                         title="Share of cohort $ dated from a disclosed acquisition date or a cross-BDC peer — versus first-observed inference. Low = this vintage's metrics rest heavily on inferred dates; treat with caution.">
                       {discPct.toFixed(0)}%
+                      {(() => {
+                        const err = cohortDatingError(r);
+                        return err == null ? null : (
+                          <span className="ml-1 text-xs font-normal" style={{ color: "#6b6b88" }}
+                                title="Estimated dating error for this cohort: its source mix weighted by each source's measured mean absolute error (golden-set validation, 85 documented loans).">
+                            ±{err.toFixed(1)}y
+                          </span>
+                        );
+                      })()}
+                      {(() => {
+                        const doc = (r.n_src_disclosed ?? 0) + (r.n_src_corrected ?? 0) + (r.n_src_borrowed ?? 0);
+                        const nm = r.n_src_name_matched ?? 0;
+                        const inf = r.n_src_inferred ?? 0;
+                        const tot = doc + nm + inf;
+                        if (!tot) return null;
+                        return (
+                          <div className="mt-1 flex h-1.5 w-16 overflow-hidden rounded"
+                               title={`How this cohort's loans were dated (count):\n` +
+                                 `own disclosed: ${r.n_src_disclosed}\n` +
+                                 `retag-corrected: ${r.n_src_corrected}\n` +
+                                 `peer tranche-matched: ${r.n_src_borrowed}\n` +
+                                 `name-matched / sibling facility / DERA: ${nm}\n` +
+                                 `tenor model / first-observed inference: ${inf}`}>
+                            <div style={{ width: `${(100 * doc) / tot}%`, background: "#6366f1" }} />
+                            <div style={{ width: `${(100 * nm) / tot}%`, background: "#eab308" }} />
+                            <div style={{ width: `${(100 * inf) / tot}%`, background: "#4b5563" }} />
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}>${r.cohort_entry_cost_b.toFixed(1)}B</td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }}>{r.age_years.toFixed(2)}y</td>
@@ -568,8 +657,10 @@ export default function VintagePage() {
                       {defValue == null ? "—" : `${defValue.toFixed(2)}%`}
                       {altDef != null && defValue != null && Math.abs(altDef - defValue) >= 0.3 && (
                         <span className="ml-1 text-xs font-normal" style={{ color: "#6b6b88" }}
-                              title={hcOnly ? "Rate INCLUDING first-observed-inferred dates" : "Rate on disclosed/anchored dates only"}>
-                          ({hcOnly ? "all" : "disc"} {altDef.toFixed(1)})
+                              title={l1Only ? "Rate across ALL instruments (not just first-lien)"
+                                : hcOnly ? "Rate INCLUDING first-observed-inferred dates"
+                                : "Rate on disclosed/anchored dates only"}>
+                          ({altLabel} {altDef.toFixed(1)})
                         </span>
                       )}
                     </td>

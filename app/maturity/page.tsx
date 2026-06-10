@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import CreditNav from "@/components/CreditNav";
 import Link from "next/link";
 import MaturityWallChart from "@/components/MaturityWallChart";
 import StatCard from "@/components/StatCard";
@@ -100,6 +101,7 @@ export default function MaturityPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <CreditNav />
       {/* Hero */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">

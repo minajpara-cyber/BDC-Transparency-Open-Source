@@ -29,6 +29,7 @@ export default function MethodologyPage() {
           ["#parsing", "Parsing"],
           ["#position-tracking", "Position tracking"],
           ["#metrics", "Metrics"],
+          ["#vintage", "Vintage dating"],
           ["#caveats", "Caveats"],
           ["#glossary", "Glossary"],
         ].map(([href, label]) => (
@@ -142,7 +143,7 @@ export default function MethodologyPage() {
                 ["% PIK", "Cost of loans currently paying any portion of interest in-kind / total debt cost."],
                 ["Cash → PIK modification rate", "Cost of loans that flipped from cash-pay to PIK this quarter / eligible-loan cost. Strict payment-structure changes only — excludes refis, paydowns, maturity extensions."],
                 ["Weighted-avg spread (bps)", "Parsed from the SOI's reference-rate text (e.g. 'SOFR + 5.75%' → 575 bps). Cost-weighted across positions. Floating-rate loans give a clean read; fixed-rate notes fall through to coupon as a proxy."],
-                ["Cumulative default exposure (vintage)", "Cost of loans ever flagged non-accrual OR exited in distress, as % of cohort entry cost. Matches Raymond James's published 'cumulative 1L default exposure' methodology."],
+                ["Cumulative default exposure (vintage)", "Cost of loans ever flagged non-accrual OR exited in distress, as % of cohort entry cost. Directionally comparable to Raymond James's 'cumulative 1L default exposure' (our all-instrument series includes equity and junior debt; a 1L-only toggle gives the strictly comparable view)."],
                 ["Loss-given-default (LGD)", "Realized loss on distress exits as % of distress-exit cost. Realized loss uses last-observed FV − cost as proxy; not audited."],
                 ["Cohort survival", "% of vintage's entry cost still on a BDC's balance sheet at age T. Falls as loans refi, pay down, or exit."],
                 ["PIK cascade", "For every cash → PIK flip, outcome 4 quarters later: cured, still PIK at various mark levels, or exited."],
@@ -155,6 +156,46 @@ export default function MethodologyPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* 4b. Vintage dating */}
+      <section id="vintage" className="mb-10 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">Vintage dating — how each loan gets its origination year</h2>
+        <div className="rounded-xl border p-5 text-sm space-y-3" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#d1d5db" }}>
+          <p>
+            The SOI&apos;s disclosed &ldquo;acquisition date&rdquo; is the initial acquisition of the{" "}
+            <em>security</em> — a refinancing legally creates a new security, so the date resets, and
+            several BDCs disclose it only for restricted securities or not at all (about half the
+            tracked book has no disclosed date). Vintage assignment therefore runs a waterfall, in
+            order of trust:
+          </p>
+          <ol className="list-decimal list-inside space-y-1.5">
+            <li><span className="text-white">Own disclosed date</span> — earliest this holder ever printed for the loan, overridden when peers holding the <em>same tranche</em> (same lien, maturity ±2y) agree on a meaningfully earlier consensus date, or when we reliably observed the loan ≥18 months before the disclosed date (amendment retag).</li>
+            <li><span className="text-white">Tranche-matched peer date</span> — borrowed from another BDC&apos;s disclosure for the same tranche family.</li>
+            <li><span className="text-white">Name-matched long-tail date</span> — from one of ~160 smaller funds&apos; XBRL filings (graded LOW confidence).</li>
+            <li><span className="text-white">Sibling-facility date</span> — a different facility of the same borrower (LOW confidence).</li>
+            <li><span className="text-white">Maturity − calibrated tenor</span> — for loans we never watched originate: first lien ≈ 6y, second lien ≈ 8y, calibrated on stable-disclosure loans only (LOW confidence).</li>
+            <li><span className="text-white">First observation</span> — only when the prior quarter parsed reliably, so absence is evidence.</li>
+          </ol>
+          <p>
+            Each loan carries a HIGH/MED/LOW confidence tier from disclosure stability (drift across
+            quarters, spread across holders). The dashboard&apos;s default view is HIGH+MED only.
+            Refinancings are stitched (a maturity extension doesn&apos;t reset or double-count the
+            vintage), loan ages are measured from the origination <em>month</em>, and default events
+            attach through refinancing stitches.
+          </p>
+          <p>
+            <span className="text-white">Validation:</span> scored against a golden set of 85
+            externally-documented financings (1,200 loan-tranches; LBO/refi dates from public
+            press): 73% of assigned vintages land within ±1 year, 60% exact-year, mean absolute
+            error 1.1y. Tranche-matched peer dates are the most accurate broad source (0.8y MAE);
+            inference-dated loans skew ~1.1y late; loans amended before our coverage window are the
+            irreducible error class. The ± badges in the vintage table are cohort-weighted blends
+            of these per-source error rates. Disclosed acquisition dates drift forward in 88% of
+            intra-BDC revisions (median 22 months) — the reason raw disclosed dates can&apos;t be
+            used as-is.
+          </p>
         </div>
       </section>
 

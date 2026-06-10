@@ -99,7 +99,8 @@ export default function BorrowersIndexPage() {
               {rows.map((b, i) => (
                 <tr
                   key={b.slug}
-                  className="border-t"
+                  id={b.slug}
+                  className="border-t scroll-mt-24"
                   style={{
                     borderColor: "#1a1a28",
                     background: i % 2 === 0 ? "#111118" : "#0f0f16",

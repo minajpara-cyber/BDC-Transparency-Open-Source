@@ -23,6 +23,7 @@ const NEGATIVE_KEYS = new Set<SortKey>([
   "pct_non_accrual",
   "pct_pik_now",
   "pct_modified",
+  "pct_exits_distress",
 ]);
 
 // Sponsors with fewer than this many attributed borrowers get a muted /
@@ -233,6 +234,20 @@ export default function SponsorsIndexPage() {
                 >
                   <SortBtn k="pct_modified" label="Modified" align="right" />
                 </th>
+                <th
+                  className="px-3 py-3 text-right border-l"
+                  style={{ borderColor: "#1a1a28", background: "rgba(239,68,68,0.06)" }}
+                  title="Lifetime league table: of this sponsor's COMPLETED exits across our BDC panel, the share that ended in distress (ever non-accrual, exited below 85¢, or write-off pattern)"
+                >
+                  <SortBtn k="pct_exits_distress" label="Distress exits" align="right" />
+                </th>
+                <th
+                  className="px-3 py-3 text-right"
+                  style={{ background: "rgba(239,68,68,0.06)" }}
+                  title="Realized-loss proxy summed over the sponsor's distress exits (last fair value minus cost at exit), USD"
+                >
+                  <SortBtn k="realized_loss_usd" label="Realized loss" align="right" />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -304,6 +319,18 @@ export default function SponsorsIndexPage() {
                     title={`${s.n_positions_mod} position${s.n_positions_mod === 1 ? "" : "s"} in modification-coverage denominator`}
                   >
                     {s.pct_modified.toFixed(1)}%
+                  </td>
+                  <td
+                    className="px-3 py-3 text-right text-sm font-mono border-l"
+                    style={{ borderColor: "#1a1a28",
+                             color: s.n_exits < 3 ? "#6b6b88" : pctColor(s.pct_exits_distress, "pct_exits_distress", thin) }}
+                    title={`${s.n_distress ?? 0} distress of ${s.n_exits} completed exits${s.n_exits < 3 ? " — too few exits to read" : ""}`}
+                  >
+                    {s.n_exits === 0 ? "—" : `${s.pct_exits_distress.toFixed(0)}%`}
+                    <span className="ml-1 text-xs" style={{ color: "#6b6b88" }}>({s.n_exits})</span>
+                  </td>
+                  <td className="px-3 py-3 text-right text-sm font-mono" style={{ color: numColor }}>
+                    {s.realized_loss_usd > 0 ? fmtUSD(s.realized_loss_usd) : "—"}
                   </td>
                 </tr>
                 );

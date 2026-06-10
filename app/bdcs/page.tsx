@@ -10,7 +10,7 @@ type FilterType = "All" | "Traded" | "Non-Traded";
 export default function BDCsPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<FilterType>("All");
-  const [sortKey, setSortKey] = useState<string>("softwareExposure");
+  const [sortKey, setSortKey] = useState<string>("portfolioFairValue");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const bdcs: BDCEnriched[] = useMemo(() => enrichedBDCs(), []);
@@ -129,9 +129,13 @@ export default function BDCsPage() {
         </div>
         <div className="rounded-lg p-3 border text-center" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-lg font-bold text-white">
-            {(filtered.reduce((s, b) => s + b.softwareExposure, 0) / (filtered.length || 1)).toFixed(1)}%
+            {(() => {
+              const fv = filtered.reduce((s, b) => s + b.portfolioFairValue, 0);
+              const na = filtered.reduce((s, b) => s + b.nonAccrualRate * b.portfolioFairValue, 0);
+              return fv > 0 ? (na / fv).toFixed(2) : "0.00";
+            })()}%
           </div>
-          <div className="text-xs" style={{ color: "#8b8ba8" }}>Avg software exp.</div>
+          <div className="text-xs" style={{ color: "#8b8ba8" }}>FV-weighted non-accrual</div>
         </div>
         <div className="rounded-lg p-3 border text-center" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-lg font-bold text-white">
@@ -152,7 +156,6 @@ export default function BDCsPage() {
                 <th className="px-4 py-3 text-left"><SortBtn k="manager" label="Manager" /></th>
                 <th className="px-4 py-3 text-left"><SortBtn k="type" label="Type" /></th>
                 <th className="px-4 py-3 text-right"><SortBtn k="portfolioFairValue" label="FV ($B)" /></th>
-                <th className="px-4 py-3 text-right"><SortBtn k="softwareExposure" label="Sw. Exp %" /></th>
                 <th className="px-4 py-3 text-right"><SortBtn k="nonAccrualRate" label="Non-Accrual" /></th>
                 <th className="px-4 py-3 text-right"><SortBtn k="pikRate" label="PIK Rate" /></th>
                 <th className="px-4 py-3 text-right"><SortBtn k="portfolioCompanies" label="Companies" /></th>
@@ -162,7 +165,7 @@ export default function BDCsPage() {
             </thead>
             <tbody>
               {filtered.map((bdc, i) => {
-                const risk = bdc.softwareExposure >= 50 ? "Critical" : bdc.softwareExposure >= 25 ? "High" : bdc.softwareExposure >= 15 ? "Medium" : "Low";
+                const risk = bdc.nonAccrualRate >= 4 ? "Critical" : bdc.nonAccrualRate >= 2 ? "High" : bdc.nonAccrualRate >= 1 ? "Medium" : "Low";
                 const naColor = bdc.nonAccrualRate >= 4 ? "#ef4444" : bdc.nonAccrualRate >= 2 ? "#f97316" : bdc.nonAccrualRate >= 1 ? "#eab308" : "#22c55e";
                 const pikColor = bdc.pikRate >= 12 ? "#ef4444" : bdc.pikRate >= 9 ? "#f97316" : bdc.pikRate >= 6 ? "#eab308" : "#22c55e";
                 return (
@@ -197,20 +200,6 @@ export default function BDCsPage() {
                       <div className="flex items-center justify-end gap-1.5">
                         <span>${bdc.portfolioFairValue.toFixed(2)}B</span>
                         <DeltaChip delta={bdc.delta_fv_b} fmt={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}B`} invert />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="w-14 h-1.5 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${Math.min(bdc.softwareExposure, 100)}%`,
-                              background: bdc.softwareExposure >= 50 ? "#ef4444" : bdc.softwareExposure >= 25 ? "#f97316" : "#6366f1",
-                            }}
-                          />
-                        </div>
-                        <span className="text-sm font-semibold text-white">{bdc.softwareExposure.toFixed(1)}%</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
