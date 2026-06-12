@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import SortableTable, { Column } from "@/components/SortableTable";
 import { holdings, holdingsAsOf, type Holding } from "@/data/bdc_holdings";
 
@@ -30,6 +31,10 @@ interface DisplayRow {
   na: number;
   pik: number;
   isSlice: boolean;
+  // Expandable breakdown: a consolidated borrower with several structure
+  // buckets carries them as subRows; each subRow is one slice (isChild).
+  isChild?: boolean;
+  subRows?: DisplayRow[];
 }
 
 function markCents(m: number | null) {
@@ -70,13 +75,23 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
     for (const h of all) {
       if (!textOk(h)) continue;
       if (!sliceMode) {
-        // Consolidated borrower row.
+        // Consolidated borrower row. Borrowers spanning several structure
+        // buckets get those slices as an expandable breakdown (all slices are
+        // kept even under the NA/PIK filter, so you can see WHICH slice is
+        // flagged — the parent already passed the filter).
         if (flag === "na" && !h.na) continue;
         if (flag === "pik" && !h.pik) continue;
+        const subRows = h.slices.length > 1
+          ? h.slices.map<DisplayRow>((s) => ({
+              name: h.name, legal_name: h.legal_name, sector: h.sector, slug: h.slug,
+              structure: s.structure, n_tranches: s.n_tranches, fv_m: s.fv_m, pct_book: s.pct_book,
+              mark: s.mark, maturity: s.maturity, na: s.na, pik: s.pik, isSlice: true, isChild: true,
+            }))
+          : undefined;
         out.push({
           name: h.name, legal_name: h.legal_name, sector: h.sector, slug: h.slug,
           structure: h.structure, n_tranches: h.n_tranches, fv_m: h.fv_m, pct_book: h.pct_book,
-          mark: h.mark, maturity: h.maturity, na: h.na, pik: h.pik, isSlice: false,
+          mark: h.mark, maturity: h.maturity, na: h.na, pik: h.pik, isSlice: false, subRows,
         });
       } else {
         // One row per selected structure slice of this borrower.
@@ -109,7 +124,18 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
   const columns: Column<DisplayRow>[] = [
     {
       key: "name", label: "Borrower", sortable: true,
-      render: (h) => (
+      render: (h) => h.isChild ? (
+        // Expanded breakdown row: one structure slice of the borrower above.
+        <div className="flex items-center gap-1.5 pl-5">
+          <span aria-hidden style={{ color: "#3f3f5a" }}>└</span>
+          <span style={{ color: "#a5b4fc" }}>{h.structure}</span>
+          <span className="text-xs whitespace-nowrap" style={{ color: "#52526a" }}>
+            · {h.n_tranches} tranche{h.n_tranches > 1 ? "s" : ""}
+          </span>
+          {h.na ? <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: "#ef444422", color: "#fca5a5", border: "1px solid #ef444455" }}>NA</span> : null}
+          {h.pik ? <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: "#f59e0b22", color: "#fcd34d", border: "1px solid #f59e0b55" }}>PIK</span> : null}
+        </div>
+      ) : (
         <div>
           <div className="flex items-center gap-1.5">
             {h.slug
@@ -124,7 +150,7 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
         </div>
       ),
     },
-    { key: "sector", label: "Sector", sortable: true, render: (h) => <span style={{ color: "#9ca3af" }}>{h.sector ?? "—"}</span> },
+    { key: "sector", label: "Sector", sortable: true, render: (h) => <span style={{ color: "#9ca3af" }}>{h.isChild ? "" : h.sector ?? "—"}</span> },
     { key: "structure", label: "Structure", sortable: true, render: (h) => <span className="text-xs" style={{ color: h.isSlice ? "#a5b4fc" : "#9ca3af" }}>{h.structure || "—"}</span> },
     { key: "fv_m", label: "Exposure", sortable: true, align: "right", render: (h) => <span className="text-white tabular-nums">${h.fv_m.toLocaleString(undefined, { maximumFractionDigits: 0 })}M</span> },
     { key: "pct_book", label: "% book", sortable: true, align: "right", render: (h) => <span className="tabular-nums" style={{ color: "#9ca3af" }}>{h.pct_book.toFixed(1)}%</span> },
@@ -141,6 +167,7 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
           <h2 className="text-lg font-semibold text-white">Top exposures</h2>
           <p className="text-xs" style={{ color: "#8b8ba8" }}>
             {ticker}&apos;s largest credits from parsed SOI, aggregated by borrower across tranches · top {all.length} by total fair value · as of {holdingsAsOf}
+            {!sliceMode && <> · click <ChevronRight size={11} className="inline -mt-0.5" aria-label="the arrow" /> to break a borrower into its position types</>}
           </p>
         </div>
         <div className="text-xs" style={{ color: "#8b8ba8" }}>
@@ -217,11 +244,12 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
       <SortableTable<DisplayRow>
         data={rows}
         columns={columns}
-        rowKey={(h) => `${h.name}|${h.structure}|${h.fv_m}`}
+        rowKey={(h) => `${h.isChild ? "slice|" : ""}${h.name}|${h.structure}|${h.fv_m}`}
         initialSort={{ key: "fv_m", dir: "desc" }}
         stickyHeader
         dense
         emptyMessage="No positions match the filters."
+        getSubRows={sliceMode ? undefined : (h) => h.subRows}
       />
     </div>
   );

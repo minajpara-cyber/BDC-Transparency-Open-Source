@@ -1,6 +1,6 @@
 "use client";
-import { useState, ReactNode } from "react";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { useState, ReactNode, Fragment } from "react";
+import { ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
 
 export interface Column<T> {
   key: keyof T | string;
@@ -25,6 +25,12 @@ interface SortableTableProps<T> {
   initialSort?: { key: string; dir?: "asc" | "desc" };
   /** Smaller padding + font for dense tables. */
   dense?: boolean;
+  /** Returns expandable child rows for a row (e.g. the per-structure slices of
+   *  a borrower consolidated across tranches). When provided, a narrow chevron
+   *  column is added; rows with children toggle open on click. Children render
+   *  directly beneath their parent in the order given — column sorting moves
+   *  the parent and its children as one block. */
+  getSubRows?: (row: T) => T[] | undefined;
 }
 
 export default function SortableTable<T>({
@@ -37,9 +43,21 @@ export default function SortableTable<T>({
   headerSlot,
   initialSort,
   dense = false,
+  getSubRows,
 }: SortableTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | null>(initialSort?.key ?? null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">(initialSort?.dir ?? "asc");
+  // Keys of rows whose children are shown. Keyed by rowKey so state survives
+  // re-sorts and filter changes.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
@@ -80,6 +98,7 @@ export default function SortableTable<T>({
       <table className={`w-full ${textSize}`}>
         <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e", ...(stickyHeader ? { position: "sticky", top: 0, zIndex: 1 } : {}) }}>
           <tr>
+            {getSubRows && <th className="w-7" aria-label="Expand" />}
             {columns.map((col) => (
               <th
                 key={String(col.key)}
@@ -110,7 +129,7 @@ export default function SortableTable<T>({
           {sorted.length === 0 ? (
             <tr>
               <td
-                colSpan={columns.length}
+                colSpan={columns.length + (getSubRows ? 1 : 0)}
                 className="px-4 py-8 text-center text-sm"
                 style={{ color: "#6b6b88" }}
               >
@@ -118,35 +137,95 @@ export default function SortableTable<T>({
               </td>
             </tr>
           ) : (
-            sorted.map((row, i) => (
-              <tr
-                key={rowKey(row)}
-                className={`border-t transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
-                style={{
-                  borderColor: "#1a1a28",
-                  background: i % 2 === 0 ? "#111118" : "#0f0f16",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLTableRowElement).style.background = "#1a1a28";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLTableRowElement).style.background = i % 2 === 0 ? "#111118" : "#0f0f16";
-                }}
-                onClick={() => onRowClick?.(row)}
-              >
-                {columns.map((col) => (
-                  <td
-                    key={String(col.key)}
-                    className={`${cellPx} ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"} ${col.className ?? ""}`}
-                    style={{ color: "#d1d5db" }}
+            sorted.map((row, i) => {
+              const key = rowKey(row);
+              const kids = getSubRows?.(row) ?? [];
+              const isOpen = kids.length > 0 && expanded.has(key);
+              const baseBg = i % 2 === 0 ? "#111118" : "#0f0f16";
+              return (
+                <Fragment key={key}>
+                  <tr
+                    className={`border-t transition-colors ${onRowClick || kids.length > 0 ? "cursor-pointer" : ""}`}
+                    style={{ borderColor: "#1a1a28", background: baseBg }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLTableRowElement).style.background = "#1a1a28";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLTableRowElement).style.background = baseBg;
+                    }}
+                    onClick={(e) => {
+                      if (onRowClick) {
+                        onRowClick(row);
+                        return;
+                      }
+                      // Whole row toggles the breakdown, but let links/buttons
+                      // inside cells (borrower links, etc.) do their own thing.
+                      if (kids.length === 0) return;
+                      if ((e.target as HTMLElement).closest("a,button")) return;
+                      toggleExpand(key);
+                    }}
                   >
-                    {col.render
-                      ? col.render(row)
-                      : String((row as Record<string, unknown>)[String(col.key)] ?? "")}
-                  </td>
-                ))}
-              </tr>
-            ))
+                    {getSubRows && (
+                      <td className={`${dense ? "pl-2.5 pr-0 py-2" : "pl-3 pr-0 py-3"} align-middle`}>
+                        {kids.length > 0 && (
+                          <button
+                            aria-expanded={isOpen}
+                            aria-label={isOpen ? "Hide position breakdown" : "Show position breakdown"}
+                            title={isOpen ? "Hide position breakdown" : "Show each position on its own"}
+                            className="flex items-center justify-center rounded transition-colors hover:text-white"
+                            style={{ color: isOpen ? "#a5b4fc" : "#6b6b88" }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpand(key);
+                            }}
+                          >
+                            {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          </button>
+                        )}
+                      </td>
+                    )}
+                    {columns.map((col) => (
+                      <td
+                        key={String(col.key)}
+                        className={`${cellPx} ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"} ${col.className ?? ""}`}
+                        style={{ color: "#d1d5db" }}
+                      >
+                        {col.render
+                          ? col.render(row)
+                          : String((row as Record<string, unknown>)[String(col.key)] ?? "")}
+                      </td>
+                    ))}
+                  </tr>
+                  {isOpen &&
+                    kids.map((kid) => (
+                      <tr
+                        key={rowKey(kid)}
+                        className="border-t transition-colors"
+                        style={{ borderColor: "#15151f", background: "#0c0c12" }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLTableRowElement).style.background = "#15151f";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLTableRowElement).style.background = "#0c0c12";
+                        }}
+                      >
+                        <td />
+                        {columns.map((col) => (
+                          <td
+                            key={String(col.key)}
+                            className={`${cellPx} ${col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"} ${col.className ?? ""}`}
+                            style={{ color: "#d1d5db" }}
+                          >
+                            {col.render
+                              ? col.render(kid)
+                              : String((kid as Record<string, unknown>)[String(col.key)] ?? "")}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                </Fragment>
+              );
+            })
           )}
         </tbody>
       </table>
