@@ -142,8 +142,15 @@ export default function SortableTable<T>({
               const kids = getSubRows?.(row) ?? [];
               const isOpen = kids.length > 0 && expanded.has(key);
               const baseBg = i % 2 === 0 ? "#111118" : "#0f0f16";
+              // React reconciliation key MUST be unique — several callers'
+              // rowKey() collides (e.g. the same borrower held by two BDCs at
+              // the same maturity/lien, or rows where investment_type is null).
+              // Duplicate keys make React keep stale <tr>s when `data` changes,
+              // so a filtered list visually fails to update even though the
+              // data did. Suffix the array index to guarantee uniqueness; the
+              // (possibly-colliding) rowKey stays the expand-state handle.
               return (
-                <Fragment key={key}>
+                <Fragment key={`${key}::${i}`}>
                   <tr
                     className={`border-t transition-colors ${onRowClick || kids.length > 0 ? "cursor-pointer" : ""}`}
                     style={{ borderColor: "#1a1a28", background: baseBg }}
