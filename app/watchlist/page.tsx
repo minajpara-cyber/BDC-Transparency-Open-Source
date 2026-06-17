@@ -68,6 +68,7 @@ function TierBadge({ tier }: { tier: string }) {
 export default function WatchlistPage() {
   const [tier, setTier] = useState<string>("All");
   const [mgr, setMgr] = useState<string>("All");
+  const [fund, setFund] = useState<string>("All");
   const [q, setQ] = useState<string>("");
   const [newOnly, setNewOnly] = useState(false);
   const [hideStructured, setHideStructured] = useState(true);
@@ -78,19 +79,31 @@ export default function WatchlistPage() {
     () => Array.from(new Set(watchlist.map((r) => r.manager))).sort(),
     [],
   );
+  // Funds (BDC tickers). When a manager is selected, only that manager's funds
+  // are offered, so "Blackstone → BXSL vs BCRED" is a two-click drill-down.
+  const funds = useMemo(
+    () => Array.from(new Set(
+      watchlist.filter((r) => mgr === "All" || r.manager === mgr).map((r) => r.ticker),
+    )).sort(),
+    [mgr],
+  );
 
   const rows = useMemo(() => {
     return watchlist.filter((r) => {
       if (tier !== "All" && r.tier !== tier) return false;
       if (mgr !== "All" && r.manager !== mgr) return false;
+      if (fund !== "All" && r.ticker !== fund) return false;
       if (newOnly && !r.is_new) return false;
       if (hideStructured && r.is_structured) return false;
-      if (q && !r.company.toLowerCase().includes(q.toLowerCase())
-            && !(r.legal_name ?? "").toLowerCase().includes(q.toLowerCase())
-            && !r.ticker.toLowerCase().includes(q.toLowerCase())) return false;
+      if (q) {
+        const needle = q.toLowerCase();
+        const hay = [r.company, r.legal_name, r.ticker, r.manager, r.parent, r.industry]
+          .map((s) => (s ?? "").toLowerCase());
+        if (!hay.some((h) => h.includes(needle))) return false;
+      }
       return true;
     });
-  }, [tier, mgr, q, newOnly, hideStructured]);
+  }, [tier, mgr, fund, q, newOnly, hideStructured]);
 
   const totalFV = rows.reduce((s, r) => s + r.fv_m, 0);
   const nHigh = rows.filter((r) => r.tier === "High").length;
@@ -427,11 +440,17 @@ export default function WatchlistPage() {
                 border: `1px solid ${tier === t ? "#6366f155" : "#1e1e2e"}`,
               }}>{t}</button>
           ))}
-          <select value={mgr} onChange={(e) => setMgr(e.target.value)}
+          <select value={mgr} onChange={(e) => { setMgr(e.target.value); setFund("All"); }}
             className="px-2.5 py-1 rounded text-xs"
             style={{ background: "#12121c", color: "#c7c7e0", border: "1px solid #1e1e2e" }}>
             <option value="All">All managers</option>
             {managers.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <select value={fund} onChange={(e) => setFund(e.target.value)}
+            className="px-2.5 py-1 rounded text-xs"
+            style={{ background: "#12121c", color: "#c7c7e0", border: "1px solid #1e1e2e" }}>
+            <option value="All">All funds</option>
+            {funds.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search borrower / BDC…"
             className="px-2.5 py-1 rounded text-xs flex-1 min-w-[160px]"

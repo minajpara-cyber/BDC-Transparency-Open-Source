@@ -17,6 +17,9 @@ import { modificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
 import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
+import { repaymentDynamics } from "@/data/repayment_dynamics";
+import SpreadLifecycleChart from "@/components/SpreadLifecycleChart";
+import RepaymentChart from "@/components/RepaymentChart";
 import { vintageRows } from "@/data/vintage_analysis";
 import { bdcSponsorExposure } from "@/data/bdc_sponsor_exposure";
 import { bdcSectorExposure } from "@/data/bdc_sector_exposure";
@@ -125,23 +128,24 @@ export default async function BDCDetailPage({ params }: PageProps) {
       Array.from(m.entries()).map(([k, s]) => [k, s.sumW ? s.sumWV / s.sumW : 0]),
     );
   }
-  // Industry weighted-avg spread (weighted by parsed-position count).
-  function buildIndustrySpread(field: "avg_spread_book_bps" | "avg_spread_new_bps",
-                                wField: "n_positions_priced" | "n_new") {
-    const m = new Map<string, { num: number; den: number }>();
+  // Industry spread: read the pre-computed COST-weighted industry row from
+  // the export (ticker:"industry"), gated on coverage — hide quarters where
+  // fewer than 12 of 19 BDCs were priced, so the wide, biased early-coverage
+  // quarters (e.g. 2020 had only ~8 wide-spread BDCs parsed) don't render a
+  // misleading ~630bps industry line. (The page used to weight per-BDC books
+  // by position COUNT client-side, which over-weighted many-small-position
+  // LMM/venture books.)
+  const MIN_BDCS_FOR_INDUSTRY = 12;
+  function buildIndustrySpread(field: "avg_spread_book_bps" | "avg_spread_new_bps" | "avg_spread_exit_bps") {
+    const m = new Map<string, number>();
     for (const r of spreadAnalysis) {
-      if (!isReliable(r.ticker, r.period_end, "mark")) continue;
+      if (r.ticker !== "industry") continue;
+      if ((r.n_bdcs ?? 0) < MIN_BDCS_FOR_INDUSTRY) continue;
       const v = r[field];
-      const w = r[wField];
-      if (v === null || v === undefined || !w) continue;
-      const slot = m.get(r.period_end) ?? { num: 0, den: 0 };
-      slot.num += (v as number) * w;
-      slot.den += w;
-      m.set(r.period_end, slot);
+      if (v === null || v === undefined) continue;
+      m.set(r.period_end, v as number);
     }
-    return new Map(
-      Array.from(m.entries()).map(([k, s]) => [k, s.den ? s.num / s.den : 0]),
-    );
+    return m;
   }
   // Industry cash→PIK modification rate (cost-weighted).
   function buildIndustryModRate() {
@@ -162,8 +166,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const pikIndustry = buildIndustryCQ("pct_pik_total");
   const mkIndustry  = buildIndustryCQ("pct_below_95");
   const lt90Industry = buildIndustryCQ("pct_below_90");
-  const bookSpInd   = buildIndustrySpread("avg_spread_book_bps", "n_positions_priced");
-  const newSpInd    = buildIndustrySpread("avg_spread_new_bps", "n_new");
+  const bookSpInd   = buildIndustrySpread("avg_spread_book_bps");
+  const newSpInd    = buildIndustrySpread("avg_spread_new_bps");
+  const exitSpInd   = buildIndustrySpread("avg_spread_exit_bps");
   const modRateInd  = buildIndustryModRate();
 
   // Build BDC + industry overlay series.
@@ -174,7 +179,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
       bdc: r[field],
       industry: industry.get(r.period_end) ?? null,
     }));
-  const cmpFromSpread = (field: "avg_spread_book_bps" | "avg_spread_new_bps",
+  const cmpFromSpread = (field: "avg_spread_book_bps" | "avg_spread_new_bps" | "avg_spread_exit_bps",
                          industry: Map<string, number>): ComparisonPoint[] =>
     spRows
       .filter((r) => r[field] !== null && r[field] !== undefined)
@@ -190,6 +195,24 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const lt90Cmp      = cmpFromCQ("pct_below_90",    lt90Industry);
   const bookSpCmp    = cmpFromSpread("avg_spread_book_bps", bookSpInd);
   const newSpCmp     = cmpFromSpread("avg_spread_new_bps",  newSpInd);
+  // Spread lifecycle for THIS BDC: whole book vs new originations vs exits.
+  const spLifecycle = spRows
+    .filter((r) => r.avg_spread_book_bps !== null || r.avg_spread_new_bps !== null || r.avg_spread_exit_bps !== null)
+    .map((r) => ({
+      period_end: r.period_end,
+      book: r.avg_spread_book_bps,
+      origination: r.avg_spread_new_bps,
+      exit: r.avg_spread_exit_bps ?? null,
+    }));
+  void exitSpInd;
+  // Repayment / turnover for THIS BDC.
+  const repayRows = repaymentDynamics
+    .filter((r) => r.ticker === bdc.ticker)
+    .sort((a, b) => a.period_end.localeCompare(b.period_end))
+    .map((r) => ({ period_end: r.period_end, repaid: r.repaid_pct, distressed: r.distressed_pct }));
+  const repayLatest = repayRows[repayRows.length - 1];
+  const repayAvg = repayRows.length
+    ? repayRows.reduce((s, r) => s + r.repaid, 0) / repayRows.length : 0;
   const modRateCmp   = modRateRows.map((r) => ({
     period_end: r.period_end,
     bdc: r.pct_new_cost,
@@ -398,13 +421,41 @@ export default async function BDCDetailPage({ params }: PageProps) {
             {bookSpCmp.length > 0 && (
               <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
                 <div className="text-sm font-semibold text-white mb-1">Book spread (bps) vs industry</div>
+                <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
+                  Cost-weighted credit spread over the base rate. Industry line is cost-weighted across
+                  BDCs and hidden in thin early-coverage quarters.
+                </p>
                 <ComparisonChart data={bookSpCmp} yLabel="Book spread (bps)" unit=" bps" bdcLabel={bdc.ticker} bdcColor="#22c55e" />
               </div>
             )}
-            {newSpCmp.length > 0 && (
+            {spLifecycle.length >= 3 && (spLifecycle.some((p) => p.origination != null) || spLifecycle.some((p) => p.exit != null)) && (
               <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-                <div className="text-sm font-semibold text-white mb-1">New-loan spread (bps) vs industry</div>
-                <ComparisonChart data={newSpCmp} yLabel="New-loan spread (bps)" unit=" bps" bdcLabel={bdc.ticker} bdcColor="#a855f7" />
+                <div className="text-sm font-semibold text-white mb-1">Origination vs exit spread</div>
+                <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
+                  Where new loans are being written (purple) and what the leaving/repaid loans carried
+                  (amber), against the whole book (green). New below book = writing tighter than the
+                  legacy book.
+                </p>
+                <SpreadLifecycleChart data={spLifecycle} />
+              </div>
+            )}
+            {repayRows.length >= 3 && (
+              <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+                <div className="flex items-baseline justify-between mb-1">
+                  <div className="text-sm font-semibold text-white">Portfolio repayments per quarter</div>
+                  {repayLatest && (
+                    <div className="text-xs" style={{ color: "#8b8ba8" }}>
+                      latest <span className="text-white font-semibold">{repayLatest.repaid.toFixed(1)}%</span>
+                      {" "}· avg {repayAvg.toFixed(1)}%
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
+                  Share of the prior-quarter book that left each quarter — healthy repayment/refinancing
+                  (green) vs distressed exit (red). A proxy for prepayment speed: higher turnover = shorter
+                  effective duration and more reinvestment risk.
+                </p>
+                <RepaymentChart data={repayRows} />
               </div>
             )}
           </div>
