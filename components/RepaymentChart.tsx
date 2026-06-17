@@ -8,13 +8,16 @@ export interface RepaymentPoint {
   period_end: string;
   repaid: number;       // % of prior-quarter book repaid healthy
   distressed: number;   // % that left distressed
+  industry?: number | null;  // industry-average total turnover (%), overlay
 }
 
 /** Portfolio turnover: % of the book leaving each quarter, healthy repayment
- *  (stacked green) vs distressed exit (red), with the repayment line on top.
- *  A proxy for prepayment speed — high = short effective duration. */
+ *  (stacked green) vs distressed exit (red), with the industry-average total
+ *  turnover as a dashed line. A proxy for prepayment speed — high = short
+ *  effective duration. */
 export default function RepaymentChart({ data }: { data: RepaymentPoint[] }) {
   if (data.length < 3) return null;
+  const hasIndustry = data.some((d) => d.industry != null);
   return (
     <div style={{ width: "100%", height: 230 }}>
       <ResponsiveContainer>
@@ -31,6 +34,10 @@ export default function RepaymentChart({ data }: { data: RepaymentPoint[] }) {
           <Legend wrapperStyle={{ fontSize: 12 }} />
           <Bar dataKey="repaid" name="Repaid / refinanced" stackId="a" fill="#22c55e" />
           <Bar dataKey="distressed" name="Distressed exit" stackId="a" fill="#ef4444" />
+          {hasIndustry && (
+            <Line type="monotone" dataKey="industry" name="Industry total (avg)"
+              stroke="#a5b4fc" strokeWidth={1.5} strokeDasharray="5 4" dot={false} connectNulls />
+          )}
         </ComposedChart>
       </ResponsiveContainer>
     </div>

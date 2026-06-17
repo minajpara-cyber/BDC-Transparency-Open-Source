@@ -206,10 +206,15 @@ export default async function BDCDetailPage({ params }: PageProps) {
     }));
   void exitSpInd;
   // Repayment / turnover for THIS BDC.
+  const repayIndustry = new Map(
+    repaymentDynamics.filter((r) => r.ticker === "industry")
+      .map((r) => [r.period_end, r.repaid_pct + r.distressed_pct]),
+  );
   const repayRows = repaymentDynamics
     .filter((r) => r.ticker === bdc.ticker)
     .sort((a, b) => a.period_end.localeCompare(b.period_end))
-    .map((r) => ({ period_end: r.period_end, repaid: r.repaid_pct, distressed: r.distressed_pct }));
+    .map((r) => ({ period_end: r.period_end, repaid: r.repaid_pct, distressed: r.distressed_pct,
+      industry: repayIndustry.get(r.period_end) ?? null }));
   const repayLatest = repayRows[repayRows.length - 1];
   const repayAvg = repayRows.length
     ? repayRows.reduce((s, r) => s + r.repaid, 0) / repayRows.length : 0;
@@ -452,8 +457,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
                 </div>
                 <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
                   Share of the prior-quarter book that left each quarter — healthy repayment/refinancing
-                  (green) vs distressed exit (red). A proxy for prepayment speed: higher turnover = shorter
-                  effective duration and more reinvestment risk.
+                  (green) vs distressed exit (red), with the dashed line the industry-average total
+                  turnover. A proxy for prepayment speed: higher turnover = shorter effective duration
+                  and more reinvestment risk.
                 </p>
                 <RepaymentChart data={repayRows} />
               </div>
