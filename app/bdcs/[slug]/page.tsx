@@ -206,18 +206,24 @@ export default async function BDCDetailPage({ params }: PageProps) {
     }));
   void exitSpInd;
   // Repayment / turnover for THIS BDC.
-  const repayIndustry = new Map(
+  const repayIndDeployed = new Map(
+    repaymentDynamics.filter((r) => r.ticker === "industry")
+      .map((r) => [r.period_end, r.deployed_pct]),
+  );
+  const repayIndOutflow = new Map(
     repaymentDynamics.filter((r) => r.ticker === "industry")
       .map((r) => [r.period_end, r.repaid_pct + r.distressed_pct]),
   );
   const repayRows = repaymentDynamics
     .filter((r) => r.ticker === bdc.ticker)
     .sort((a, b) => a.period_end.localeCompare(b.period_end))
-    .map((r) => ({ period_end: r.period_end, repaid: r.repaid_pct, distressed: r.distressed_pct,
-      industry: repayIndustry.get(r.period_end) ?? null }));
+    .map((r) => ({ period_end: r.period_end, deployed: r.deployed_pct,
+      repaid: r.repaid_pct, distressed: r.distressed_pct,
+      indDeployed: repayIndDeployed.get(r.period_end) ?? null,
+      indOutflow: repayIndOutflow.get(r.period_end) ?? null }));
   const repayLatest = repayRows[repayRows.length - 1];
-  const repayAvg = repayRows.length
-    ? repayRows.reduce((s, r) => s + r.repaid, 0) / repayRows.length : 0;
+  const repayNetAvg = repayRows.length
+    ? repayRows.reduce((s, r) => s + (r.deployed - r.repaid - r.distressed), 0) / repayRows.length : 0;
   const modRateCmp   = modRateRows.map((r) => ({
     period_end: r.period_end,
     bdc: r.pct_new_cost,
@@ -447,19 +453,23 @@ export default async function BDCDetailPage({ params }: PageProps) {
             {repayRows.length >= 3 && (
               <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
                 <div className="flex items-baseline justify-between mb-1">
-                  <div className="text-sm font-semibold text-white">Portfolio repayments per quarter</div>
+                  <div className="text-sm font-semibold text-white">Portfolio flows — deployment vs repayment</div>
                   {repayLatest && (
                     <div className="text-xs" style={{ color: "#8b8ba8" }}>
-                      latest <span className="text-white font-semibold">{repayLatest.repaid.toFixed(1)}%</span>
-                      {" "}· avg {repayAvg.toFixed(1)}%
+                      latest net{" "}
+                      <span className="font-semibold" style={{ color: (repayLatest.deployed - repayLatest.repaid - repayLatest.distressed) >= 0 ? "#a5b4fc" : "#ef4444" }}>
+                        {(repayLatest.deployed - repayLatest.repaid - repayLatest.distressed >= 0 ? "+" : "")}
+                        {(repayLatest.deployed - repayLatest.repaid - repayLatest.distressed).toFixed(1)}%
+                      </span>
+                      {" "}· avg {repayNetAvg >= 0 ? "+" : ""}{repayNetAvg.toFixed(1)}%
                     </div>
                   )}
                 </div>
                 <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
-                  Share of the prior-quarter book that left each quarter — healthy repayment/refinancing
-                  (green) vs distressed exit (red), with the dashed line the industry-average total
-                  turnover. A proxy for prepayment speed: higher turnover = shorter effective duration
-                  and more reinvestment risk.
+                  Each quarter as a % of the prior book: capital <span style={{ color: "#a5b4fc" }}>deployed</span> (new
+                  originations, above zero) vs capital leaving — <span style={{ color: "#22c55e" }}>repaid/refinanced</span> and{" "}
+                  <span style={{ color: "#ef4444" }}>distressed exits</span> (below zero). Net = book growth or run-off.
+                  Dashed lines are the industry averages on each side.
                 </p>
                 <RepaymentChart data={repayRows} />
               </div>
