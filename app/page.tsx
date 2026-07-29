@@ -58,8 +58,12 @@ export default function HomePage() {
     const naNow = ind[ind.length - 1];
     const naPrev = ind[ind.length - 2];
 
+    // Events at each BDC's OWN latest quarter — during reporting season a
+    // single global latest_period would show only the early filers' events
+    // and hide the other BDCs' most recent flips.
+    const latestPeriodOf = (tk: string) => latestByTicker.get(tk)?.period_end;
     const newNAsRaw = nonAccrualFlow.filter(
-      (f) => f.event === "new_na" && f.period_end === siteMeta.latest_period,
+      (f) => f.event === "new_na" && f.period_end === latestPeriodOf(f.ticker),
     );
     // One borrower often flips several tranches at once — collapse to
     // (ticker, borrower) for the briefing table, summing FV.
@@ -72,7 +76,7 @@ export default function HomePage() {
     }
     const newNAs = [...byKey.values()].sort((a, b) => b.fv - a.fv);
     const cured = nonAccrualFlow.filter(
-      (f) => f.event === "cured" && f.period_end === siteMeta.latest_period,
+      (f) => f.event === "cured" && f.period_end === latestPeriodOf(f.ticker),
     );
     const hotWatch = ewsRows.filter((r) => r.score >= 5);
     const oosTop = ewsMeta.validation_buckets[ewsMeta.validation_buckets.length - 1];
@@ -132,7 +136,7 @@ export default function HomePage() {
       <div className="grid lg:grid-cols-2 gap-6">
         <Section
           title="New non-accruals this quarter"
-          sub={`Positions newly flagged NA at ${siteMeta.latest_period}`}
+          sub="Positions newly flagged NA in each BDC's latest reported quarter"
           href="/non-accruals"
           linkLabel="All non-accrual events"
         >

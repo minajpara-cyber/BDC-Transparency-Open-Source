@@ -75,6 +75,11 @@ const COVERAGE_CAVEATS: Array<{
 // that aren't representative of the BDC's actual book.
 const MIN_POSITIONS_FOR_RELIABLE = 30;
 
+// Industry lines need a broad cohort: during reporting season the newest
+// quarter starts with 1-2 early filers, and an industry point built from
+// them alone is composition noise, not credit signal.
+const MIN_BDCS_FOR_INDUSTRY = 10;
+
 function isReliable(ticker: string, period_end: string, family: MetricFamily): boolean {
   for (const c of COVERAGE_CAVEATS) {
     if (c.ticker !== ticker) continue;
@@ -155,6 +160,7 @@ function buildIndustrySeries(field: NumericKeys): IndustryPoint[] {
       value: sumW ? sumWV / sumW : 0,
       coverage,
     }))
+    .filter((p) => p.coverage >= MIN_BDCS_FOR_INDUSTRY)
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
 
@@ -203,6 +209,7 @@ function buildModIndustrySeries(): IndustryPoint[] {
       value: s.totalCost ? (100 * s.newCost) / s.totalCost : 0,
       coverage: s.coverage,
     }))
+    .filter((p) => p.coverage >= MIN_BDCS_FOR_INDUSTRY)
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
 
@@ -330,6 +337,7 @@ function buildSpreadIndustry(field: "avg_spread_book_bps" | "avg_spread_new_bps"
       value: s.den ? s.num / s.den : 0,
       coverage: s.coverage,
     }))
+    .filter((p) => p.coverage >= MIN_BDCS_FOR_INDUSTRY)
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
 
