@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import SortableTable, { Column } from "@/components/SortableTable";
-import { holdings, holdingsAsOf, type Holding } from "@/data/bdc_holdings";
+import { holdings, holdingsAsOf, holdingsAsOfByTicker, type Holding } from "@/data/bdc_holdings";
 
 // Canonical capital-structure buckets, senior -> junior. A borrower aggregated
 // across tranches can carry several (e.g. "1st Lien · Equity"), so the holding's
@@ -166,7 +166,7 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
         <div>
           <h2 className="text-lg font-semibold text-white">Top exposures</h2>
           <p className="text-xs" style={{ color: "#8b8ba8" }}>
-            {ticker}&apos;s largest credits from parsed SOI, aggregated by borrower across tranches · top {all.length} by total fair value · as of {holdingsAsOf}
+            {ticker}&apos;s largest credits from parsed SOI, aggregated by borrower across tranches · top {all.length} by total fair value · as of {holdingsAsOfByTicker[ticker] ?? holdingsAsOf}
             {!sliceMode && <> · click <ChevronRight size={11} className="inline -mt-0.5" aria-label="the arrow" /> to break a borrower into its position types</>}
           </p>
         </div>

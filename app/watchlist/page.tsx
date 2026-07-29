@@ -74,7 +74,9 @@ export default function WatchlistPage() {
   const [hideStructured, setHideStructured] = useState(true);
   const [valTab, setValTab] = useState<"lifts" | "oos">("lifts");
 
-  const latest = watchlist[0]?.period_end ?? "—";
+  // Newest quarter on the list — during reporting season BDCs are on mixed
+  // quarters (each row carries its own period_end), so take the max, not row 0.
+  const latest = watchlist.reduce((m, r) => (r.period_end > m ? r.period_end : m), "") || "—";
   const managers = useMemo(
     () => Array.from(new Set(watchlist.map((r) => r.manager))).sort(),
     [],
@@ -114,12 +116,16 @@ export default function WatchlistPage() {
   const highBacktest = signalBacktest.find((b) => b.signal === "tier: High");
   const baseRate = signalBacktest.find((b) => b.signal === "ALL (base rate)");
 
-  // ---- by-manager rollup (latest quarter) ----
+  // ---- by-manager rollup (each manager's own latest quarter) ----
+  // Not a single global period: mid reporting season early filers are a
+  // quarter ahead, and a global-latest filter would drop every other manager.
   const mgrLatest = useMemo(() => {
-    const lp = watchlistByManager.reduce((m, r) => (r.period_end > m ? r.period_end : m), "");
-    return watchlistByManager
-      .filter((r) => r.period_end === lp)
-      .sort((a, b) => b.wl_fv - a.wl_fv);
+    const byKey = new Map<string, (typeof watchlistByManager)[number]>();
+    watchlistByManager.forEach((r) => {
+      const prev = byKey.get(r.key);
+      if (!prev || r.period_end > prev.period_end) byKey.set(r.key, r);
+    });
+    return Array.from(byKey.values()).sort((a, b) => b.wl_fv - a.wl_fv);
   }, []);
 
   // ---- by-manager trend (% of book over time, top managers) ----

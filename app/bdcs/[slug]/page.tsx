@@ -11,6 +11,7 @@ import BDCHoldingsTable from "@/components/BDCHoldingsTable";
 import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { ewsByBdc, ewsTopByBdc, ewsMeta, ewsHistory } from "@/data/early_warning_scores";
+import { holdingsAsOfByTicker } from "@/data/bdc_holdings";
 import EwsTrendChart from "@/components/EwsTrendChart";
 import { creditQuality } from "@/data/credit_quality";
 import { modificationRate } from "@/data/modification_rate";
@@ -576,7 +577,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                 <h2 className="font-semibold text-white">
                   Forward queue: implied non-accrual formation{" "}
                   <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-                    next 2 quarters · as of {ewsMeta.as_of}
+                    next 2 quarters · as of {holdingsAsOfByTicker[bdc.ticker] ?? ewsMeta.as_of}
                   </span>
                 </h2>
                 <p className="text-xs mt-1 max-w-3xl" style={{ color: "#8b8ba8" }}>
