@@ -64,6 +64,7 @@ export const bdcsHistory: BDCQuarter[] = [
   { ticker: "ARCC", period_end: "2025-09-30", n_positions: 1383, total_cost_b: 28.5665, total_fv_b: 28.6926, na_pct_at_cost: 1.780, na_pct_at_fv: 1.008, pik_pct_at_cost: 22.618, pik_pct_at_fv: 21.965 },
   { ticker: "ARCC", period_end: "2025-12-31", n_positions: 1408, total_cost_b: 29.2499, total_fv_b: 29.4848, na_pct_at_cost: 1.793, na_pct_at_fv: 1.188, pik_pct_at_cost: 20.818, pik_pct_at_fv: 20.156 },
   { ticker: "ARCC", period_end: "2026-03-31", n_positions: 1419, total_cost_b: 29.6475, total_fv_b: 29.4993, na_pct_at_cost: 2.073, na_pct_at_fv: 1.168, pik_pct_at_cost: 21.360, pik_pct_at_fv: 20.494 },
+  { ticker: "ARCC", period_end: "2026-06-30", n_positions: 1506, total_cost_b: 29.6746, total_fv_b: 29.3493, na_pct_at_cost: 2.385, na_pct_at_fv: 1.378, pik_pct_at_cost: 20.799, pik_pct_at_fv: 19.759 },
   { ticker: "ASIF", period_end: "2023-03-31", n_positions: 150, total_cost_b: 0.3348, total_fv_b: 0.3341, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },
   { ticker: "ASIF", period_end: "2023-06-30", n_positions: 200, total_cost_b: 0.9398, total_fv_b: 0.9424, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },
   { ticker: "ASIF", period_end: "2023-09-30", n_positions: 274, total_cost_b: 1.9213, total_fv_b: 1.9280, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 2.481, pik_pct_at_fv: 2.464 },
