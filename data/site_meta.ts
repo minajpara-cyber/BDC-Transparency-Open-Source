@@ -2,7 +2,7 @@
 export const siteMeta = {
   latest_period: "2026-06-30",
   latest_quarter: "2026 Q2",
-  generated_at: "2026-07-29",
+  generated_at: "2026-08-04",
   n_bdcs: 19,
-  n_filings: 527,
+  n_filings: 531,
 };

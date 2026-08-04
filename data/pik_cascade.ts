@@ -37,6 +37,6 @@ export const pikCascade: PIKCascadeRow[] = [
   { year: "2022", flips: 209, cured: 47, pik_strong: 90, pik_weak: 5, pik_distress: 22, exited: 45, pct_cured: 22.49, pct_pik_strong: 43.06, pct_pik_weak: 2.39, pct_pik_distress: 10.53, pct_exited: 21.53 },
   { year: "2023", flips: 389, cured: 82, pik_strong: 162, pik_weak: 12, pik_distress: 35, exited: 98, pct_cured: 21.08, pct_pik_strong: 41.65, pct_pik_weak: 3.08, pct_pik_distress: 9.00, pct_exited: 25.19 },
   { year: "2024", flips: 487, cured: 141, pik_strong: 200, pik_weak: 14, pik_distress: 37, exited: 95, pct_cured: 28.95, pct_pik_strong: 41.07, pct_pik_weak: 2.87, pct_pik_distress: 7.60, pct_exited: 19.51 },
-  { year: "2025", flips: 642, cured: 110, pik_strong: 250, pik_weak: 16, pik_distress: 31, exited: 235, pct_cured: 17.13, pct_pik_strong: 38.94, pct_pik_weak: 2.49, pct_pik_distress: 4.83, pct_exited: 36.60 },
-  { year: "2026", flips: 250, cured: 1, pik_strong: 9, pik_weak: 0, pik_distress: 1, exited: 239, pct_cured: 0.40, pct_pik_strong: 3.60, pct_pik_weak: 0.00, pct_pik_distress: 0.40, pct_exited: 95.60 }
+  { year: "2025", flips: 642, cured: 119, pik_strong: 254, pik_weak: 17, pik_distress: 32, exited: 220, pct_cured: 18.54, pct_pik_strong: 39.56, pct_pik_weak: 2.65, pct_pik_distress: 4.98, pct_exited: 34.27 },
+  { year: "2026", flips: 297, cured: 6, pik_strong: 31, pik_weak: 0, pik_distress: 1, exited: 259, pct_cured: 2.02, pct_pik_strong: 10.44, pct_pik_weak: 0.00, pct_pik_distress: 0.34, pct_exited: 87.21 }
 ];

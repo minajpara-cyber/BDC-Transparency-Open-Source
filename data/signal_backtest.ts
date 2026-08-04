@@ -19,7 +19,7 @@ export const signalBacktest: BacktestRow[] = [
   {"signal": "PIK severe", "n": 2070, "rate_bad": 17.5, "rate_na": 11.7, "lift_bad": 2.9, "lift_na": 6.2},
   {"signal": "amend-and-extend", "n": 492, "rate_bad": 7.1, "rate_na": 2.6, "lift_bad": 1.2, "lift_na": 1.4},
   {"signal": "spread cut", "n": 619, "rate_bad": 15.0, "rate_na": 10.3, "lift_bad": 2.5, "lift_na": 5.5},
-  {"signal": "tier: Watch", "n": 9305, "rate_bad": 21.1, "rate_na": 5.7, "lift_bad": 3.5, "lift_na": 3.0},
+  {"signal": "tier: Watch", "n": 9305, "rate_bad": 21.1, "rate_na": 5.7, "lift_bad": 3.4, "lift_na": 3.0},
   {"signal": "tier: Elevated", "n": 2588, "rate_bad": 41.4, "rate_na": 12.4, "lift_bad": 6.8, "lift_na": 6.6},
-  {"signal": "tier: High", "n": 351, "rate_bad": 71.5, "rate_na": 41.0, "lift_bad": 11.7, "lift_na": 21.8}
+  {"signal": "tier: High", "n": 351, "rate_bad": 71.5, "rate_na": 41.0, "lift_bad": 11.7, "lift_na": 21.7}
 ];

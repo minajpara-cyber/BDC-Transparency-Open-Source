@@ -269,6 +269,7 @@ export const bdcsHistory: BDCQuarter[] = [
   { ticker: "GBDC", period_end: "2025-09-30", n_positions: 1807, total_cost_b: 8.7599, total_fv_b: 8.7694, na_pct_at_cost: 0.645, na_pct_at_fv: 0.312, pik_pct_at_cost: 17.158, pik_pct_at_fv: 16.643 },
   { ticker: "GBDC", period_end: "2025-12-31", n_positions: 1835, total_cost_b: 8.6537, total_fv_b: 8.6392, na_pct_at_cost: 1.298, na_pct_at_fv: 0.786, pik_pct_at_cost: 16.835, pik_pct_at_fv: 16.311 },
   { ticker: "GBDC", period_end: "2026-03-31", n_positions: 1837, total_cost_b: 8.4770, total_fv_b: 8.3172, na_pct_at_cost: 2.341, na_pct_at_fv: 1.425, pik_pct_at_cost: 18.795, pik_pct_at_fv: 18.082 },
+  { ticker: "GBDC", period_end: "2026-06-30", n_positions: 1857, total_cost_b: 8.3771, total_fv_b: 8.1964, na_pct_at_cost: 2.940, na_pct_at_fv: 1.936, pik_pct_at_cost: 19.906, pik_pct_at_fv: 19.295 },
   { ticker: "HTGC", period_end: "2016-12-31", n_positions: 334, total_cost_b: 1.5115, total_fv_b: 1.4239, na_pct_at_cost: 4.192, na_pct_at_fv: 1.819, pik_pct_at_cost: 27.599, pik_pct_at_fv: 27.459 },
   { ticker: "HTGC", period_end: "2017-03-31", n_positions: 334, total_cost_b: 1.5251, total_fv_b: 1.4063, na_pct_at_cost: 6.912, na_pct_at_fv: 2.401, pik_pct_at_cost: 30.206, pik_pct_at_fv: 31.128 },
   { ticker: "HTGC", period_end: "2017-06-30", n_positions: 318, total_cost_b: 1.5011, total_fv_b: 1.3955, na_pct_at_cost: 4.107, na_pct_at_fv: 1.663, pik_pct_at_cost: 31.334, pik_pct_at_fv: 31.966 },
@@ -307,6 +308,7 @@ export const bdcsHistory: BDCQuarter[] = [
   { ticker: "HTGC", period_end: "2025-09-30", n_positions: 366, total_cost_b: 4.2909, total_fv_b: 4.3062, na_pct_at_cost: 1.216, na_pct_at_fv: 1.096, pik_pct_at_cost: 52.303, pik_pct_at_fv: 52.312 },
   { ticker: "HTGC", period_end: "2025-12-31", n_positions: 383, total_cost_b: 4.4680, total_fv_b: 4.4666, na_pct_at_cost: 0.239, na_pct_at_fv: 0.140, pik_pct_at_cost: 51.383, pik_pct_at_fv: 51.389 },
   { ticker: "HTGC", period_end: "2026-03-31", n_positions: 390, total_cost_b: 4.7704, total_fv_b: 4.7220, na_pct_at_cost: 0.224, na_pct_at_fv: 0.078, pik_pct_at_cost: 45.039, pik_pct_at_fv: 44.936 },
+  { ticker: "HTGC", period_end: "2026-06-30", n_positions: 390, total_cost_b: 4.6033, total_fv_b: 4.5839, na_pct_at_cost: 0.347, na_pct_at_fv: 0.120, pik_pct_at_cost: 39.212, pik_pct_at_fv: 38.755 },
   { ticker: "MAIN", period_end: "2020-12-31", n_positions: 39, total_cost_b: 0.0000, total_fv_b: 0.0000, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },
   { ticker: "MAIN", period_end: "2021-03-31", n_positions: 31, total_cost_b: 0.0000, total_fv_b: -0.0000, na_pct_at_cost: 0.000, na_pct_at_fv: -0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: -0.000 },
   { ticker: "MAIN", period_end: "2021-06-30", n_positions: 40, total_cost_b: 0.0000, total_fv_b: 0.0000, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },
@@ -388,6 +390,7 @@ export const bdcsHistory: BDCQuarter[] = [
   { ticker: "NMFC", period_end: "2025-09-30", n_positions: 403, total_cost_b: 3.0623, total_fv_b: 2.9436, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 22.626, pik_pct_at_fv: 21.906 },
   { ticker: "NMFC", period_end: "2025-12-31", n_positions: 370, total_cost_b: 2.9121, total_fv_b: 2.7420, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 22.479, pik_pct_at_fv: 21.834 },
   { ticker: "NMFC", period_end: "2026-03-31", n_positions: 362, total_cost_b: 2.5256, total_fv_b: 2.3134, na_pct_at_cost: 0.000, na_pct_at_fv: -0.000, pik_pct_at_cost: 19.390, pik_pct_at_fv: 18.024 },
+  { ticker: "NMFC", period_end: "2026-06-30", n_positions: 357, total_cost_b: 2.4644, total_fv_b: 2.2898, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 18.605, pik_pct_at_fv: 17.748 },
   { ticker: "OBDC", period_end: "2017-12-31", n_positions: 60, total_cost_b: 2.3729, total_fv_b: 2.3898, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 1.562, pik_pct_at_fv: 1.552 },
   { ticker: "OBDC", period_end: "2018-03-31", n_positions: 72, total_cost_b: 3.0070, total_fv_b: 3.0292, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 1.270, pik_pct_at_fv: 1.203 },
   { ticker: "OBDC", period_end: "2018-06-30", n_positions: 85, total_cost_b: 3.4608, total_fv_b: 3.4854, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },
@@ -539,5 +542,6 @@ export const bdcsHistory: BDCQuarter[] = [
   { ticker: "TSLX", period_end: "2025-06-30", n_positions: 189, total_cost_b: 3.2557, total_fv_b: 3.2949, na_pct_at_cost: 2.017, na_pct_at_fv: 0.645, pik_pct_at_cost: 11.204, pik_pct_at_fv: 11.141 },
   { ticker: "TSLX", period_end: "2025-09-30", n_positions: 219, total_cost_b: 3.3440, total_fv_b: 3.3763, na_pct_at_cost: 1.955, na_pct_at_fv: 0.595, pik_pct_at_cost: 13.035, pik_pct_at_fv: 12.942 },
   { ticker: "TSLX", period_end: "2025-12-31", n_positions: 280, total_cost_b: 3.3551, total_fv_b: 3.3622, na_pct_at_cost: 1.994, na_pct_at_fv: 0.592, pik_pct_at_cost: 13.156, pik_pct_at_fv: 13.154 },
-  { ticker: "TSLX", period_end: "2026-03-31", n_positions: 219, total_cost_b: 3.3243, total_fv_b: 3.3134, na_pct_at_cost: 0.998, na_pct_at_fv: 0.737, pik_pct_at_cost: 12.711, pik_pct_at_fv: 12.401 }
+  { ticker: "TSLX", period_end: "2026-03-31", n_positions: 219, total_cost_b: 3.3243, total_fv_b: 3.3134, na_pct_at_cost: 0.998, na_pct_at_fv: 0.737, pik_pct_at_cost: 12.711, pik_pct_at_fv: 12.401 },
+  { ticker: "TSLX", period_end: "2026-06-30", n_positions: 213, total_cost_b: 3.3164, total_fv_b: 3.3021, na_pct_at_cost: 1.001, na_pct_at_fv: 0.660, pik_pct_at_cost: 12.780, pik_pct_at_fv: 12.339 }
 ];
