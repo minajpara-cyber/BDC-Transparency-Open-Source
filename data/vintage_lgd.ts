@@ -33,8 +33,8 @@ export const vintageLGD: VintageLGD[] = [
   { vintage_year: 2018, n_loans_total: 367, n_exited: 315, n_distress: 18, cost_exited_b: 2113.327, distress_cost_b: 119.110, realized_loss_b: -25.010, pct_exited: 85.83, pct_distress: 4.90, lgd_pct: 21.00 },
   { vintage_year: 2019, n_loans_total: 322, n_exited: 264, n_distress: 12, cost_exited_b: 2581.040, distress_cost_b: 99.999, realized_loss_b: -59.590, pct_exited: 81.99, pct_distress: 3.73, lgd_pct: 59.59 },
   { vintage_year: 2020, n_loans_total: 294, n_exited: 210, n_distress: 12, cost_exited_b: 2117.686, distress_cost_b: 107.471, realized_loss_b: -16.786, pct_exited: 71.43, pct_distress: 4.08, lgd_pct: 15.62 },
-  { vintage_year: 2021, n_loans_total: 1029, n_exited: 605, n_distress: 44, cost_exited_b: 10927.356, distress_cost_b: 810.851, realized_loss_b: -216.827, pct_exited: 58.79, pct_distress: 4.28, lgd_pct: 26.74 },
-  { vintage_year: 2022, n_loans_total: 565, n_exited: 311, n_distress: 29, cost_exited_b: 4943.045, distress_cost_b: 323.064, realized_loss_b: -74.822, pct_exited: 55.04, pct_distress: 5.13, lgd_pct: 23.16 },
+  { vintage_year: 2021, n_loans_total: 1029, n_exited: 605, n_distress: 45, cost_exited_b: 10927.356, distress_cost_b: 811.845, realized_loss_b: -216.939, pct_exited: 58.79, pct_distress: 4.37, lgd_pct: 26.72 },
+  { vintage_year: 2022, n_loans_total: 565, n_exited: 311, n_distress: 30, cost_exited_b: 4943.045, distress_cost_b: 323.449, realized_loss_b: -74.822, pct_exited: 55.04, pct_distress: 5.31, lgd_pct: 23.13 },
   { vintage_year: 2023, n_loans_total: 326, n_exited: 153, n_distress: 5, cost_exited_b: 2214.016, distress_cost_b: 43.905, realized_loss_b: -10.771, pct_exited: 46.93, pct_distress: 1.53, lgd_pct: 24.53 },
   { vintage_year: 2024, n_loans_total: 1191, n_exited: 606, n_distress: 5, cost_exited_b: 20362.549, distress_cost_b: 16.735, realized_loss_b: -5.124, pct_exited: 50.88, pct_distress: 0.42, lgd_pct: 30.62 }
 ];
