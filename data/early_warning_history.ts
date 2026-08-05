@@ -69,6 +69,7 @@ export const watchlistByTicker: WatchlistHistRow[] = [
   {"key": "BBDC", "period_end": "2025-09-30", "fv_High": 6.8, "fv_Elevated": 38.3, "fv_Watch": 122.6, "n_High": 4, "n_Elevated": 9, "n_Watch": 34, "wl_fv": 167.7, "book_m": 2531.7, "pct_book": 6.63},
   {"key": "BBDC", "period_end": "2025-12-31", "fv_High": 12.3, "fv_Elevated": 40.7, "fv_Watch": 167.4, "n_High": 2, "n_Elevated": 16, "n_Watch": 37, "wl_fv": 220.5, "book_m": 2391.2, "pct_book": 9.22},
   {"key": "BBDC", "period_end": "2026-03-31", "fv_High": 5.7, "fv_Elevated": 48.3, "fv_Watch": 170.7, "n_High": 3, "n_Elevated": 19, "n_Watch": 35, "wl_fv": 224.7, "book_m": 2363.8, "pct_book": 9.5},
+  {"key": "BBDC", "period_end": "2026-06-30", "fv_High": 9.6, "fv_Elevated": 36.2, "fv_Watch": 120.0, "n_High": 3, "n_Elevated": 12, "n_Watch": 30, "wl_fv": 165.8, "book_m": 2452.9, "pct_book": 6.76},
   {"key": "BCRED", "period_end": "2021-03-31", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 9.2, "n_High": 0, "n_Elevated": 0, "n_Watch": 2, "wl_fv": 9.2, "book_m": 10256.3, "pct_book": 0.09},
   {"key": "BCRED", "period_end": "2021-06-30", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 3.6, "n_High": 0, "n_Elevated": 0, "n_Watch": 1, "wl_fv": 3.6, "book_m": 22044.8, "pct_book": 0.02},
   {"key": "BCRED", "period_end": "2021-09-30", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 177.3, "n_High": 0, "n_Elevated": 0, "n_Watch": 3, "wl_fv": 177.3, "book_m": 34727.7, "pct_book": 0.51},
@@ -235,7 +236,7 @@ export const watchlistByTicker: WatchlistHistRow[] = [
   {"key": "GBDC", "period_end": "2025-09-30", "fv_High": 41.4, "fv_Elevated": 205.4, "fv_Watch": 1187.3, "n_High": 5, "n_Elevated": 37, "n_Watch": 155, "wl_fv": 1434.0, "book_m": 8768.3, "pct_book": 16.35},
   {"key": "GBDC", "period_end": "2025-12-31", "fv_High": 59.6, "fv_Elevated": 216.1, "fv_Watch": 1044.9, "n_High": 10, "n_Elevated": 34, "n_Watch": 151, "wl_fv": 1320.6, "book_m": 8638.0, "pct_book": 15.29},
   {"key": "GBDC", "period_end": "2026-03-31", "fv_High": 19.5, "fv_Elevated": 279.8, "fv_Watch": 1061.5, "n_High": 9, "n_Elevated": 51, "n_Watch": 164, "wl_fv": 1360.8, "book_m": 8321.2, "pct_book": 16.35},
-  {"key": "GBDC", "period_end": "2026-06-30", "fv_High": 7.5, "fv_Elevated": 207.6, "fv_Watch": 1022.6, "n_High": 9, "n_Elevated": 45, "n_Watch": 148, "wl_fv": 1237.7, "book_m": 8197.9, "pct_book": 15.1},
+  {"key": "GBDC", "period_end": "2026-06-30", "fv_High": 7.6, "fv_Elevated": 235.6, "fv_Watch": 1196.0, "n_High": 10, "n_Elevated": 48, "n_Watch": 176, "wl_fv": 1439.1, "book_m": 8197.9, "pct_book": 17.55},
   {"key": "HTGC", "period_end": "2016-12-31", "fv_High": 0.0, "fv_Elevated": 14.9, "fv_Watch": 54.4, "n_High": 0, "n_Elevated": 1, "n_Watch": 5, "wl_fv": 69.3, "book_m": 1423.0, "pct_book": 4.87},
   {"key": "HTGC", "period_end": "2017-03-31", "fv_High": 0.0, "fv_Elevated": 29.7, "fv_Watch": 10.3, "n_High": 0, "n_Elevated": 5, "n_Watch": 3, "wl_fv": 40.0, "book_m": 1405.1, "pct_book": 2.85},
   {"key": "HTGC", "period_end": "2017-06-30", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 0.4, "n_High": 0, "n_Elevated": 0, "n_Watch": 1, "wl_fv": 0.4, "book_m": 1394.1, "pct_book": 0.03},
@@ -365,6 +366,7 @@ export const watchlistByTicker: WatchlistHistRow[] = [
   {"key": "OBDC", "period_end": "2025-09-30", "fv_High": 2.8, "fv_Elevated": 478.1, "fv_Watch": 282.9, "n_High": 1, "n_Elevated": 8, "n_Watch": 13, "wl_fv": 763.8, "book_m": 17141.2, "pct_book": 4.46},
   {"key": "OBDC", "period_end": "2025-12-31", "fv_High": 20.5, "fv_Elevated": 258.3, "fv_Watch": 896.6, "n_High": 2, "n_Elevated": 8, "n_Watch": 18, "wl_fv": 1175.4, "book_m": 16474.0, "pct_book": 7.14},
   {"key": "OBDC", "period_end": "2026-03-31", "fv_High": 7.6, "fv_Elevated": 391.7, "fv_Watch": 747.1, "n_High": 2, "n_Elevated": 16, "n_Watch": 20, "wl_fv": 1146.5, "book_m": 15353.6, "pct_book": 7.47},
+  {"key": "OBDC", "period_end": "2026-06-30", "fv_High": 15.1, "fv_Elevated": 200.6, "fv_Watch": 786.5, "n_High": 2, "n_Elevated": 9, "n_Watch": 28, "wl_fv": 1002.2, "book_m": 14963.6, "pct_book": 6.7},
   {"key": "OCIC", "period_end": "2020-12-31", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 0.0, "n_High": 0, "n_Elevated": 0, "n_Watch": 1, "wl_fv": 0.0, "book_m": 14.4, "pct_book": 0.12},
   {"key": "OCIC", "period_end": "2021-03-31", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 0.0, "n_High": 0, "n_Elevated": 0, "n_Watch": 1, "wl_fv": 0.0, "book_m": 70.9, "pct_book": 0.01},
   {"key": "OCIC", "period_end": "2021-09-30", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 0.3, "n_High": 0, "n_Elevated": 1, "n_Watch": 1, "wl_fv": 0.3, "book_m": 1443.1, "pct_book": 0.02},
@@ -396,6 +398,7 @@ export const watchlistByTicker: WatchlistHistRow[] = [
   {"key": "OCSL", "period_end": "2025-09-30", "fv_High": 0.0, "fv_Elevated": 31.8, "fv_Watch": 283.3, "n_High": 0, "n_Elevated": 6, "n_Watch": 24, "wl_fv": 315.1, "book_m": 2849.2, "pct_book": 11.06},
   {"key": "OCSL", "period_end": "2025-12-31", "fv_High": 21.2, "fv_Elevated": 77.8, "fv_Watch": 221.1, "n_High": 1, "n_Elevated": 5, "n_Watch": 22, "wl_fv": 320.1, "book_m": 2949.9, "pct_book": 10.85},
   {"key": "OCSL", "period_end": "2026-03-31", "fv_High": 21.1, "fv_Elevated": 76.6, "fv_Watch": 316.5, "n_High": 1, "n_Elevated": 7, "n_Watch": 25, "wl_fv": 414.3, "book_m": 2766.2, "pct_book": 14.98},
+  {"key": "OCSL", "period_end": "2026-06-30", "fv_High": 20.3, "fv_Elevated": 34.3, "fv_Watch": 327.1, "n_High": 1, "n_Elevated": 9, "n_Watch": 28, "wl_fv": 381.7, "book_m": 2719.4, "pct_book": 14.04},
   {"key": "OTF", "period_end": "2019-09-30", "fv_High": 0.0, "fv_Elevated": 0.4, "fv_Watch": 0.0, "n_High": 0, "n_Elevated": 1, "n_Watch": 0, "wl_fv": 0.4, "book_m": 1339.8, "pct_book": 0.03},
   {"key": "OTF", "period_end": "2019-12-31", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 0.4, "n_High": 0, "n_Elevated": 0, "n_Watch": 1, "wl_fv": 0.4, "book_m": 1476.8, "pct_book": 0.03},
   {"key": "OTF", "period_end": "2020-03-31", "fv_High": 0.3, "fv_Elevated": 0.3, "fv_Watch": 35.5, "n_High": 1, "n_Elevated": 1, "n_Watch": 3, "wl_fv": 36.1, "book_m": 1834.1, "pct_book": 1.97},
@@ -422,7 +425,8 @@ export const watchlistByTicker: WatchlistHistRow[] = [
   {"key": "OTF", "period_end": "2025-06-30", "fv_High": 0.0, "fv_Elevated": 162.5, "fv_Watch": 679.3, "n_High": 0, "n_Elevated": 4, "n_Watch": 8, "wl_fv": 841.8, "book_m": 12732.4, "pct_book": 6.61},
   {"key": "OTF", "period_end": "2025-09-30", "fv_High": 0.0, "fv_Elevated": 228.2, "fv_Watch": 738.4, "n_High": 0, "n_Elevated": 6, "n_Watch": 9, "wl_fv": 966.6, "book_m": 12888.2, "pct_book": 7.5},
   {"key": "OTF", "period_end": "2025-12-31", "fv_High": 0.0, "fv_Elevated": 116.5, "fv_Watch": 997.6, "n_High": 0, "n_Elevated": 4, "n_Watch": 14, "wl_fv": 1114.1, "book_m": 14289.9, "pct_book": 7.8},
-  {"key": "OTF", "period_end": "2026-03-31", "fv_High": 102.8, "fv_Elevated": 217.6, "fv_Watch": 1355.9, "n_High": 2, "n_Elevated": 11, "n_Watch": 25, "wl_fv": 1676.3, "book_m": 14089.1, "pct_book": 11.9}
+  {"key": "OTF", "period_end": "2026-03-31", "fv_High": 102.8, "fv_Elevated": 217.6, "fv_Watch": 1355.9, "n_High": 2, "n_Elevated": 11, "n_Watch": 25, "wl_fv": 1676.3, "book_m": 14089.1, "pct_book": 11.9},
+  {"key": "OTF", "period_end": "2026-06-30", "fv_High": 68.9, "fv_Elevated": 211.4, "fv_Watch": 1365.1, "n_High": 1, "n_Elevated": 8, "n_Watch": 26, "wl_fv": 1645.3, "book_m": 14695.7, "pct_book": 11.2}
 ];
 
 export const watchlistByManager: WatchlistHistRow[] = [
@@ -473,6 +477,7 @@ export const watchlistByManager: WatchlistHistRow[] = [
   {"key": "Barings", "period_end": "2025-09-30", "fv_High": 6.8, "fv_Elevated": 38.3, "fv_Watch": 122.6, "n_High": 4, "n_Elevated": 9, "n_Watch": 34, "wl_fv": 167.7, "book_m": 2531.7, "pct_book": 6.63},
   {"key": "Barings", "period_end": "2025-12-31", "fv_High": 12.3, "fv_Elevated": 40.7, "fv_Watch": 167.4, "n_High": 2, "n_Elevated": 16, "n_Watch": 37, "wl_fv": 220.5, "book_m": 2391.2, "pct_book": 9.22},
   {"key": "Barings", "period_end": "2026-03-31", "fv_High": 5.7, "fv_Elevated": 48.3, "fv_Watch": 170.7, "n_High": 3, "n_Elevated": 19, "n_Watch": 35, "wl_fv": 224.7, "book_m": 2363.8, "pct_book": 9.5},
+  {"key": "Barings", "period_end": "2026-06-30", "fv_High": 9.6, "fv_Elevated": 36.2, "fv_Watch": 120.0, "n_High": 3, "n_Elevated": 12, "n_Watch": 30, "wl_fv": 165.8, "book_m": 2452.9, "pct_book": 6.76},
   {"key": "Blackstone", "period_end": "2019-12-31", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 30.9, "n_High": 0, "n_Elevated": 0, "n_Watch": 4, "wl_fv": 30.9, "book_m": 3157.9, "pct_book": 0.98},
   {"key": "Blackstone", "period_end": "2020-03-31", "fv_High": 0.0, "fv_Elevated": 257.7, "fv_Watch": 1056.8, "n_High": 0, "n_Elevated": 11, "n_Watch": 36, "wl_fv": 1314.5, "book_m": 3741.3, "pct_book": 35.14},
   {"key": "Blackstone", "period_end": "2020-06-30", "fv_High": 0.0, "fv_Elevated": 70.1, "fv_Watch": 307.5, "n_High": 0, "n_Elevated": 2, "n_Watch": 13, "wl_fv": 377.6, "book_m": 4108.5, "pct_book": 9.19},
@@ -532,6 +537,7 @@ export const watchlistByManager: WatchlistHistRow[] = [
   {"key": "Blue Owl", "period_end": "2025-09-30", "fv_High": 48.9, "fv_Elevated": 988.4, "fv_Watch": 2045.2, "n_High": 3, "n_Elevated": 21, "n_Watch": 40, "wl_fv": 3082.5, "book_m": 63754.3, "pct_book": 4.83},
   {"key": "Blue Owl", "period_end": "2025-12-31", "fv_High": 89.2, "fv_Elevated": 800.0, "fv_Watch": 3099.1, "n_High": 5, "n_Elevated": 26, "n_Watch": 54, "wl_fv": 3988.3, "book_m": 66694.0, "pct_book": 5.98},
   {"key": "Blue Owl", "period_end": "2026-03-31", "fv_High": 181.4, "fv_Elevated": 1307.8, "fv_Watch": 3939.5, "n_High": 6, "n_Elevated": 54, "n_Watch": 83, "wl_fv": 5428.8, "book_m": 64976.9, "pct_book": 8.35},
+  {"key": "Blue Owl", "period_end": "2026-06-30", "fv_High": 84.1, "fv_Elevated": 412.0, "fv_Watch": 2151.5, "n_High": 3, "n_Elevated": 17, "n_Watch": 54, "wl_fv": 2647.6, "book_m": 29659.4, "pct_book": 8.93},
   {"key": "Carlyle", "period_end": "2018-12-31", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 43.2, "n_High": 0, "n_Elevated": 0, "n_Watch": 2, "wl_fv": 43.2, "book_m": 1173.5, "pct_book": 3.68},
   {"key": "Carlyle", "period_end": "2019-03-31", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 19.1, "n_High": 0, "n_Elevated": 0, "n_Watch": 1, "wl_fv": 19.1, "book_m": 1252.8, "pct_book": 1.52},
   {"key": "Carlyle", "period_end": "2019-06-30", "fv_High": 0.0, "fv_Elevated": 16.3, "fv_Watch": 0.0, "n_High": 0, "n_Elevated": 1, "n_Watch": 0, "wl_fv": 16.3, "book_m": 1328.2, "pct_book": 1.23},
@@ -652,7 +658,7 @@ export const watchlistByManager: WatchlistHistRow[] = [
   {"key": "Golub", "period_end": "2025-09-30", "fv_High": 41.4, "fv_Elevated": 205.4, "fv_Watch": 1187.3, "n_High": 5, "n_Elevated": 37, "n_Watch": 155, "wl_fv": 1434.0, "book_m": 8768.3, "pct_book": 16.35},
   {"key": "Golub", "period_end": "2025-12-31", "fv_High": 59.6, "fv_Elevated": 216.1, "fv_Watch": 1044.9, "n_High": 10, "n_Elevated": 34, "n_Watch": 151, "wl_fv": 1320.6, "book_m": 8638.0, "pct_book": 15.29},
   {"key": "Golub", "period_end": "2026-03-31", "fv_High": 19.5, "fv_Elevated": 279.8, "fv_Watch": 1061.5, "n_High": 9, "n_Elevated": 51, "n_Watch": 164, "wl_fv": 1360.8, "book_m": 8321.2, "pct_book": 16.35},
-  {"key": "Golub", "period_end": "2026-06-30", "fv_High": 7.5, "fv_Elevated": 207.6, "fv_Watch": 1022.6, "n_High": 9, "n_Elevated": 45, "n_Watch": 148, "wl_fv": 1237.7, "book_m": 8197.9, "pct_book": 15.1},
+  {"key": "Golub", "period_end": "2026-06-30", "fv_High": 7.6, "fv_Elevated": 235.6, "fv_Watch": 1196.0, "n_High": 10, "n_Elevated": 48, "n_Watch": 176, "wl_fv": 1439.1, "book_m": 8197.9, "pct_book": 17.55},
   {"key": "Hercules", "period_end": "2016-12-31", "fv_High": 0.0, "fv_Elevated": 14.9, "fv_Watch": 54.4, "n_High": 0, "n_Elevated": 1, "n_Watch": 5, "wl_fv": 69.3, "book_m": 1423.0, "pct_book": 4.87},
   {"key": "Hercules", "period_end": "2017-03-31", "fv_High": 0.0, "fv_Elevated": 29.7, "fv_Watch": 10.3, "n_High": 0, "n_Elevated": 5, "n_Watch": 3, "wl_fv": 40.0, "book_m": 1405.1, "pct_book": 2.85},
   {"key": "Hercules", "period_end": "2017-06-30", "fv_High": 0.0, "fv_Elevated": 0.0, "fv_Watch": 0.4, "n_High": 0, "n_Elevated": 0, "n_Watch": 1, "wl_fv": 0.4, "book_m": 1394.1, "pct_book": 0.03},
@@ -750,5 +756,6 @@ export const watchlistByManager: WatchlistHistRow[] = [
   {"key": "Oaktree (Brookfield)", "period_end": "2025-06-30", "fv_High": 0.0, "fv_Elevated": 26.2, "fv_Watch": 358.1, "n_High": 0, "n_Elevated": 4, "n_Watch": 29, "wl_fv": 384.2, "book_m": 2800.8, "pct_book": 13.72},
   {"key": "Oaktree (Brookfield)", "period_end": "2025-09-30", "fv_High": 0.0, "fv_Elevated": 31.8, "fv_Watch": 283.3, "n_High": 0, "n_Elevated": 6, "n_Watch": 24, "wl_fv": 315.1, "book_m": 2849.2, "pct_book": 11.06},
   {"key": "Oaktree (Brookfield)", "period_end": "2025-12-31", "fv_High": 21.2, "fv_Elevated": 77.8, "fv_Watch": 221.1, "n_High": 1, "n_Elevated": 5, "n_Watch": 22, "wl_fv": 320.1, "book_m": 2949.9, "pct_book": 10.85},
-  {"key": "Oaktree (Brookfield)", "period_end": "2026-03-31", "fv_High": 21.1, "fv_Elevated": 76.6, "fv_Watch": 316.5, "n_High": 1, "n_Elevated": 7, "n_Watch": 25, "wl_fv": 414.3, "book_m": 2766.2, "pct_book": 14.98}
+  {"key": "Oaktree (Brookfield)", "period_end": "2026-03-31", "fv_High": 21.1, "fv_Elevated": 76.6, "fv_Watch": 316.5, "n_High": 1, "n_Elevated": 7, "n_Watch": 25, "wl_fv": 414.3, "book_m": 2766.2, "pct_book": 14.98},
+  {"key": "Oaktree (Brookfield)", "period_end": "2026-06-30", "fv_High": 20.3, "fv_Elevated": 34.3, "fv_Watch": 327.1, "n_High": 1, "n_Elevated": 9, "n_Watch": 28, "wl_fv": 381.7, "book_m": 2719.4, "pct_book": 14.04}
 ];
