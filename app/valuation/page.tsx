@@ -440,9 +440,12 @@ export default function ValuationPage() {
           reverse splits (FSK, MFIC, GLAD&apos;s forward split) are restated onto the same share
           basis automatically. The P/NAV series is point-in-time — each day divides by the
           last NAV actually on file that day, and a NAV more than ~14 months stale ends the
-          series. Universe: every BDC with a current NYSE/Nasdaq listing that files BDC-style
-          financials ({pnavSnapshots.length} today); non-traded BDCs and names that converted
-          away from the BDC structure are excluded.
+          series. Universe: every BDC with a current NYSE/Nasdaq listing, BDC-style
+          financials and at least $200M of net assets ({pnavSnapshots.length} today) —
+          sub-$200M microcaps, non-traded BDCs, venture-equity vehicles and names that
+          converted away from the BDC structure are excluded. Where a BDC has filed its
+          latest 10-Q but SEC&apos;s aggregated XBRL feed hasn&apos;t ingested it yet, NAV is read
+          directly from the filing document.
         </p>
       </section>
     </div>
