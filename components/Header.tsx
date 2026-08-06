@@ -25,6 +25,7 @@ const navItems: NavNode[] = [
     ],
   },
   { href: "/watchlist", label: "Watchlist" },
+  { href: "/valuation", label: "Price/NAV" },
   {
     href: "/borrowers",
     label: "Borrowers",
