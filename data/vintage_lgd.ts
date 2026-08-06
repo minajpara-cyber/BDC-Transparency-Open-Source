@@ -26,15 +26,15 @@ export interface VintageLGD {
 }
 
 export const vintageLGD: VintageLGD[] = [
-  { vintage_year: 2014, n_loans_total: 82, n_exited: 70, n_distress: 10, cost_exited_b: 213.668, distress_cost_b: 9.142, realized_loss_b: -4.106, pct_exited: 85.37, pct_distress: 12.20, lgd_pct: 44.91 },
-  { vintage_year: 2015, n_loans_total: 129, n_exited: 106, n_distress: 18, cost_exited_b: 562.108, distress_cost_b: 124.056, realized_loss_b: -62.531, pct_exited: 82.17, pct_distress: 13.95, lgd_pct: 50.41 },
-  { vintage_year: 2016, n_loans_total: 127, n_exited: 109, n_distress: 18, cost_exited_b: 1107.614, distress_cost_b: 159.852, realized_loss_b: -28.927, pct_exited: 85.83, pct_distress: 14.17, lgd_pct: 18.10 },
-  { vintage_year: 2017, n_loans_total: 334, n_exited: 305, n_distress: 36, cost_exited_b: 1689.817, distress_cost_b: 226.591, realized_loss_b: -124.411, pct_exited: 91.32, pct_distress: 10.78, lgd_pct: 54.91 },
-  { vintage_year: 2018, n_loans_total: 367, n_exited: 315, n_distress: 18, cost_exited_b: 2113.327, distress_cost_b: 119.110, realized_loss_b: -25.010, pct_exited: 85.83, pct_distress: 4.90, lgd_pct: 21.00 },
-  { vintage_year: 2019, n_loans_total: 322, n_exited: 264, n_distress: 12, cost_exited_b: 2581.040, distress_cost_b: 99.999, realized_loss_b: -59.590, pct_exited: 81.99, pct_distress: 3.73, lgd_pct: 59.59 },
-  { vintage_year: 2020, n_loans_total: 294, n_exited: 210, n_distress: 12, cost_exited_b: 2117.686, distress_cost_b: 107.471, realized_loss_b: -16.786, pct_exited: 71.43, pct_distress: 4.08, lgd_pct: 15.62 },
-  { vintage_year: 2021, n_loans_total: 1029, n_exited: 605, n_distress: 45, cost_exited_b: 10927.356, distress_cost_b: 811.845, realized_loss_b: -216.939, pct_exited: 58.79, pct_distress: 4.37, lgd_pct: 26.72 },
-  { vintage_year: 2022, n_loans_total: 565, n_exited: 311, n_distress: 30, cost_exited_b: 4943.045, distress_cost_b: 323.449, realized_loss_b: -74.822, pct_exited: 55.04, pct_distress: 5.31, lgd_pct: 23.13 },
-  { vintage_year: 2023, n_loans_total: 326, n_exited: 153, n_distress: 5, cost_exited_b: 2214.016, distress_cost_b: 43.905, realized_loss_b: -10.771, pct_exited: 46.93, pct_distress: 1.53, lgd_pct: 24.53 },
-  { vintage_year: 2024, n_loans_total: 1191, n_exited: 606, n_distress: 5, cost_exited_b: 20362.549, distress_cost_b: 16.735, realized_loss_b: -5.124, pct_exited: 50.88, pct_distress: 0.42, lgd_pct: 30.62 }
+  { vintage_year: 2014, n_loans_total: 83, n_exited: 71, n_distress: 11, cost_exited_b: 231.335, distress_cost_b: 26.809, realized_loss_b: -14.155, pct_exited: 85.54, pct_distress: 13.25, lgd_pct: 52.80 },
+  { vintage_year: 2015, n_loans_total: 149, n_exited: 126, n_distress: 21, cost_exited_b: 810.476, distress_cost_b: 162.106, realized_loss_b: -78.125, pct_exited: 84.56, pct_distress: 14.09, lgd_pct: 48.19 },
+  { vintage_year: 2016, n_loans_total: 148, n_exited: 130, n_distress: 24, cost_exited_b: 2039.398, distress_cost_b: 285.592, realized_loss_b: -52.524, pct_exited: 87.84, pct_distress: 16.22, lgd_pct: 18.39 },
+  { vintage_year: 2017, n_loans_total: 364, n_exited: 335, n_distress: 38, cost_exited_b: 2153.049, distress_cost_b: 247.447, realized_loss_b: -128.777, pct_exited: 92.03, pct_distress: 10.44, lgd_pct: 52.04 },
+  { vintage_year: 2018, n_loans_total: 407, n_exited: 355, n_distress: 21, cost_exited_b: 2463.045, distress_cost_b: 159.446, realized_loss_b: -30.806, pct_exited: 87.22, pct_distress: 5.16, lgd_pct: 19.32 },
+  { vintage_year: 2019, n_loans_total: 353, n_exited: 295, n_distress: 16, cost_exited_b: 2821.257, distress_cost_b: 120.090, realized_loss_b: -63.267, pct_exited: 83.57, pct_distress: 4.53, lgd_pct: 52.68 },
+  { vintage_year: 2020, n_loans_total: 312, n_exited: 228, n_distress: 11, cost_exited_b: 2264.970, distress_cost_b: 89.594, realized_loss_b: -17.007, pct_exited: 73.08, pct_distress: 3.53, lgd_pct: 18.98 },
+  { vintage_year: 2021, n_loans_total: 1043, n_exited: 627, n_distress: 47, cost_exited_b: 11105.102, distress_cost_b: 831.244, realized_loss_b: -221.775, pct_exited: 60.12, pct_distress: 4.51, lgd_pct: 26.68 },
+  { vintage_year: 2022, n_loans_total: 568, n_exited: 314, n_distress: 29, cost_exited_b: 5058.774, distress_cost_b: 323.239, realized_loss_b: -74.797, pct_exited: 55.28, pct_distress: 5.11, lgd_pct: 23.14 },
+  { vintage_year: 2023, n_loans_total: 328, n_exited: 155, n_distress: 6, cost_exited_b: 2348.761, distress_cost_b: 176.039, realized_loss_b: -49.311, pct_exited: 47.26, pct_distress: 1.83, lgd_pct: 28.01 },
+  { vintage_year: 2024, n_loans_total: 1193, n_exited: 612, n_distress: 5, cost_exited_b: 20511.694, distress_cost_b: 16.735, realized_loss_b: -5.124, pct_exited: 51.30, pct_distress: 0.42, lgd_pct: 30.62 }
 ];
