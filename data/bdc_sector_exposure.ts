@@ -21,13 +21,13 @@ export interface BdcSectorExposure {
 
 export const bdcSectorExposure: BdcSectorExposure[] = [
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Unclassified", "total_cost": 8124639000.0, "n_positions": 201, "share_of_bdc": 0.317334},
-  {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Healthcare", "total_cost": 3287882000.0, "n_positions": 71, "share_of_bdc": 0.128419},
+  {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Healthcare", "total_cost": 3229852000.0, "n_positions": 70, "share_of_bdc": 0.126152},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Software & IT", "total_cost": 2754918000.0, "n_positions": 72, "share_of_bdc": 0.107602},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Professional Services", "total_cost": 2327151000.0, "n_positions": 64, "share_of_bdc": 0.090894},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Industrial", "total_cost": 2276463000.0, "n_positions": 72, "share_of_bdc": 0.088915},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Other", "total_cost": 1429364000.0, "n_positions": 26, "share_of_bdc": 0.055828},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Consumer / Retail", "total_cost": 1343763000.0, "n_positions": 35, "share_of_bdc": 0.052485},
-  {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Financial Services", "total_cost": 1210707000.0, "n_positions": 26, "share_of_bdc": 0.047288},
+  {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Financial Services", "total_cost": 1268737000.0, "n_positions": 27, "share_of_bdc": 0.049555},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Insurance", "total_cost": 1168198000.0, "n_positions": 28, "share_of_bdc": 0.045628},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Media & Entertainment", "total_cost": 753715000.0, "n_positions": 16, "share_of_bdc": 0.029439},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Utilities & Energy", "total_cost": 548804000.0, "n_positions": 15, "share_of_bdc": 0.021435},
