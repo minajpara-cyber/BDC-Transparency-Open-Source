@@ -335,6 +335,7 @@ export const bdcsHistory: BDCQuarter[] = [
   { ticker: "MAIN", period_end: "2025-09-30", n_positions: 583, total_cost_b: 4.3460, total_fv_b: 5.1478, na_pct_at_cost: 3.606, na_pct_at_fv: 1.175, pik_pct_at_cost: 11.908, pik_pct_at_fv: 7.874 },
   { ticker: "MAIN", period_end: "2025-12-31", n_positions: 605, total_cost_b: 4.7245, total_fv_b: 5.5181, na_pct_at_cost: 3.287, na_pct_at_fv: 1.020, pik_pct_at_cost: 10.754, pik_pct_at_fv: 7.210 },
   { ticker: "MAIN", period_end: "2026-03-31", n_positions: 618, total_cost_b: 4.9335, total_fv_b: 5.6748, na_pct_at_cost: 4.036, na_pct_at_fv: 1.203, pik_pct_at_cost: 10.641, pik_pct_at_fv: 6.746 },
+  { ticker: "MAIN", period_end: "2026-06-30", n_positions: 619, total_cost_b: 4.9746, total_fv_b: 5.7460, na_pct_at_cost: 3.991, na_pct_at_fv: 1.136, pik_pct_at_cost: 12.103, pik_pct_at_fv: 8.083 },
   { ticker: "MFIC", period_end: "2017-12-31", n_positions: 79, total_cost_b: 1.3104, total_fv_b: 14.0084, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },
   { ticker: "MFIC", period_end: "2018-03-31", n_positions: 79, total_cost_b: 1.3076, total_fv_b: 13.6949, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },
   { ticker: "MFIC", period_end: "2018-06-30", n_positions: 81, total_cost_b: 1.2376, total_fv_b: 14.2312, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },

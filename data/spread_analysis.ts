@@ -192,7 +192,7 @@ export const spreadAnalysis: SpreadRow[] = [
   {"ticker": "CGBD", "period_end": "2025-09-30", "avg_spread_book_bps": 577, "avg_spread_new_bps": 519, "avg_spread_exit_bps": 579, "n_positions_priced": 167, "n_new": 20, "n_exit": 12, "n_bdcs": null},
   {"ticker": "CGBD", "period_end": "2025-12-31", "avg_spread_book_bps": 566, "avg_spread_new_bps": 483, "avg_spread_exit_bps": 620, "n_positions_priced": 173, "n_new": 17, "n_exit": 17, "n_bdcs": null},
   {"ticker": "CGBD", "period_end": "2026-03-31", "avg_spread_book_bps": 566, "avg_spread_new_bps": 528, "avg_spread_exit_bps": 562, "n_positions_priced": 183, "n_new": 14, "n_exit": 11, "n_bdcs": null},
-  {"ticker": "CGBD", "period_end": "2026-06-30", "avg_spread_book_bps": 562, "avg_spread_new_bps": 556, "avg_spread_exit_bps": 561, "n_positions_priced": 197, "n_new": 33, "n_exit": 23, "n_bdcs": null},
+  {"ticker": "CGBD", "period_end": "2026-06-30", "avg_spread_book_bps": 562, "avg_spread_new_bps": 555, "avg_spread_exit_bps": 561, "n_positions_priced": 197, "n_new": 33, "n_exit": 23, "n_bdcs": null},
   {"ticker": "FSK", "period_end": "2014-12-31", "avg_spread_book_bps": 790, "avg_spread_new_bps": null, "avg_spread_exit_bps": null, "n_positions_priced": 90, "n_new": 0, "n_exit": 0, "n_bdcs": null},
   {"ticker": "FSK", "period_end": "2015-03-31", "avg_spread_book_bps": 821, "avg_spread_new_bps": 854, "avg_spread_exit_bps": 773, "n_positions_priced": 83, "n_new": 6, "n_exit": 10, "n_bdcs": null},
   {"ticker": "FSK", "period_end": "2015-06-30", "avg_spread_book_bps": 819, "avg_spread_new_bps": 857, "avg_spread_exit_bps": 850, "n_positions_priced": 87, "n_new": 21, "n_exit": 14, "n_bdcs": null},
@@ -265,7 +265,7 @@ export const spreadAnalysis: SpreadRow[] = [
   {"ticker": "GBDC", "period_end": "2025-09-30", "avg_spread_book_bps": 483, "avg_spread_new_bps": 425, "avg_spread_exit_bps": 499, "n_positions_priced": 1097, "n_new": 82, "n_exit": 102, "n_bdcs": null},
   {"ticker": "GBDC", "period_end": "2025-12-31", "avg_spread_book_bps": 481, "avg_spread_new_bps": 483, "avg_spread_exit_bps": 521, "n_positions_priced": 1105, "n_new": 69, "n_exit": 98, "n_bdcs": null},
   {"ticker": "GBDC", "period_end": "2026-03-31", "avg_spread_book_bps": 477, "avg_spread_new_bps": 424, "avg_spread_exit_bps": 535, "n_positions_priced": 1123, "n_new": 57, "n_exit": 79, "n_bdcs": null},
-  {"ticker": "GBDC", "period_end": "2026-06-30", "avg_spread_book_bps": 470, "avg_spread_new_bps": 579, "avg_spread_exit_bps": 572, "n_positions_priced": 1159, "n_new": 76, "n_exit": 76, "n_bdcs": null},
+  {"ticker": "GBDC", "period_end": "2026-06-30", "avg_spread_book_bps": 469, "avg_spread_new_bps": 578, "avg_spread_exit_bps": 572, "n_positions_priced": 1159, "n_new": 76, "n_exit": 76, "n_bdcs": null},
   {"ticker": "HTGC", "period_end": "2016-12-31", "avg_spread_book_bps": 815, "avg_spread_new_bps": null, "avg_spread_exit_bps": null, "n_positions_priced": 98, "n_new": 0, "n_exit": 0, "n_bdcs": null},
   {"ticker": "HTGC", "period_end": "2017-03-31", "avg_spread_book_bps": 828, "avg_spread_new_bps": 859, "avg_spread_exit_bps": 688, "n_positions_priced": 98, "n_new": 11, "n_exit": 12, "n_bdcs": null},
   {"ticker": "HTGC", "period_end": "2017-06-30", "avg_spread_book_bps": 821, "avg_spread_new_bps": 768, "avg_spread_exit_bps": 797, "n_positions_priced": 92, "n_new": 13, "n_exit": 21, "n_bdcs": null},
@@ -322,7 +322,8 @@ export const spreadAnalysis: SpreadRow[] = [
   {"ticker": "MAIN", "period_end": "2025-06-30", "avg_spread_book_bps": 685, "avg_spread_new_bps": 616, "avg_spread_exit_bps": 651, "n_positions_priced": 188, "n_new": 10, "n_exit": 19, "n_bdcs": null},
   {"ticker": "MAIN", "period_end": "2025-09-30", "avg_spread_book_bps": 676, "avg_spread_new_bps": 635, "avg_spread_exit_bps": 683, "n_positions_priced": 189, "n_new": 16, "n_exit": 24, "n_bdcs": null},
   {"ticker": "MAIN", "period_end": "2025-12-31", "avg_spread_book_bps": 657, "avg_spread_new_bps": 613, "avg_spread_exit_bps": 679, "n_positions_priced": 189, "n_new": 23, "n_exit": 20, "n_bdcs": null},
-  {"ticker": "MAIN", "period_end": "2026-03-31", "avg_spread_book_bps": 663, "avg_spread_new_bps": 668, "avg_spread_exit_bps": 640, "n_positions_priced": 199, "n_new": 8, "n_exit": 14, "n_bdcs": null},
+  {"ticker": "MAIN", "period_end": "2026-03-31", "avg_spread_book_bps": 663, "avg_spread_new_bps": 668, "avg_spread_exit_bps": 640, "n_positions_priced": 199, "n_new": 8, "n_exit": 13, "n_bdcs": null},
+  {"ticker": "MAIN", "period_end": "2026-06-30", "avg_spread_book_bps": 660, "avg_spread_new_bps": 602, "avg_spread_exit_bps": 646, "n_positions_priced": 197, "n_new": 6, "n_exit": 11, "n_bdcs": null},
   {"ticker": "MFIC", "period_end": "2022-09-30", "avg_spread_book_bps": 613, "avg_spread_new_bps": null, "avg_spread_exit_bps": null, "n_positions_priced": 174, "n_new": 0, "n_exit": 0, "n_bdcs": null},
   {"ticker": "MFIC", "period_end": "2022-12-31", "avg_spread_book_bps": 611, "avg_spread_new_bps": 658, "avg_spread_exit_bps": 686, "n_positions_priced": 175, "n_new": 6, "n_exit": 5, "n_bdcs": null},
   {"ticker": "MFIC", "period_end": "2023-03-31", "avg_spread_book_bps": 615, "avg_spread_new_bps": 687, "avg_spread_exit_bps": 711, "n_positions_priced": 193, "n_new": 12, "n_exit": 7, "n_bdcs": null},
@@ -530,6 +531,6 @@ export const spreadAnalysis: SpreadRow[] = [
   {"ticker": "industry", "period_end": "2025-06-30", "avg_spread_book_bps": 521, "avg_spread_new_bps": 516, "avg_spread_exit_bps": 520, "n_positions_priced": 8279, "n_new": 685, "n_exit": 1156, "n_bdcs": 19},
   {"ticker": "industry", "period_end": "2025-09-30", "avg_spread_book_bps": 514, "avg_spread_new_bps": 484, "avg_spread_exit_bps": 530, "n_positions_priced": 8502, "n_new": 825, "n_exit": 718, "n_bdcs": 19},
   {"ticker": "industry", "period_end": "2025-12-31", "avg_spread_book_bps": 507, "avg_spread_new_bps": 477, "avg_spread_exit_bps": 520, "n_positions_priced": 8717, "n_new": 917, "n_exit": 902, "n_bdcs": 19},
-  {"ticker": "industry", "period_end": "2026-03-31", "avg_spread_book_bps": 507, "avg_spread_new_bps": 483, "avg_spread_exit_bps": 498, "n_positions_priced": 8773, "n_new": 550, "n_exit": 657, "n_bdcs": 19},
-  {"ticker": "industry", "period_end": "2026-06-30", "avg_spread_book_bps": 521, "avg_spread_new_bps": 528, "avg_spread_exit_bps": 555, "n_positions_priced": 5710, "n_new": 380, "n_exit": 388, "n_bdcs": 14}
+  {"ticker": "industry", "period_end": "2026-03-31", "avg_spread_book_bps": 507, "avg_spread_new_bps": 483, "avg_spread_exit_bps": 498, "n_positions_priced": 8773, "n_new": 550, "n_exit": 656, "n_bdcs": 19},
+  {"ticker": "industry", "period_end": "2026-06-30", "avg_spread_book_bps": 524, "avg_spread_new_bps": 529, "avg_spread_exit_bps": 557, "n_positions_priced": 5907, "n_new": 386, "n_exit": 399, "n_bdcs": 15}
 ];

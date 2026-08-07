@@ -7,7 +7,7 @@ export interface IssuerRow { ticker: string; pb: number; persistence: number; tt
 export const issuerModel: IssuerRow[] = [
   {"ticker": "CSWC", "pb": 1.489, "persistence": 100.0, "ttm_issuance_m": 179.3, "ttm_drip_m": 0.0, "ttm_buyback_m": 0.0, "ttm_pct_nav": 16.94, "leverage": 1.19, "score": 89.0, "est_12m_m": 224.0},
   {"ticker": "TRIN", "pb": 1.316, "persistence": 100.0, "ttm_issuance_m": 355.8, "ttm_drip_m": 2.8, "ttm_buyback_m": 0.0, "ttm_pct_nav": 28.08, "leverage": 1.21, "score": 89.0, "est_12m_m": 445.0},
-  {"ticker": "MAIN", "pb": 1.726, "persistence": 100.0, "ttm_issuance_m": 149.9, "ttm_drip_m": 39.0, "ttm_buyback_m": 0.0, "ttm_pct_nav": 4.85, "leverage": 0.88, "score": 88.0, "est_12m_m": 187.0},
+  {"ticker": "MAIN", "pb": 1.703, "persistence": 100.0, "ttm_issuance_m": 149.9, "ttm_drip_m": 39.0, "ttm_buyback_m": 0.0, "ttm_pct_nav": 4.73, "leverage": 0.88, "score": 88.0, "est_12m_m": 187.0},
   {"ticker": "HTGC", "pb": 1.411, "persistence": 100.0, "ttm_issuance_m": 68.8, "ttm_drip_m": 12.3, "ttm_buyback_m": 6.2, "ttm_pct_nav": 3.02, "leverage": 1.06, "score": 77.0, "est_12m_m": 86.0},
   {"ticker": "TSLX", "pb": 1.153, "persistence": 99.0, "ttm_issuance_m": 0.0, "ttm_drip_m": 32.9, "ttm_buyback_m": 0.5, "ttm_pct_nav": 0.0, "leverage": 1.29, "score": 61.0, "est_12m_m": 31.0},
   {"ticker": "FDUS", "pb": 1.04, "persistence": 31.0, "ttm_issuance_m": 78.2, "ttm_drip_m": 2.0, "ttm_buyback_m": 0.0, "ttm_pct_nav": 10.59, "leverage": 1.03, "score": 57.0, "est_12m_m": 78.0},
@@ -20,7 +20,7 @@ export const issuerModel: IssuerRow[] = [
   {"ticker": "SCM", "pb": 0.666, "persistence": 0.0, "ttm_issuance_m": 17.8, "ttm_drip_m": 0.0, "ttm_buyback_m": 0.0, "ttm_pct_nav": 4.91, "leverage": 1.76, "score": 4.0, "est_12m_m": 2.0},
   {"ticker": "LIEN", "pb": 0.704, "persistence": 0.0, "ttm_issuance_m": 0.0, "ttm_drip_m": 0.0, "ttm_buyback_m": 0.0, "ttm_pct_nav": 0.0, "leverage": 0.23, "score": 4.0, "est_12m_m": 0.0},
   {"ticker": "SAR", "pb": 0.849, "persistence": 0.0, "ttm_issuance_m": 12.6, "ttm_drip_m": 0.0, "ttm_buyback_m": 0.1, "ttm_pct_nav": 3.33, "leverage": 2.16, "score": 3.0, "est_12m_m": 1.0},
-  {"ticker": "MSIF", "pb": 0.767, "persistence": 0.0, "ttm_issuance_m": 0.0, "ttm_drip_m": 9.2, "ttm_buyback_m": 30.2, "ttm_pct_nav": 0.0, "leverage": 0.96, "score": 3.0, "est_12m_m": 0.0},
+  {"ticker": "MSIF", "pb": 0.737, "persistence": 0.0, "ttm_issuance_m": 0.0, "ttm_drip_m": 9.2, "ttm_buyback_m": 30.2, "ttm_pct_nav": 0.0, "leverage": 0.93, "score": 3.0, "est_12m_m": 0.0},
   {"ticker": "OCSL", "pb": 0.818, "persistence": 0.0, "ttm_issuance_m": 0.0, "ttm_drip_m": 6.8, "ttm_buyback_m": 6.8, "ttm_pct_nav": 0.0, "leverage": 1.07, "score": 2.0, "est_12m_m": 0.0},
   {"ticker": "KBDC", "pb": 0.859, "persistence": 0.0, "ttm_issuance_m": 0.0, "ttm_drip_m": 0.0, "ttm_buyback_m": 74.1, "ttm_pct_nav": 0.0, "leverage": 1.09, "score": 2.0, "est_12m_m": 0.0},
   {"ticker": "OTF", "pb": 0.699, "persistence": 0.0, "ttm_issuance_m": 0.0, "ttm_drip_m": 146.9, "ttm_buyback_m": 242.8, "ttm_pct_nav": 0.0, "leverage": 1.0, "score": 2.0, "est_12m_m": 0.0},
