@@ -21,12 +21,12 @@ export interface BdcSectorExposure {
 
 export const bdcSectorExposure: BdcSectorExposure[] = [
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Unclassified", "total_cost": 8124639000.0, "n_positions": 201, "share_of_bdc": 0.317334},
-  {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Healthcare", "total_cost": 3448262000.0, "n_positions": 71, "share_of_bdc": 0.134683},
+  {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Healthcare", "total_cost": 3506292000.0, "n_positions": 72, "share_of_bdc": 0.13695},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Software & IT", "total_cost": 2754918000.0, "n_positions": 72, "share_of_bdc": 0.107602},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Professional Services", "total_cost": 2327101000.0, "n_positions": 63, "share_of_bdc": 0.090892},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Industrial", "total_cost": 2276513000.0, "n_positions": 73, "share_of_bdc": 0.088917},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Other", "total_cost": 1425749000.0, "n_positions": 25, "share_of_bdc": 0.055687},
-  {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Financial Services", "total_cost": 1268737000.0, "n_positions": 27, "share_of_bdc": 0.049555},
+  {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Financial Services", "total_cost": 1210707000.0, "n_positions": 26, "share_of_bdc": 0.047288},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Insurance", "total_cost": 1168198000.0, "n_positions": 28, "share_of_bdc": 0.045628},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Consumer / Retail", "total_cost": 1128968000.0, "n_positions": 35, "share_of_bdc": 0.044095},
   {"ticker": "ADS", "period_end": "2026-03-31", "sector": "Media & Entertainment", "total_cost": 753715000.0, "n_positions": 16, "share_of_bdc": 0.029439},
