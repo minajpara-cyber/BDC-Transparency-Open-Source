@@ -313,30 +313,21 @@ function buildSpreadCellMap(field: "avg_spread_book_bps" | "avg_spread_new_bps")
   return m;
 }
 
-/** Industry-aggregate weighted-avg spread across BDCs each quarter.
- *  Weighted by the parsed-position count (n_positions_priced or n_new). */
-function buildSpreadIndustry(field: "avg_spread_book_bps" | "avg_spread_new_bps",
-                              weightField: "n_positions_priced" | "n_new"): IndustryPoint[] {
-  const byPeriod = new Map<string, { num: number; den: number; coverage: number }>();
+/** Industry-aggregate weighted-avg spread across BDCs each quarter — reads
+ *  the exporter's pre-computed ticker:"industry" row, which is cost-weighted
+ *  in USD terms (unit multipliers applied, so ARCC/FSK carry their real
+ *  weight). The old client-side version weighted by parsed-position COUNT,
+ *  which over-weighted many-small-position LMM/venture books. */
+function buildSpreadIndustry(field: "avg_spread_book_bps" | "avg_spread_new_bps"): IndustryPoint[] {
+  const pts: IndustryPoint[] = [];
   for (const r of spreadAnalysis) {
+    if (r.ticker !== "industry") continue;
     if (!isQuarterEnd(r.period_end)) continue;
-    if (!isReliable(r.ticker, r.period_end, "mark")) continue;
     const v = r[field];
-    const w = r[weightField];
-    if (v === null || v === undefined || !w) continue;
-    if (!byPeriod.has(r.period_end))
-      byPeriod.set(r.period_end, { num: 0, den: 0, coverage: 0 });
-    const s = byPeriod.get(r.period_end)!;
-    s.num += (v as number) * w;
-    s.den += w;
-    s.coverage += 1;
+    if (v === null || v === undefined) continue;
+    pts.push({ period_end: r.period_end, value: v as number, coverage: r.n_bdcs ?? 0 });
   }
-  return Array.from(byPeriod.entries())
-    .map(([period_end, s]) => ({
-      period_end,
-      value: s.den ? s.num / s.den : 0,
-      coverage: s.coverage,
-    }))
+  return pts
     .filter((p) => p.coverage >= MIN_BDCS_FOR_INDUSTRY)
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
@@ -361,8 +352,8 @@ export default function CreditPage() {
   const newSpreadMap  = buildSpreadCellMap("avg_spread_new_bps");
 
   const industryComposition = buildIndustryComposition();
-  const bookSpreadLine = buildSpreadIndustry("avg_spread_book_bps", "n_positions_priced");
-  const newSpreadLine  = buildSpreadIndustry("avg_spread_new_bps",  "n_new");
+  const bookSpreadLine = buildSpreadIndustry("avg_spread_book_bps");
+  const newSpreadLine  = buildSpreadIndustry("avg_spread_new_bps");
 
   const naMap   = buildCreditCellMap("pct_non_accrual");
   const lt95Map = buildCreditCellMap("pct_below_95");
@@ -938,7 +929,7 @@ export default function CreditPage() {
         </h2>
         <CreditHeatmap
           title="Book weighted-avg spread (bps)"
-          description={"Cost-weighted spread of the whole book each quarter. Parsed from the SOI's reference-rate-and-spread text (e.g. 'SOFR + 5.75%' → 575 bps). " +
+          description={"Cost-weighted spread of the whole debt book each quarter, on a SOFR-equivalent basis (Prime-based loans shifted +290bps; filers that print all-in rates converted using a base rate measured from the panel each quarter). " +
             "Cells colored 400 → 525 → 625 → ≥750 bps. Most direct-lending term loans live in the 500-650 range."}
           periods={periods}
           tickers={tickers}
@@ -950,7 +941,7 @@ export default function CreditPage() {
         <div className="mt-4">
           <CreditHeatmap
             title="Weighted-avg spread on NEW loans this quarter (bps)"
-            description="Same calc, but only on loans whose first observation in our dataset is this quarter (i.e., new originations / new commitments). Cells colored 400 → 525 → 625 → ≥750 bps."
+            description="Same calc, but only on loans first seen this quarter (new originations / new commitments). A BDC's first covered quarter and quarters right after a coverage gap count nothing as new, and a cell needs ≥3 new loans to print. Cells colored 400 → 525 → 625 → ≥750 bps."
             periods={periods}
             tickers={tickers}
             cellMap={newSpreadMap}
@@ -962,7 +953,7 @@ export default function CreditPage() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
           <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
             <div className="text-sm font-semibold text-white mb-1">Industry book spread (bps)</div>
-            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average of book spread across reporting BDCs each quarter.</p>
+            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Cost-weighted (USD) average of book spread across reporting BDCs each quarter.</p>
             <CreditLensChart
               data={bookSpreadLine}
               yLabel="Book spread (bps)"
@@ -973,7 +964,7 @@ export default function CreditPage() {
           </div>
           <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
             <div className="text-sm font-semibold text-white mb-1">Industry new-loan spread (bps)</div>
-            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average of new-loan spreads across reporting BDCs each quarter. The new-loan series leads the book — gives the cleanest read on spread compression / widening in primary direct lending.</p>
+            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Cost-weighted (USD) average of new-loan spreads across reporting BDCs each quarter. The new-loan series leads the book — gives the cleanest read on spread compression / widening in primary direct lending.</p>
             <CreditLensChart
               data={newSpreadLine}
               yLabel="New-loan spread (bps)"
@@ -984,10 +975,12 @@ export default function CreditPage() {
           </div>
         </div>
         <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
-          Spread extracted from ref_rate_spread / ref_rate_combined / coupon_rate fields in the SOI.
-          Floating-rate loans give a clean spread; fixed-rate notes fall through to coupon as a proxy
-          (overstates spread, understates fixed-rate originations). Positions without parseable spread
-          text are excluded from the weighted average.
+          Spreads parsed from each SOI&apos;s rate text and normalized to a SOFR/LIBOR-equivalent basis:
+          Prime-based loans are shifted +290bps (Prime runs ~290bps above SOFR), and filings that print
+          only the all-in rate next to an index (e.g. &quot;SOFR +&quot; / &quot;9.2%&quot;) are converted by subtracting
+          the base rate observed that quarter from filers who print both the spread and the all-in rate.
+          Fixed-rate notes, equity/preferred and hedges are excluded — as are BDC-quarters where fewer
+          than 20 positions or less than 20% of debt cost parse to a usable spread.
         </p>
       </section>
 

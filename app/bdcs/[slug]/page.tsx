@@ -444,9 +444,10 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
                 <div className="text-sm font-semibold text-white mb-1">Origination vs exit spread</div>
                 <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
-                  Where new loans are being written (purple) and what the leaving/repaid loans carried
-                  (amber), against the whole book (green). New below book = writing tighter than the
-                  legacy book.
+                  Where new loans are being written (purple) and what the loans that left the book this
+                  quarter carried (amber), against the whole book (green) — all on a SOFR-equivalent
+                  basis. New below book = writing tighter than the legacy book; exits above book = the
+                  wide legacy paper is the part rolling off. Points need ≥3 loans to print.
                 </p>
                 <SpreadLifecycleChart data={spLifecycle} />
               </div>
@@ -508,7 +509,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <table className="w-full text-sm">
                 <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
                   <tr>
-                    {["Quarter", "Positions", "NA %", "PIK %", "Below 95¢", "Below 90¢", "Book bps", "New bps", "% 1st lien"].map((h) => (
+                    {["Quarter", "Positions", "NA %", "PIK %", "Below 95¢", "Below 90¢", "Book bps", "New bps", "Exit bps", "% 1st lien"].map((h) => (
                       <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap" style={{ color: "#8b8ba8" }}>
                         {h}
                       </th>
@@ -544,6 +545,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: "#a855f7" }}>
                           {sp?.avg_spread_new_bps ?? "—"}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: "#f59e0b" }}>
+                          {sp?.avg_spread_exit_bps ?? "—"}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: "#9ca3af" }}>
                           {ac ? `${ac.pct_first_lien.toFixed(1)}%` : "—"}
