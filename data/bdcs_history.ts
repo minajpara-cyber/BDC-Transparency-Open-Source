@@ -118,6 +118,7 @@ export const bdcsHistory: BDCQuarter[] = [
   { ticker: "BCRED", period_end: "2025-09-30", n_positions: 1216, total_cost_b: 79.2402, total_fv_b: 78.6931, na_pct_at_cost: 0.363, na_pct_at_fv: 0.163, pik_pct_at_cost: 17.144, pik_pct_at_fv: 16.485 },
   { ticker: "BCRED", period_end: "2025-12-31", n_positions: 1286, total_cost_b: 85.2650, total_fv_b: 84.5481, na_pct_at_cost: 0.605, na_pct_at_fv: 0.392, pik_pct_at_cost: 14.602, pik_pct_at_fv: 14.049 },
   { ticker: "BCRED", period_end: "2026-03-31", n_positions: 1292, total_cost_b: 85.1407, total_fv_b: 83.2568, na_pct_at_cost: 2.228, na_pct_at_fv: 1.337, pik_pct_at_cost: 13.046, pik_pct_at_fv: 12.451 },
+  { ticker: "BCRED", period_end: "2026-06-30", n_positions: 1235, total_cost_b: 82.3639, total_fv_b: 79.6651, na_pct_at_cost: 2.076, na_pct_at_fv: 1.034, pik_pct_at_cost: 12.993, pik_pct_at_fv: 12.270 },
   { ticker: "BXSL", period_end: "2019-12-31", n_positions: 67, total_cost_b: 3.1333, total_fv_b: 3.1579, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },
   { ticker: "BXSL", period_end: "2020-03-31", n_positions: 90, total_cost_b: 4.0760, total_fv_b: 3.7413, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },
   { ticker: "BXSL", period_end: "2020-06-30", n_positions: 85, total_cost_b: 4.2638, total_fv_b: 4.1085, na_pct_at_cost: 0.000, na_pct_at_fv: 0.000, pik_pct_at_cost: 0.000, pik_pct_at_fv: 0.000 },
