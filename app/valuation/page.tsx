@@ -37,6 +37,12 @@ export default function ValuationPage() {
   const [picked, setPicked] = useState<string[]>(["ARCC", "FSK", "MAIN"]);
   const [allMgrs, setAllMgrs] = useState(false);
 
+  // Forward-quarter labels ride along on the data so the header always names the
+  // quarters the model actually produced, rather than re-deriving them here and
+  // drifting out of step with the export at a quarter boundary.
+  const q1Label = issuerModel.find((r) => r.est_q1_label)?.est_q1_label ?? "next Q";
+  const q2Label = issuerModel.find((r) => r.est_q2_label)?.est_q2_label ?? "Q after";
+
   const asOfDate = new Date(pnavAsOf + "T12:00:00");
   const from = new Date(asOfDate.getTime() - RANGES[range] * 86400_000)
     .toISOString().slice(0, 10);
@@ -359,14 +365,28 @@ export default function ValuationPage() {
 
         <div className="flex items-start justify-between gap-3 mt-6 mb-3 flex-wrap">
           <div>
-            <h3 className="text-base font-semibold text-white mb-1">Likely issuers next 12 months</h3>
+            <h3 className="text-base font-semibold text-white mb-1">Likely issuers — next two quarters and next 12 months</h3>
             <p className="text-sm max-w-3xl" style={{ color: "#9ca3af" }}>
               Scored 0–100 from premium level (40), premium persistence over the last
               quarter (20), trailing-12m issuance appetite (25) and leverage headroom (15);
               names below 0.97x NAV are scaled to a quarter of their score — sub-NAV
-              issuance requires shareholder approval. Estimated volume = trailing-12m
+              issuance requires shareholder approval. The 12-month estimate is trailing-12m
               issuance scaled by the premium regime (a persistent premium with no ATM yet
               gets a nominal 2%-of-NAV starter estimate).
+            </p>
+            <p className="text-sm max-w-3xl mt-2" style={{ color: "#9ca3af" }}>
+              The two quarterly estimates are built differently, and more carefully. Each
+              BDC&apos;s own trailing 8-quarter issuance rate is carried forward, then bounded
+              by what its premium can actually support: an empirical curve fitted across
+              every BDC-quarter we hold shows median quarterly issuance of{" "}
+              <span className="text-white">~0% of net assets below NAV</span> versus{" "}
+              <span className="text-white">2.3–3.7% above it</span> — the 1940 Act
+              shareholder-approval cliff, visible in the data. {q1Label} additionally uses the
+              premium actually observed so far this quarter, and for the six issuers whose
+              latest 10-Q cover page post-dates quarter-start (marked{" "}
+              <span style={{ color: "#22c55e" }}>◆</span>), the share growth already reported
+              — a measured fact rather than a forecast. Estimates are capped by ATM capacity
+              at 15% of 60-day traded volume.
             </p>
           </div>
         </div>
@@ -374,7 +394,8 @@ export default function ValuationPage() {
           <table className="text-xs w-full" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
             <thead style={{ background: "#0f0f16" }}>
               <tr>
-                {["BDC", "P/NAV", "Days >NAV (3m)", "TTM issued", "% of NAV", "DRIP", "Buybacks", "Lev", "Score", "Est. next 12m"].map((h, i) => (
+                {["BDC", "P/NAV", "Days >NAV (3m)", "TTM issued", "% of NAV", "DRIP", "Buybacks", "Lev", "Score",
+                  `Est. ${q1Label}`, `Est. ${q2Label}`, "Est. next 12m"].map((h, i) => (
                   <th key={i} className={`px-2.5 py-2 font-semibold whitespace-nowrap ${i === 0 ? "text-left" : "text-right"}`}
                     style={{ color: "#8b8ba8", borderBottom: "1px solid #1e1e2e" }}>
                     {h}
@@ -411,6 +432,20 @@ export default function ValuationPage() {
                       </span>
                     </td>
                     <td className="px-2.5 py-2 text-right tabular-nums font-semibold"
+                      style={{ color: (r.est_q1_m ?? 0) >= 1 ? "#e5e7eb" : "#5b5b78" }}
+                      title={r.est_q1_obs_w
+                        ? `${r.est_q1_obs_w.toFixed(0)}% of this estimate comes from share growth already reported this quarter`
+                        : "Modelled from premium regime and trailing issuance"}>
+                      {r.est_q1_m == null ? "—" : fmtM(r.est_q1_m)}
+                      {!!r.est_q1_obs_w && (
+                        <span className="ml-1 text-[9px] align-super" style={{ color: "#22c55e" }}>◆</span>
+                      )}
+                    </td>
+                    <td className="px-2.5 py-2 text-right tabular-nums font-semibold"
+                      style={{ color: (r.est_q2_m ?? 0) >= 1 ? "#e5e7eb" : "#5b5b78" }}>
+                      {r.est_q2_m == null ? "—" : fmtM(r.est_q2_m)}
+                    </td>
+                    <td className="px-2.5 py-2 text-right tabular-nums font-semibold"
                       style={{ color: r.est_12m_m >= 1 ? "#e5e7eb" : "#5b5b78" }}>
                       {fmtM(r.est_12m_m)}
                     </td>
@@ -423,8 +458,13 @@ export default function ValuationPage() {
         <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
           Top 20 of {issuerModel.length} shown, ranked by score. TTM issued prefers cash
           proceeds from common-stock issuance; where a filer only tags the equity
-          roll-forward, that value is used instead. The estimate is a scenario, not
-          guidance — it assumes premium names keep their trailing ATM cadence.
+          roll-forward, that value is used instead. These are scenarios, not guidance.
+          The quarterly model is chosen by walk-forward backtest over 248 BDC-quarters
+          rather than by assumption: median error 67bps of net assets against 91bps for
+          carrying last quarter forward and 149bps for a trailing-4-quarter average, and
+          mean dollar error ~$30M against ~$36M. It buys that by being right about the
+          large misses — per-quarter it is closer than last-quarter-carried-forward only
+          about 4 times in 10, so read it as an expected level, not a point forecast.
         </p>
       </section>
 
