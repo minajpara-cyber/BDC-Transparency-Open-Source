@@ -19,7 +19,9 @@ export const signalBacktest: BacktestRow[] = [
   {"signal": "PIK severe", "n": 2303, "rate_bad": 17.9, "rate_na": 11.9, "lift_bad": 2.9, "lift_na": 6.4},
   {"signal": "amend-and-extend", "n": 509, "rate_bad": 6.9, "rate_na": 2.6, "lift_bad": 1.1, "lift_na": 1.4},
   {"signal": "spread cut", "n": 681, "rate_bad": 16.9, "rate_na": 11.9, "lift_bad": 2.8, "lift_na": 6.4},
-  {"signal": "tier: Watch", "n": 9958, "rate_bad": 20.5, "rate_na": 5.7, "lift_bad": 3.4, "lift_na": 3.0},
-  {"signal": "tier: Elevated", "n": 2793, "rate_bad": 40.6, "rate_na": 12.9, "lift_bad": 6.7, "lift_na": 6.9},
-  {"signal": "tier: High", "n": 385, "rate_bad": 70.9, "rate_na": 40.3, "lift_bad": 11.6, "lift_na": 21.6}
+  {"signal": "NA at another BDC", "n": 605, "rate_bad": 41.7, "rate_na": 37.9, "lift_bad": 6.8, "lift_na": 20.3},
+  {"signal": "NA elsewhere + mark < 90c", "n": 128, "rate_bad": 72.7, "rate_na": 62.5, "lift_bad": 11.9, "lift_na": 33.6},
+  {"signal": "tier: Watch", "n": 9988, "rate_bad": 20.3, "rate_na": 5.5, "lift_bad": 3.3, "lift_na": 2.9},
+  {"signal": "tier: Elevated", "n": 2964, "rate_bad": 40.2, "rate_na": 14.0, "lift_bad": 6.6, "lift_na": 7.5},
+  {"signal": "tier: High", "n": 555, "rate_bad": 65.8, "rate_na": 42.7, "lift_bad": 10.8, "lift_na": 22.9}
 ];

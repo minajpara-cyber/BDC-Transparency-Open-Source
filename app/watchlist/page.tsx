@@ -385,6 +385,16 @@ export default function WatchlistPage() {
           Each signal&apos;s hit-rate is shown against the {baseRate ? `${baseRate.rate_na}%` : ""} base rate across all loans.
           Higher tiers and stacked signals are sharply more predictive — the score rank-orders risk.
         </p>
+        <p className="text-sm mb-4" style={{ color: "#9ca3af" }}>
+          The strongest signal here is one a single-BDC view cannot see at all:{" "}
+          <span className="text-white">the same borrower already on non-accrual at a different BDC</span>.
+          It beats every mark-based signal, and stacked with a sub-90¢ mark it is the sharpest screen we
+          have. It also fires <span className="text-white">early</span> — cross-held names still marked at
+          or above 90¢ convert at roughly 8x the base rate, so it moves before our own marks do. It was
+          added to the composite score in August 2026, which made the High tier both bigger and more
+          accurate at once (555 loan-quarters at {highBacktest ? `${highBacktest.rate_na}%` : "~43%"}, against
+          385 at 40.3% before).
+        </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
