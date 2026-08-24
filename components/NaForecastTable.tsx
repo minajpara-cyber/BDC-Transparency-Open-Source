@@ -93,7 +93,8 @@ export default function NaForecastTable() {
         <table className="w-full text-sm" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
           <thead style={{ background: "#0f0f16" }}>
             <tr>
-              {["BDC", "Now", `Forecast ${label}`, "80% range", "Change", "Own 8q avg", "WL High"].map((c, i) => (
+              {["BDC", "Now", `Forecast ${label}`, "80% range", "Change", "Own 8q avg",
+                "WL High", "X-holder NA", "P(rise ≥0.5pp)"].map((c, i) => (
                 <th key={c} className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider whitespace-nowrap ${i === 0 ? "text-left" : "text-right"}`}
                   style={{ color: "#8b8ba8", borderBottom: "1px solid #1e1e2e" }}>
                   {c}
@@ -128,6 +129,15 @@ export default function NaForecastTable() {
                 <td className="px-3 py-2 text-right tabular-nums" style={{ color: r.wl_high_pct >= 1 ? "#f59e0b" : "#6b6b88" }}>
                   {r.has_watchlist ? `${r.wl_high_pct.toFixed(2)}%` : "—"}
                 </td>
+                <td className="px-3 py-2 text-right tabular-nums"
+                  style={{ color: (r.xh_pp ?? 0) >= 2 ? "#ef4444" : (r.xh_pp ?? 0) >= 0.5 ? "#f59e0b" : "#6b6b88" }}
+                  title="Share of cost in borrowers already on non-accrual at ANOTHER BDC. At the name level 22% of such cost converts here within a quarter, against a 0.29% base rate.">
+                  {r.xh_pp == null ? "—" : `${r.xh_pp.toFixed(2)}%`}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums font-semibold"
+                  style={{ color: (r.p_rise ?? 0) >= 0.4 ? "#ef4444" : (r.p_rise ?? 0) >= 0.25 ? "#f59e0b" : "#8b8ba8" }}>
+                  {r.p_rise == null ? "—" : `${(100 * r.p_rise).toFixed(0)}%`}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -143,11 +153,31 @@ export default function NaForecastTable() {
           {stats.naive_p90_abs.toFixed(2)} — the tail is where it earns its keep. On the{" "}
           <span className="text-white">median</span> quarter plain persistence is still slightly better
           ({stats.naive_median_abs.toFixed(2)}pp vs {stats.median_abs.toFixed(2)}), because most quarters
-          barely move. Non-accrual rates are stubbornly persistent — this quarter&apos;s rate correlates
-          0.77 with next quarter&apos;s, and nothing we hold correlates better than 0.12 with the change.
-          Treat it as persistence adjusted for mean reversion and watchlist inflow, not as a call.
+          barely move.
         </p>
       )}
+      <p className="text-xs px-4 pb-3" style={{ color: "#6b6b88" }}>
+        <span className="text-white">Why the level is hard, and what the last two columns add.</span>{" "}
+        Non-accrual is a lumpy jump process, not a smooth rate: across 505 BDC-quarters,{" "}
+        <span className="text-white">43% had no new non-accrual at all</span>, and when there were
+        any the median was 3 borrowers with the single largest name accounting for{" "}
+        <span className="text-white">71% of that quarter&apos;s inflow</span>. Forecasting the level
+        means guessing which borrower breaks and how big it is, so &quot;no change&quot; is a very
+        strong baseline. (A bottom-up build scoring every borrower was tried and did not beat it.)
+        The <span className="text-white">direction</span> ranks better than the level does.{" "}
+        <span className="text-white">X-holder NA</span> is the share of cost in borrowers already
+        non-accrual at a different BDC — at the name level a 17x signal, with 22% of that cost
+        converting within a quarter (35% if also marked below 90¢) against a 0.29% base rate.
+        P(rise) combines it with markdown exposure: walk-forward AUC{" "}
+        {naFcMeta.direction?.auc != null ? naFcMeta.direction.auc.toFixed(2) : "—"}, and the
+        top-ranked decile of BDC-quarters rose ≥0.5pp{" "}
+        {naFcMeta.direction?.top_decile_hit != null
+          ? `${(100 * naFcMeta.direction.top_decile_hit).toFixed(0)}% of the time versus a ${(100 * (naFcMeta.direction.base_rate ?? 0)).toFixed(0)}% base rate`
+          : "more often than base"}{" "}
+        — useful for ranking, not for precision. Where the two disagree (a falling forecast beside a
+        high P(rise)) they are answering different questions: the level leans on mean reversion, the
+        probability on current stress exposure.
+      </p>
     </div>
   );
 }
