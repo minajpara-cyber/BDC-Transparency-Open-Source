@@ -14,6 +14,7 @@ import { modificationRate, ModificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
 import { modificationEvents } from "@/data/modification_events";
 import { ewsByBdc, ewsMeta } from "@/data/early_warning_scores";
+import { watchlistByTicker } from "@/data/early_warning_history";
 import ModificationEventsTable from "@/components/ModificationEventsTable";
 import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
@@ -386,19 +387,70 @@ export default function CreditPage() {
   // Pre-computed rows for the BDC comparison panel (client component). We
   // do the reliability resolution here so the child component can stay
   // serialization-friendly.
+  // Watchlist severity per (ticker, quarter) as a share of book fair value.
+  // Cuts are CUMULATIVE ("Elevated or worse" contains High) for the same reason
+  // below-95 contains below-90: a position sliding from Elevated into High must
+  // not read as an improvement, which is what an isolated middle band would show.
+  const wlByKey = new Map<string, { high: number; elevatedPlus: number }>();
+  for (const w of watchlistByTicker) {
+    if (!isQuarterEnd(w.period_end) || !w.book_m) continue;
+    wlByKey.set(`${w.key}|${w.period_end}`, {
+      high: (100 * w.fv_High) / w.book_m,
+      elevatedPlus: (100 * (w.fv_High + w.fv_Elevated)) / w.book_m,
+    });
+  }
+  // Industry benchmark for the watchlist metrics. watchlistByTicker carries no
+  // "industry" key, so aggregate it here: FV-weighted across BDCs that clear the
+  // same caveat gate, held to the usual cohort floor so an early-filer quarter
+  // can't masquerade as the industry.
+  {
+    const agg = new Map<string, { high: number; elev: number; book: number; n: number }>();
+    for (const w of watchlistByTicker) {
+      if (!isQuarterEnd(w.period_end) || !w.book_m) continue;
+      if (!isReliable(w.key, w.period_end, "mark")) continue;
+      if (!isReliable(w.key, w.period_end, "pik")) continue;
+      const s = agg.get(w.period_end) ?? { high: 0, elev: 0, book: 0, n: 0 };
+      s.high += w.fv_High;
+      s.elev += w.fv_Elevated;
+      s.book += w.book_m;
+      s.n += 1;
+      agg.set(w.period_end, s);
+    }
+    for (const [period_end, s] of agg) {
+      if (s.n < MIN_BDCS_FOR_INDUSTRY || !s.book) continue;
+      wlByKey.set(`industry|${period_end}`, {
+        high: (100 * s.high) / s.book,
+        elevatedPlus: (100 * (s.high + s.elev)) / s.book,
+      });
+    }
+  }
+
   const compareRows: CompareRow[] = creditQuality
-    .filter((r) => r.ticker !== "industry" && isQuarterEnd(r.period_end))
-    .map((r) => ({
-      ticker: r.ticker,
-      period_end: r.period_end,
-      pct_non_accrual: r.pct_non_accrual,
-      pct_below_95: r.pct_below_95,
-      pct_below_90: r.pct_below_90,
-      pct_pik_total: r.pct_pik_total,
-      rel_na:  isReliable(r.ticker, r.period_end, "na")  && r.n_positions >= MIN_POSITIONS_FOR_RELIABLE,
-      rel_mark: isReliable(r.ticker, r.period_end, "mark") && r.n_positions >= MIN_POSITIONS_FOR_RELIABLE,
-      rel_pik: isReliable(r.ticker, r.period_end, "pik") && r.n_positions >= MIN_POSITIONS_FOR_RELIABLE,
-    }));
+    .filter((r) => isQuarterEnd(r.period_end))
+    .map((r) => {
+      // The industry row is an aggregate, not a book — the position floor that
+      // screens out stub filings doesn't apply to it.
+      const enough = r.ticker === "industry" || r.n_positions >= MIN_POSITIONS_FOR_RELIABLE;
+      const relMark = isReliable(r.ticker, r.period_end, "mark") && enough;
+      const relPik = isReliable(r.ticker, r.period_end, "pik") && enough;
+      const wl = wlByKey.get(`${r.ticker}|${r.period_end}`);
+      return {
+        ticker: r.ticker,
+        period_end: r.period_end,
+        pct_non_accrual: r.pct_non_accrual,
+        pct_below_95: r.pct_below_95,
+        pct_below_90: r.pct_below_90,
+        pct_pik_total: r.pct_pik_total,
+        pct_wl_high: wl?.high ?? null,
+        pct_wl_elevated_plus: wl?.elevatedPlus ?? null,
+        rel_na: isReliable(r.ticker, r.period_end, "na") && enough,
+        rel_mark: relMark,
+        rel_pik: relPik,
+        // The watchlist score is driven by mark level/trajectory plus PIK and
+        // par-cut signals, so it inherits both families' caveats.
+        rel_watchlist: relMark && relPik,
+      };
+    });
 
   // Modifications-by-severity: industry-aggregated COST-weighted % per quarter.
   // Numerator = sum(new_*_cost) across BDCs; denominator = sum(total_cost) across BDCs.
