@@ -5,6 +5,7 @@ import CreditNav from "@/components/CreditNav";
 import VintageChart, { VintageSeries } from "@/components/VintageChart";
 import { vintageRows, VintageRow } from "@/data/vintage_analysis";
 import { vintageLGD } from "@/data/vintage_lgd";
+import VintageExposureTable from "@/components/VintageExposureTable";
 
 type Metric = "pct_ever_default" | "pct_ever_modified" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive";
 
@@ -567,6 +568,9 @@ export default function VintagePage() {
           losses.
         </div>
       </div>
+
+      {/* Who HOLDS which vintage — composition, ahead of the performance tables */}
+      <VintageExposureTable />
 
       {/* Per-vintage summary table */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>

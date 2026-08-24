@@ -17,7 +17,9 @@ import SortableTable, { Column } from "@/components/SortableTable";
 import CrossHolderDivergence from "@/components/CrossHolderDivergence";
 import CsvDownloadButton from "@/components/CsvDownloadButton";
 import { watchlist, WatchlistRow } from "@/data/early_warning";
-import { watchlistByManager } from "@/data/early_warning_history";
+import { watchlistByManager, watchlistByTicker } from "@/data/early_warning_history";
+import CreditHeatmap from "@/components/CreditHeatmap";
+import NaForecastTable from "@/components/NaForecastTable";
 import { signalBacktest } from "@/data/signal_backtest";
 import { ewsRows, ewsMeta } from "@/data/early_warning_scores";
 
@@ -30,6 +32,33 @@ const LINE_COLORS = [
   "#6366f1", "#ef4444", "#22c55e", "#f59e0b", "#06b6d4",
   "#ec4899", "#a855f7", "#84cc16",
 ];
+
+const QUARTER_END_SUFFIXES = new Set(["03-31", "06-30", "09-30", "12-31"]);
+
+type WlCut = "watch_plus" | "elevated_plus" | "high";
+
+// Thresholds are per-cut because the levels differ by an order of magnitude —
+// a shared scale would paint the High grid uniformly green and the Watch+ grid
+// uniformly red, hiding the variation in both.
+const WL_CUT_META: Record<WlCut, {
+  label: string; short: string; thresholds: [number, number, number]; blurb: string;
+}> = {
+  watch_plus: {
+    label: "Watch or worse", short: "Watch+",
+    thresholds: [5, 12, 20],
+    blurb: "every position on the list — Watch plus Elevated plus High",
+  },
+  elevated_plus: {
+    label: "Elevated or worse", short: "Elevated+",
+    thresholds: [2, 5, 10],
+    blurb: "drops the Watch tier — Elevated plus High",
+  },
+  high: {
+    label: "High severity", short: "High",
+    thresholds: [0.5, 1.5, 3],
+    blurb: "the most severe tier alone",
+  },
+};
 
 function fmtM(v: number): string {
   return v >= 1000 ? `$${(v / 1000).toFixed(1)}B` : `$${v.toFixed(0)}M`;
@@ -73,6 +102,28 @@ export default function WatchlistPage() {
   const [newOnly, setNewOnly] = useState(false);
   const [hideStructured, setHideStructured] = useState(true);
   const [valTab, setValTab] = useState<"lifts" | "oos">("lifts");
+  const [wlCut, setWlCut] = useState<WlCut>("watch_plus");
+
+  // BDC x quarter watchlist-severity grid — the same shape as the non-accrual
+  // heatmap on /credit. Denominated in amortized COST, not fair value: on an FV
+  // basis the markdown that puts a loan on the list also shrinks the
+  // denominator, damping the very stress being measured. Cuts are "at this
+  // severity or worse" over disjoint tiers, so nothing is double-counted.
+  const wlGrid = useMemo(() => {
+    const periods = Array.from(new Set(watchlistByTicker.map((r) => r.period_end)))
+      .filter((p) => QUARTER_END_SUFFIXES.has(p.slice(5)))
+      .sort();
+    const tickers = Array.from(new Set(watchlistByTicker.map((r) => r.key))).sort();
+    const cellMap = new Map<string, { value: number | null }>();
+    for (const r of watchlistByTicker) {
+      if (!r.book_cost_m) continue;
+      const num = wlCut === "high" ? r.cost_High
+        : wlCut === "elevated_plus" ? r.cost_High + r.cost_Elevated
+        : r.wl_cost;
+      cellMap.set(`${r.key}|${r.period_end}`, { value: (100 * num) / r.book_cost_m });
+    }
+    return { periods, tickers, cellMap };
+  }, [wlCut]);
 
   // Newest quarter on the list — during reporting season BDCs are on mixed
   // quarters (each row carries its own period_end), so take the max, not row 0.
@@ -428,6 +479,49 @@ export default function WatchlistPage() {
             </ResponsiveContainer>
           </div>
         </div>
+      </section>
+
+      {/* Where the watchlist is pointing: forward non-accrual rate */}
+      <section className="mb-8">
+        <NaForecastTable />
+      </section>
+
+      {/* BDC x quarter severity grid */}
+      <section className="mb-8">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <h2 className="text-lg font-semibold text-white mr-1">Watchlist rate by BDC over time</h2>
+          {(Object.keys(WL_CUT_META) as WlCut[]).map((c) => (
+            <button
+              key={c}
+              onClick={() => setWlCut(c)}
+              title={WL_CUT_META[c].blurb}
+              className="text-xs px-2.5 py-1 rounded border transition-colors"
+              style={{
+                background: wlCut === c ? "rgba(99,102,241,0.15)" : "transparent",
+                borderColor: wlCut === c ? "#6366f1" : "#2d2d50",
+                color: wlCut === c ? "#a5b4fc" : "#8b8ba8",
+              }}
+            >
+              {WL_CUT_META[c].short}
+            </button>
+          ))}
+        </div>
+        <CreditHeatmap
+          title={`% of debt cost on the watchlist — ${WL_CUT_META[wlCut].label}`}
+          description={
+            `Pre-non-accrual stress by BDC and quarter, as a share of debt at amortized cost. ` +
+            `This cut is ${WL_CUT_META[wlCut].blurb}. A position sits in exactly one tier, so a ` +
+            `severity-or-worse cut is a plain sum — nothing is double-counted, and the difference ` +
+            `between two cuts is the band between them. Read it alongside the non-accrual heatmap ` +
+            `on the credit page: this is what has NOT defaulted yet.`
+          }
+          periods={wlGrid.periods}
+          tickers={wlGrid.tickers}
+          cellMap={wlGrid.cellMap}
+          thresholds={WL_CUT_META[wlCut].thresholds}
+          unit="%"
+          csvFilename={`watchlist-${wlCut.replace("_", "-")}`}
+        />
       </section>
 
       {/* Cross-holder non-accrual divergence */}
