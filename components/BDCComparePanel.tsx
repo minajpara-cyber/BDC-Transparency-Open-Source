@@ -22,7 +22,7 @@ const INDUSTRY_COLOR = "#e5e7eb";
 
 // Color encodes WHO, dash pattern encodes WHAT. Patterns are assigned by
 // position in the current selection, so a single-metric view is always solid.
-const METRIC_DASHES = ["", "6 3", "2 3", "9 3 2 3", "1 4", "12 4"];
+const METRIC_DASHES = ["", "6 3", "2 3", "9 3 2 3", "1 4", "12 4", "4 2 1 2"];
 
 // A BDC x metric grid gets unreadable fast. Every extra line costs more than
 // it adds past roughly a dozen, so the toggles hard-stop there.
@@ -33,6 +33,7 @@ export type CompareMetric =
   | "pct_below_95"
   | "pct_below_90"
   | "pct_pik_total"
+  | "pct_wl_any"
   | "pct_wl_elevated_plus"
   | "pct_wl_high";
 
@@ -44,6 +45,7 @@ const METRIC_ORDER: CompareMetric[] = [
   "pct_below_95",
   "pct_below_90",
   "pct_pik_total",
+  "pct_wl_any",
   "pct_wl_elevated_plus",
   "pct_wl_high",
 ];
@@ -68,6 +70,10 @@ const METRIC_META: Record<
     label: "% PIK (at cost)", short: "PIK",
     family: "pik", group: "credit",
   },
+  pct_wl_any: {
+    label: "% book on watchlist — Watch or worse (all tiers)", short: "Watchlist: Watch+",
+    family: "watchlist", group: "watchlist",
+  },
   pct_wl_elevated_plus: {
     label: "% book on watchlist — Elevated or worse", short: "Watchlist: Elevated+",
     family: "watchlist", group: "watchlist",
@@ -85,10 +91,12 @@ export interface CompareRow {
   pct_below_95: number;
   pct_below_90: number;
   pct_pik_total: number;
-  /** Watchlist tiers as a share of book fair value. Null where the BDC has no
-   *  watchlist history for the quarter (pre-coverage or no book figure). */
+  /** Watchlist tiers as a share of book fair value, cumulative (each cut
+   *  contains the more severe ones). Null where the BDC has no watchlist
+   *  history for the quarter (pre-coverage or no book figure). */
   pct_wl_high: number | null;
   pct_wl_elevated_plus: number | null;
+  pct_wl_any: number | null;
   /** Per-metric-family reliability — true means this row should appear when
    *  the user has selected a metric in that family. */
   rel_na: boolean;
@@ -431,8 +439,11 @@ export default function BDCComparePanel({
           <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
             Watchlist tiers score positions that are <span className="text-white">not yet on non-accrual</span> for
             pre-default stress (mark level and trajectory, cash→PIK flips, par cuts). Shown as a share of
-            book fair value, and cumulative — &quot;Elevated or worse&quot; includes High, so a loan
-            deteriorating between tiers never reads as an improvement.
+            book fair value, and cumulative: <span className="text-white">Watch+</span> is the whole
+            watchlist, <span className="text-white">Elevated+</span> drops the Watch tier, and{" "}
+            <span className="text-white">High</span> is the most severe alone. Nesting them this way means a
+            loan deteriorating between tiers never reads as an improvement — and the gap between two lines
+            is that band on its own.
           </p>
         )}
       </div>
