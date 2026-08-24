@@ -391,15 +391,21 @@ export default function CreditPage() {
   // Cuts are CUMULATIVE ("Elevated or worse" contains High) for the same reason
   // below-95 contains below-90: a position sliding from Elevated into High must
   // not read as an improvement, which is what an isolated middle band would show.
-  // `wl_fv` is the authoritative watchlist total: the three tier fields are each
-  // rounded to 0.1 independently, so summing them drifts by up to ±0.1 ($M).
+  // Denominated in AMORTIZED COST, not fair value: on an FV basis the same
+  // markdown that puts a loan on the watchlist shrinks both its numerator and
+  // the book denominator, damping the very stress being measured. Cost is the
+  // stable base and matches how the below-95¢ / below-90¢ heatmaps denominate.
+  //
+  // Tiers are disjoint, so a severity-or-worse cut is a plain sum — no double
+  // counting. `wl_cost` is the authoritative total (the three tier fields are
+  // each rounded to 0.1 independently, so summing them drifts up to ±0.1 $M).
   const wlByKey = new Map<string, { high: number; elevatedPlus: number; any: number }>();
   for (const w of watchlistByTicker) {
-    if (!isQuarterEnd(w.period_end) || !w.book_m) continue;
+    if (!isQuarterEnd(w.period_end) || !w.book_cost_m) continue;
     wlByKey.set(`${w.key}|${w.period_end}`, {
-      high: (100 * w.fv_High) / w.book_m,
-      elevatedPlus: (100 * (w.fv_High + w.fv_Elevated)) / w.book_m,
-      any: (100 * w.wl_fv) / w.book_m,
+      high: (100 * w.cost_High) / w.book_cost_m,
+      elevatedPlus: (100 * (w.cost_High + w.cost_Elevated)) / w.book_cost_m,
+      any: (100 * w.wl_cost) / w.book_cost_m,
     });
   }
   // Industry benchmark for the watchlist metrics. watchlistByTicker carries no
@@ -409,14 +415,14 @@ export default function CreditPage() {
   {
     const agg = new Map<string, { high: number; elev: number; all: number; book: number; n: number }>();
     for (const w of watchlistByTicker) {
-      if (!isQuarterEnd(w.period_end) || !w.book_m) continue;
+      if (!isQuarterEnd(w.period_end) || !w.book_cost_m) continue;
       if (!isReliable(w.key, w.period_end, "mark")) continue;
       if (!isReliable(w.key, w.period_end, "pik")) continue;
       const s = agg.get(w.period_end) ?? { high: 0, elev: 0, all: 0, book: 0, n: 0 };
-      s.high += w.fv_High;
-      s.elev += w.fv_Elevated;
-      s.all += w.wl_fv;
-      s.book += w.book_m;
+      s.high += w.cost_High;
+      s.elev += w.cost_Elevated;
+      s.all += w.wl_cost;
+      s.book += w.book_cost_m;
       s.n += 1;
       agg.set(w.period_end, s);
     }

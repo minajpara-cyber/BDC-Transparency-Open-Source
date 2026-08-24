@@ -71,15 +71,15 @@ const METRIC_META: Record<
     family: "pik", group: "credit",
   },
   pct_wl_any: {
-    label: "% book on watchlist — Watch or worse (all tiers)", short: "Watchlist: Watch+",
+    label: "% of debt cost on watchlist — Watch or worse", short: "Watchlist: Watch+",
     family: "watchlist", group: "watchlist",
   },
   pct_wl_elevated_plus: {
-    label: "% book on watchlist — Elevated or worse", short: "Watchlist: Elevated+",
+    label: "% of debt cost on watchlist — Elevated or worse", short: "Watchlist: Elevated+",
     family: "watchlist", group: "watchlist",
   },
   pct_wl_high: {
-    label: "% book on watchlist — High severity", short: "Watchlist: High",
+    label: "% of debt cost on watchlist — High severity", short: "Watchlist: High",
     family: "watchlist", group: "watchlist",
   },
 };
@@ -91,9 +91,9 @@ export interface CompareRow {
   pct_below_95: number;
   pct_below_90: number;
   pct_pik_total: number;
-  /** Watchlist tiers as a share of book fair value, cumulative (each cut
-   *  contains the more severe ones). Null where the BDC has no watchlist
-   *  history for the quarter (pre-coverage or no book figure). */
+  /** Watchlist severity as a share of debt at amortized cost. Each field is
+   *  "at this tier or worse" over disjoint tiers, so nothing double-counts.
+   *  Null where the BDC has no watchlist history for the quarter. */
   pct_wl_high: number | null;
   pct_wl_elevated_plus: number | null;
   pct_wl_any: number | null;
@@ -223,7 +223,7 @@ export default function BDCComparePanel({
   const yLabel =
     selectedMetrics.length === 1
       ? METRIC_META[selectedMetrics[0]].label
-      : "% of book";
+      : "% of book (at cost)";
 
   const metricButton = (m: CompareMetric) => {
     const isOn = metrics.has(m);
@@ -284,7 +284,7 @@ export default function BDCComparePanel({
           <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#8b8ba8" }}>
             Watchlist severity{" "}
             <span className="normal-case font-normal" style={{ color: "#6b6b88" }}>
-              · share of book FV in pre-non-accrual stress tiers
+              · share of debt cost in pre-non-accrual stress tiers
             </span>
           </div>
           <div className="flex flex-wrap gap-1.5">
@@ -438,12 +438,12 @@ export default function BDCComparePanel({
         {selectedMetrics.some((m) => METRIC_META[m].group === "watchlist") && (
           <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
             Watchlist tiers score positions that are <span className="text-white">not yet on non-accrual</span> for
-            pre-default stress (mark level and trajectory, cash→PIK flips, par cuts). Shown as a share of
-            book fair value, and cumulative: <span className="text-white">Watch+</span> is the whole
-            watchlist, <span className="text-white">Elevated+</span> drops the Watch tier, and{" "}
-            <span className="text-white">High</span> is the most severe alone. Nesting them this way means a
-            loan deteriorating between tiers never reads as an improvement — and the gap between two lines
-            is that band on its own.
+            pre-default stress (mark level and trajectory, cash→PIK flips, par cuts), shown as a share of
+            debt at amortized cost. Each line is &quot;at this severity <span className="text-white">or worse</span>&quot;:{" "}
+            <span className="text-white">Watch+</span> is Watch plus Elevated plus High,{" "}
+            <span className="text-white">Elevated+</span> is Elevated plus High, and{" "}
+            <span className="text-white">High</span> is High alone. A position sits in exactly one tier, so
+            nothing is double-counted, and the gap between two lines is the band between them.
           </p>
         )}
       </div>
