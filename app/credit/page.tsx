@@ -1261,7 +1261,7 @@ export default function CreditPage() {
       <section id="compare" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           Compare BDCs <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            · overlay multiple BDCs on the same metric
+            · overlay any mix of BDCs and metrics, including watchlist severity
           </span>
         </h2>
         <BDCComparePanel rows={compareRows} tickers={tickers} />
