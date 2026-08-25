@@ -182,16 +182,26 @@ export default function NaForecastTable() {
             year is good.
           </p>
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-            <span className="text-white">What drives it.</span> Ten borrower-level signals, fitted
+            <span className="text-white">What drives it.</span> Twelve borrower-level signals, fitted
             cost-weighted. The lifts alone are misleading — what matters is lift × how much cost the
             signal covers. Being non-accrual at another BDC is the sharpest signal we have (31.6%
             convert, 41× the base rate) but touches only 0.2% of cost, so it barely moves a portfolio
-            total. The work is done by the broad middle: cash→PIK flips (6.3% of cost, 4.6×), par
-            haircuts (12.0%, 2.5×), any modification (16.6%, 2.4×) and loans aged 4–5 years (11.6%,
-            3.4×). Loan age earns its place independently — dropping vintage costs ~0.03 of forecast
-            correlation, so seasoning carries information the marks do not. Tested and discarded as
-            adding nothing: cross-holder intensity, a cross-holder × sub-90¢ interaction, and
-            quarter-over-quarter mark drop.
+            total. Most of the work is done by the broad middle: cash→PIK flips (6.3% of cost, 4.6×),
+            par haircuts (12.0%, 2.5×), any modification (16.6%, 2.4×), loans aged 4–5 years (11.6%,
+            3.4×) and equity/warrant paper (7.7%, 2.0×). Two signals earn their place despite tiny
+            coverage because they are so sharp: cross-holder non-accrual, and a borrower that has been
+            on non-accrual at <span className="text-white">this</span> BDC before (21× lift).
+          </p>
+          <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+            <span className="text-white">What we tested and threw away</span>, since the misses are as
+            informative as the hits. Maturity proximity is the instructive one: loans maturing in 1–2
+            years default at 3.3× the base rate, but adding it makes the portfolio forecast{" "}
+            <span className="text-white">worse</span> — a real borrower-level signal that does not
+            survive aggregation. Also discarded: cross-holder intensity and interaction terms,
+            quarter-over-quarter mark drop, syndication breadth, second-lien and subordinated flags,
+            position size, spread cuts, maturity extensions, and the HY OAS credit cycle (inverted —
+            wide-spread quarters were followed by lower formation, not higher). Coupon and PIK share
+            parse on only 8% and 7% of positions, too sparse to use.
             {dir ? ` The optional next-quarter columns are far weaker (AUC ${dir.auc.toFixed(2)}); they are kept for continuity, not confidence.` : ""}
           </p>
         </div>
