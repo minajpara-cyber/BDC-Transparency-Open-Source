@@ -51,6 +51,90 @@ export const naForecast: NaForecastRow[] = [
   {"ticker": "TSLX", "period_end": "2026-06-30", "na_now": 1.92, "na_mean8": 2.636, "wl_high_pct": 0.017, "has_watchlist": true, "q1_label": "2026-Q3", "na_q1": 2.172, "lo_q1": 1.474, "hi_q1": 3.128, "q2_label": "2026-Q4", "na_q2": 2.176, "lo_q2": 1.305, "hi_q2": 3.453, "p_rise": 0.147, "xh_pp": 0.017, "b90_pp": 3.996, "form_4q": 0.924, "form_lo": 0.0, "form_hi": 3.293, "form_trailing": 0.158}
 ];
 
+// Predicted loss content by quartile, per quarter, across the whole BDC
+// universe. Quartiles are cut WITHIN each quarter (a pooled cut would just
+// re-rank the universe by calendar time), equal-weighted across the BDCs in
+// each bucket. `actual` is the realised 4-quarter formation for the same
+// BDCs and is only populated where four quarters have since elapsed.
+export interface NaQuartilePoint {
+  period_end: string; q: number; pred: number; actual: number | null; n: number;
+}
+
+export const naQuartileSeries: NaQuartilePoint[] = [
+  {"period_end": "2022-03-31", "q": 1, "pred": 0.167, "actual": 0.0, "n": 4},
+  {"period_end": "2022-03-31", "q": 2, "pred": 0.201, "actual": 0.297, "n": 4},
+  {"period_end": "2022-03-31", "q": 3, "pred": 0.244, "actual": 1.567, "n": 3},
+  {"period_end": "2022-03-31", "q": 4, "pred": 0.633, "actual": 1.277, "n": 4},
+  {"period_end": "2022-06-30", "q": 1, "pred": 0.263, "actual": 0.0, "n": 4},
+  {"period_end": "2022-06-30", "q": 2, "pred": 0.297, "actual": 0.046, "n": 4},
+  {"period_end": "2022-06-30", "q": 3, "pred": 0.36, "actual": 1.05, "n": 4},
+  {"period_end": "2022-06-30", "q": 4, "pred": 0.757, "actual": 2.695, "n": 4},
+  {"period_end": "2022-09-30", "q": 1, "pred": 0.274, "actual": 0.552, "n": 5},
+  {"period_end": "2022-09-30", "q": 2, "pred": 0.305, "actual": 0.0, "n": 4},
+  {"period_end": "2022-09-30", "q": 3, "pred": 0.4, "actual": 0.574, "n": 4},
+  {"period_end": "2022-09-30", "q": 4, "pred": 1.088, "actual": 2.605, "n": 4},
+  {"period_end": "2022-12-31", "q": 1, "pred": 0.295, "actual": 0.0, "n": 5},
+  {"period_end": "2022-12-31", "q": 2, "pred": 0.344, "actual": 0.054, "n": 4},
+  {"period_end": "2022-12-31", "q": 3, "pred": 0.561, "actual": 2.678, "n": 4},
+  {"period_end": "2022-12-31", "q": 4, "pred": 1.283, "actual": 3.425, "n": 4},
+  {"period_end": "2023-03-31", "q": 1, "pred": 0.355, "actual": 0.067, "n": 5},
+  {"period_end": "2023-03-31", "q": 2, "pred": 0.427, "actual": 0.174, "n": 4},
+  {"period_end": "2023-03-31", "q": 3, "pred": 0.591, "actual": 2.917, "n": 4},
+  {"period_end": "2023-03-31", "q": 4, "pred": 1.532, "actual": 2.967, "n": 5},
+  {"period_end": "2023-06-30", "q": 1, "pred": 0.415, "actual": 0.112, "n": 5},
+  {"period_end": "2023-06-30", "q": 2, "pred": 0.504, "actual": 0.0, "n": 4},
+  {"period_end": "2023-06-30", "q": 3, "pred": 0.66, "actual": 4.906, "n": 4},
+  {"period_end": "2023-06-30", "q": 4, "pred": 2.074, "actual": 3.392, "n": 5},
+  {"period_end": "2023-09-30", "q": 1, "pred": 0.496, "actual": 0.488, "n": 5},
+  {"period_end": "2023-09-30", "q": 2, "pred": 0.689, "actual": 0.0, "n": 4},
+  {"period_end": "2023-09-30", "q": 3, "pred": 1.089, "actual": 3.286, "n": 4},
+  {"period_end": "2023-09-30", "q": 4, "pred": 2.311, "actual": 3.392, "n": 5},
+  {"period_end": "2023-12-31", "q": 1, "pred": 0.584, "actual": 0.662, "n": 5},
+  {"period_end": "2023-12-31", "q": 2, "pred": 0.729, "actual": 1.946, "n": 4},
+  {"period_end": "2023-12-31", "q": 3, "pred": 1.262, "actual": 1.211, "n": 4},
+  {"period_end": "2023-12-31", "q": 4, "pred": 3.351, "actual": 2.123, "n": 5},
+  {"period_end": "2024-03-31", "q": 1, "pred": 0.699, "actual": 0.592, "n": 5},
+  {"period_end": "2024-03-31", "q": 2, "pred": 0.909, "actual": 0.0, "n": 4},
+  {"period_end": "2024-03-31", "q": 3, "pred": 1.328, "actual": 2.325, "n": 4},
+  {"period_end": "2024-03-31", "q": 4, "pred": 3.28, "actual": 3.725, "n": 5},
+  {"period_end": "2024-06-30", "q": 1, "pred": 0.735, "actual": 0.371, "n": 5},
+  {"period_end": "2024-06-30", "q": 2, "pred": 0.928, "actual": 0.285, "n": 4},
+  {"period_end": "2024-06-30", "q": 3, "pred": 1.87, "actual": 1.058, "n": 4},
+  {"period_end": "2024-06-30", "q": 4, "pred": 3.799, "actual": 4.313, "n": 5},
+  {"period_end": "2024-09-30", "q": 1, "pred": 0.743, "actual": 0.073, "n": 5},
+  {"period_end": "2024-09-30", "q": 2, "pred": 0.93, "actual": 0.219, "n": 4},
+  {"period_end": "2024-09-30", "q": 3, "pred": 1.536, "actual": 1.251, "n": 4},
+  {"period_end": "2024-09-30", "q": 4, "pred": 3.562, "actual": 4.292, "n": 5},
+  {"period_end": "2024-12-31", "q": 1, "pred": 0.688, "actual": 0.0, "n": 5},
+  {"period_end": "2024-12-31", "q": 2, "pred": 0.985, "actual": 0.357, "n": 5},
+  {"period_end": "2024-12-31", "q": 3, "pred": 1.599, "actual": 1.602, "n": 4},
+  {"period_end": "2024-12-31", "q": 4, "pred": 3.014, "actual": 4.91, "n": 5},
+  {"period_end": "2025-03-31", "q": 1, "pred": 0.64, "actual": 0.03, "n": 5},
+  {"period_end": "2025-03-31", "q": 2, "pred": 0.926, "actual": 1.058, "n": 4},
+  {"period_end": "2025-03-31", "q": 3, "pred": 1.565, "actual": 1.962, "n": 4},
+  {"period_end": "2025-03-31", "q": 4, "pred": 3.674, "actual": 3.769, "n": 5},
+  {"period_end": "2025-06-30", "q": 1, "pred": 0.756, "actual": 0.082, "n": 5},
+  {"period_end": "2025-06-30", "q": 2, "pred": 1.05, "actual": 0.418, "n": 5},
+  {"period_end": "2025-06-30", "q": 3, "pred": 1.631, "actual": 2.819, "n": 4},
+  {"period_end": "2025-06-30", "q": 4, "pred": 3.447, "actual": 2.511, "n": 5},
+  {"period_end": "2025-09-30", "q": 1, "pred": 0.749, "actual": null, "n": 5},
+  {"period_end": "2025-09-30", "q": 2, "pred": 1.155, "actual": null, "n": 5},
+  {"period_end": "2025-09-30", "q": 3, "pred": 1.727, "actual": null, "n": 4},
+  {"period_end": "2025-09-30", "q": 4, "pred": 3.239, "actual": null, "n": 5},
+  {"period_end": "2025-12-31", "q": 1, "pred": 0.763, "actual": null, "n": 5},
+  {"period_end": "2025-12-31", "q": 2, "pred": 1.18, "actual": null, "n": 5},
+  {"period_end": "2025-12-31", "q": 3, "pred": 1.759, "actual": null, "n": 4},
+  {"period_end": "2025-12-31", "q": 4, "pred": 3.683, "actual": null, "n": 5},
+  {"period_end": "2026-03-31", "q": 1, "pred": 0.922, "actual": null, "n": 5},
+  {"period_end": "2026-03-31", "q": 2, "pred": 1.286, "actual": null, "n": 5},
+  {"period_end": "2026-03-31", "q": 3, "pred": 2.137, "actual": null, "n": 4},
+  {"period_end": "2026-03-31", "q": 4, "pred": 3.612, "actual": null, "n": 5},
+  {"period_end": "2026-06-30", "q": 1, "pred": 1.015, "actual": null, "n": 5},
+  {"period_end": "2026-06-30", "q": 2, "pred": 1.349, "actual": null, "n": 5},
+  {"period_end": "2026-06-30", "q": 3, "pred": 2.03, "actual": null, "n": 4},
+  {"period_end": "2026-06-30", "q": 4, "pred": 3.369, "actual": null, "n": 5}
+];
+
 export const naFcMeta = {
   "generated": "2026-08-25",
   "shrink_k": 0.35,

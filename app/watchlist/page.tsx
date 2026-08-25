@@ -20,6 +20,7 @@ import { watchlist, WatchlistRow } from "@/data/early_warning";
 import { watchlistByManager, watchlistByTicker } from "@/data/early_warning_history";
 import CreditHeatmap from "@/components/CreditHeatmap";
 import NaForecastTable from "@/components/NaForecastTable";
+import NaQuartileTrend from "@/components/NaQuartileTrend";
 import { signalBacktest } from "@/data/signal_backtest";
 import { ewsRows, ewsMeta } from "@/data/early_warning_scores";
 
@@ -494,6 +495,11 @@ export default function WatchlistPage() {
       {/* Where the watchlist is pointing: forward non-accrual rate */}
       <section className="mb-8">
         <NaForecastTable />
+      </section>
+
+      {/* How the distribution of predicted stress has moved, universe-wide */}
+      <section className="mb-8">
+        <NaQuartileTrend />
       </section>
 
       {/* BDC x quarter severity grid */}
