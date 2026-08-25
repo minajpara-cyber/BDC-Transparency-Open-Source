@@ -52,8 +52,9 @@ export default function NaForecastTable() {
             <p className="text-xs mt-1 max-w-4xl" style={{ color: "#8b8ba8" }}>
               For each BDC, the share of today&apos;s cost expected to go{" "}
               <span className="text-white">newly</span> non-accrual over the next four quarters —
-              cost-weighting every performing borrower by the historical conversion rate of its stress
-              bucket, blended with the BDC&apos;s own trailing year and calibrated. This is a{" "}
+              scoring every performing borrower on mark, PIK, modification, cross-holder and loan-age
+              signals, aggregating cost-weighted, then blending with the BDC&apos;s own trailing year
+              and calibrating. This is a{" "}
               <span className="text-white">ranking tool</span>: sorted into quartiles, realised
               formation runs{" "}
               {fm ? fm.quartiles.map((q) => `${q.actual.toFixed(2)}%`).join(" / ") : "—"} from lowest
@@ -181,12 +182,16 @@ export default function NaForecastTable() {
             year is good.
           </p>
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-            <span className="text-white">What drives it.</span> Every performing borrower is
-            cost-weighted by the historical 4-quarter conversion rate of its stress bucket: cross-held
-            names already non-accrual elsewhere convert at ~28–34%, sub-90¢ marks at 5.4%, 90–95¢ at
-            3.3%, and everything else at 0.2%. Because the clean bucket is ~88% of cost, most of the
-            expected total comes from the unremarkable middle of the book, not the obvious problems —
-            which is exactly why a screen of just the distressed names understates what is coming.
+            <span className="text-white">What drives it.</span> Ten borrower-level signals, fitted
+            cost-weighted. The lifts alone are misleading — what matters is lift × how much cost the
+            signal covers. Being non-accrual at another BDC is the sharpest signal we have (31.6%
+            convert, 41× the base rate) but touches only 0.2% of cost, so it barely moves a portfolio
+            total. The work is done by the broad middle: cash→PIK flips (6.3% of cost, 4.6×), par
+            haircuts (12.0%, 2.5×), any modification (16.6%, 2.4×) and loans aged 4–5 years (11.6%,
+            3.4×). Loan age earns its place independently — dropping vintage costs ~0.03 of forecast
+            correlation, so seasoning carries information the marks do not. Tested and discarded as
+            adding nothing: cross-holder intensity, a cross-holder × sub-90¢ interaction, and
+            quarter-over-quarter mark drop.
             {dir ? ` The optional next-quarter columns are far weaker (AUC ${dir.auc.toFixed(2)}); they are kept for continuity, not confidence.` : ""}
           </p>
         </div>
