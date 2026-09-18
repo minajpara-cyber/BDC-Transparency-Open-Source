@@ -11,6 +11,7 @@ import BDCHoldingsTable from "@/components/BDCHoldingsTable";
 import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { hasReportedSize, reportedCostB, reportedFvB, reportedMarkPct } from "@/lib/quarterCoverage";
+import { sizeCaveatFor } from "@/lib/reliability";
 import { ewsByBdc, ewsTopByBdc, ewsMeta, ewsHistory } from "@/data/early_warning_scores";
 import { holdingsAsOfByTicker } from "@/data/bdc_holdings";
 import EwsTrendChart from "@/components/EwsTrendChart";
@@ -60,7 +61,13 @@ export default async function BDCDetailPage({ params }: PageProps) {
   // parsed. Several BDCs open (or, at OCSL and OCIC, run for years) on rows
   // where a size field came out 0, and measuring "change since start" from one
   // of those reports the whole portfolio as growth.
-  const tlSized        = timelineRows.filter(hasReportedSize);
+  // A quarter under a size caveat is a partial parse, so it cannot serve as a
+  // baseline either: BCRED's pre-2024-09 quarters carry nearly twice the cost
+  // BCRED files with the SEC, which would make "change since start" negative
+  // on a fund that grew.
+  const tlSized        = timelineRows.filter(
+    (r) => hasReportedSize(r) && !sizeCaveatFor(r.ticker, r.period_end),
+  );
   const tlSizedFirst   = tlSized[0];
   const tlSizedLast    = tlSized[tlSized.length - 1];
   const tlFvChangeB    = tlSizedFirst && tlSizedLast ? tlSizedLast.total_fv_b - tlSizedFirst.total_fv_b : 0;
@@ -814,6 +821,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
                     const costB = reportedCostB(r);
                     const fvB = reportedFvB(r);
                     const markPct = reportedMarkPct(r);
+                    // Quarters the repo already flags as a partial parse are
+                    // shown muted rather than as plain fact.
+                    const caveat = sizeCaveatFor(r.ticker, r.period_end);
                     const ratioColor = markPct === null
                       ? "#6b7280"
                       : markPct >= 100 ? "#22c55e" : markPct >= 97 ? "#eab308" : "#ef4444";
@@ -821,9 +831,12 @@ export default async function BDCDetailPage({ params }: PageProps) {
                       <tr
                         key={r.period_end}
                         className="border-t"
+                        title={caveat ? `Partial coverage: ${caveat.reason}` : undefined}
                         style={{
                           borderColor: "#1a1a28",
                           background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                          opacity: caveat ? 0.55 : 1,
+                          fontStyle: caveat ? "italic" : "normal",
                         }}
                       >
                         <td className="px-4 py-2.5 font-mono text-xs text-white">{r.period_end}</td>
