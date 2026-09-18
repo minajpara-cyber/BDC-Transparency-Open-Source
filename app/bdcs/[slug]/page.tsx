@@ -634,9 +634,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
                 <div className="text-xs" style={{ color: "#6b7280" }}>over ~2 quarters</div>
               </div>
               <div>
-                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>High-score positions</div>
-                <div className="text-xl font-bold text-white">{mine.n_hi}</div>
-                <div className="text-xs" style={{ color: "#6b7280" }}>{mine.pct_book_hi.toFixed(1)}% of book at score ≥5</div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Book at score ≥5</div>
+                <div className="text-xl font-bold text-white">{mine.pct_book_hi.toFixed(1)}%</div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>{mine.n_hi} of {mine.n_scored} positions</div>
               </div>
               <div>
                 <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Rank among 19 BDCs</div>

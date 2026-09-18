@@ -495,10 +495,21 @@ export default function CreditPage() {
     .filter(isQuarterEnd)
     .sort()
     .slice(-8);
+  // Within a quarter the table is ordered by severity, and severity here means
+  // the share of eligible cost that flipped severely — the column the table
+  // actually prints and colours. It used to order on new_severe, a COUNT of
+  // severe flips, which ranks funds by how finely their book is cut into
+  // positions rather than by how much money moved: positions per $B of book
+  // run from 13 (OCIC) to 295 (CCAP) across the nineteen, so a count puts the
+  // small-ticket lenders on top whatever their dollars did.
   const severityTableRows = pikModifications
     .filter((r) => recentPeriods.includes(r.period_end) && isReliable(r.ticker, r.period_end, "pik"))
     .filter((r) => r.new_minimal + r.new_moderate + r.new_severe > 0)
-    .sort((a, b) => (b.period_end.localeCompare(a.period_end)) || (b.new_severe - a.new_severe));
+    .sort(
+      (a, b) =>
+        b.period_end.localeCompare(a.period_end) ||
+        b.pct_new_severe_cost - a.pct_new_severe_cost,
+    );
 
   // ---------- Stressed-loans table (C.3) ----------
   // Latest quarter present in the stressed-positions extract. Pick the top-20
