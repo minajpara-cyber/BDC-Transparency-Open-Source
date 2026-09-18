@@ -17,7 +17,7 @@ const METRIC_META: Record<Metric, { label: string; sub: string; color: string }>
   },
   pct_ever_modified: {
     label: "% Cost Ever Modified (multi-signal)",
-    sub: "Cumulative — share of vintage cost that has experienced ANY modification event by age T: cash→PIK flip, maturity extension (>180 days), par haircut (>15% drop, cross-BDC corroborated), or spread cut (>50bps). Captures restructuring activity broader than non-accrual.",
+    sub: "Cumulative — share of vintage cost that has experienced ANY modification event by age T: a material cash→PIK flip (PIK ≥20% of the coupon, after 2+ cash-pay quarters), a maturity extension (>6 months, tracked on the same tranche even when the maturity year changes), a par haircut (>15% cut at a stressed mark, on non-accrual, or with equity received — not a repayment), a spread cut (>50bps of spread, not base-rate moves), or a lien downgrade. Captures restructuring activity broader than non-accrual.",
     color: "#a855f7",
   },
   pct_ever_na: {

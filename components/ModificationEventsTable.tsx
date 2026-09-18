@@ -63,10 +63,12 @@ export default function ModificationEventsTable({ events }: { events: Modificati
       <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
         <h3 className="font-semibold text-white text-sm">Recent loan modifications — named events</h3>
         <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-          Specific loans modified each quarter, beyond cash→PIK: amend-and-extends
-          (maturity pushed out &gt; 6 months), spread cuts (&gt; 50 bps), and PIK flips.
-          A par cut is shown only when it accompanies another signal (a par drop alone
-          is dominated by benign paydowns). Click a borrower for its cross-BDC history.
+          Specific loans modified each quarter: amend-and-extends (maturity pushed out
+          &gt; 6 months), spread cuts (&gt; 50 bps of spread), cash→PIK flips (PIK at least
+          a fifth of the coupon, after two or more cash-pay quarters) and par cuts (&gt; 15%,
+          only at a stressed mark, on non-accrual, or with equity received — a par drop at a
+          healthy mark is a repayment). Each loan tranche is followed quarter to quarter
+          even when its maturity or label changes. Click a borrower for its cross-BDC history.
         </p>
         <div className="flex flex-wrap items-center gap-3 mt-3">
           {/* Period selector */}

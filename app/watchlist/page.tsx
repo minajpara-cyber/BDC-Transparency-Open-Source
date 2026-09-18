@@ -285,9 +285,10 @@ export default function WatchlistPage() {
         <p className="text-sm max-w-3xl" style={{ color: "#9ca3af" }}>
           Positions that are <span className="text-white">deteriorating but not yet on non-accrual</span> — the leading
           edge of credit problems. Each loan gets a composite stress score from its mark level &amp; trajectory, cash→PIK
-          flips, amend-and-extends and spread cuts, then is ranked by dollars at risk. The score is back-tested below:
-          loans flagged <span style={{ color: TIER_COLOR.High }}>High</span> have historically gone non-accrual within a
-          year {highBacktest && baseRate
+          flips, severe PIK, amend-and-extends and non-accrual at other BDCs, then is ranked by dollars at risk. The score
+          is back-tested below:
+          the borrowers of loans flagged <span style={{ color: TIER_COLOR.High }}>High</span>{" "}have historically gone
+          non-accrual at that BDC within a year {highBacktest && baseRate
             ? <span className="text-white">{highBacktest.lift_na}× as often as the average position</span>
             : "far more often than average"}.
         </p>
@@ -593,8 +594,12 @@ export default function WatchlistPage() {
         />
         <p className="text-xs mt-4 max-w-3xl" style={{ color: "#6b6b88" }}>
           Methodology &amp; caveats: a position scores on mark band (&lt;90¢/&lt;80¢), a ≥3pt quarterly mark slide
-          (steeper if sustained two quarters), a cash→PIK flip, severe PIK, an amend-and-extend, or a spread cut.
-          Par cuts count only alongside another signal (a &gt;15% par drop alone is dominated by benign amortization).
+          (steeper if sustained two quarters), a cash→PIK flip, severe PIK, non-accrual at another BDC, and — lightly —
+          an amend-and-extend. Spread cuts are shown as a tag but no longer score: measured on the contractual spread they
+          are mostly healthy repricings (1.3× lift), not stress.
+          A par cut (&gt;15%, only at a stressed mark or with equity received) adds points only alongside another
+          signal. Every signal is measured on the same loan tranche quarter to quarter, which is followed through
+          maturity extensions and label changes.
           Already-non-accrual and effectively-written-off (&lt;2¢) positions are excluded, as is preferred equity
           (structurally PIK). JV/structured vehicles are hidden by default. MFIC discloses no per-position non-accrual
           flag, so a few of its names may be under-excluded. Back-test base rates are weighted to 2018+ where loan

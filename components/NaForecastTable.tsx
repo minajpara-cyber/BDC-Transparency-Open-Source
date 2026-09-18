@@ -186,11 +186,13 @@ export default function NaForecastTable() {
             cost-weighted. The lifts alone are misleading — what matters is lift × how much cost the
             signal covers. Being non-accrual at another BDC is the sharpest signal we have (72%
             convert within a year, 61× the base rate) but touches only 0.1% of cost, so it barely
-            moves a portfolio total. Most of the work is done by the broad middle: marks of 80–95¢
-            (7.0% of cost, 4–10×), cash→PIK flips (5.4%, 4.7×), any modification (15.4%, 2.4×), par
-            haircuts (11.6%, 1.9×), loans aged 4–5 years (10.1%, 3.2×), severe PIK (4.2%, 3.0×) and
-            equity/warrant paper (9.5%, 1.7×). A borrower that has been on non-accrual at{" "}
-            <span className="text-white">this</span> BDC before earns its place despite tiny coverage
+            moves a portfolio total. Most of the work is done by signals that are both sharp and broad:
+            marks of 80–95¢ (7.0% of cost, 4–10×), cash→PIK flips (3.4%, 6.0×), loans aged 4–5 years
+            (10.1%, 3.2×), severe PIK (4.2%, 3.0×) and equity/warrant paper (9.5%, 1.7×). Stressed par
+            haircuts are sharp (3.4×) but rare. A generic &quot;any modification&quot; flag is now weak (1.3×) —
+            once amend-and-extends and repricings are tracked correctly, most modifications turn out to be
+            healthy refinancings. A borrower that has been on non-accrual at{" "}
+            <span className="text-white">this</span>{" "}BDC before earns its place despite tiny coverage
             (11× lift).
           </p>
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
