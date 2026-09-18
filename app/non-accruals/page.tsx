@@ -6,7 +6,7 @@ import AlertBadge from "@/components/AlertBadge";
 import { portfolioCompanies } from "@/data/companies";
 import { recentAlerts } from "@/data/market";
 import { enrichedBDCs } from "@/lib/enrichBDC";
-import { fmtMeasured, sumMeasured } from "@/lib/maybeNumber";
+import { fmtMeasured, measured, sumMeasured } from "@/lib/maybeNumber";
 import {
   currentNonAccruals,
   nonAccrualFlow,
@@ -350,7 +350,7 @@ export default function NonAccrualsPage() {
                       }}
                     >
                       <span className="font-bold">{h.ticker}</span>
-                      <span style={{ color: "#d1d5db" }}>${h.fv_m.toFixed(1)}M</span>
+                      <span style={{ color: "#d1d5db" }}>{measured(h.fv_m) === null ? "—" : `$${(h.fv_m as number).toFixed(1)}M`}</span>
                       {h.mark_at_par != null && (
                         <span style={{ color: "#8b8ba8" }}>· {(h.mark_at_par * 100).toFixed(0)}¢</span>
                       )}

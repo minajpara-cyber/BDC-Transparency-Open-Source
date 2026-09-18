@@ -593,7 +593,15 @@ export default async function BDCDetailPage({ params }: PageProps) {
         const mine = ewsByBdc.find((r) => r.ticker === bdc.ticker);
         if (!mine) return null;
         const ind = ewsByBdc.find((r) => r.ticker === "industry");
-        const peers = ewsByBdc.filter((r) => r.ticker !== "industry");
+        // Rank on the value being ranked. This read the position of the fund in
+        // the exported array, which is right only for as long as the export
+        // happens to emit its rows in descending implied_na_2q_pct — an
+        // incidental property of a file the pipeline writes, not a guarantee.
+        // A run that emitted the same rows in another order would renumber
+        // every fund page silently: nothing throws, nothing fails to build.
+        const peers = [...ewsByBdc]
+          .filter((r) => r.ticker !== "industry")
+          .sort((a, b) => b.implied_na_2q_pct - a.implied_na_2q_pct);
         const rank = peers.findIndex((r) => r.ticker === bdc.ticker) + 1;
         const queue = ewsTopByBdc.filter((r) => r.ticker === bdc.ticker);
         const vsInd = ind ? mine.implied_na_2q_pct / Math.max(ind.implied_na_2q_pct, 0.0001) : null;
