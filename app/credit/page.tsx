@@ -19,6 +19,7 @@ import ModificationEventsTable from "@/components/ModificationEventsTable";
 import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
 import { stressedPositions } from "@/data/stressed_positions";
+import { fmtMeasured } from "@/lib/maybeNumber";
 import { borrowers } from "@/data/borrowers_index";
 import { borrowerHistory } from "@/data/borrowers_history";
 import { pikCascade } from "@/data/pik_cascade";
@@ -507,9 +508,14 @@ export default function CreditPage() {
     .map((p) => p.period_end)
     .sort()
     .pop() ?? "";
+  // A position whose cost or fair value did not parse cannot be ranked by the
+  // difference between them, and a table headed "biggest markdowns" has no
+  // honest place to put one. Those rows are left out of the ranking rather
+  // than shown at an arbitrary rank with a dash in the column being sorted on.
   const topStressed = stressedPositions
     .filter((p) => p.period_end === stressedLatestPeriod)
-    .map((p) => ({ ...p, markdown_m: p.cost_m - p.fv_m }))
+    .filter((p) => typeof p.cost_m === "number" && typeof p.fv_m === "number")
+    .map((p) => ({ ...p, markdown_m: (p.cost_m as number) - (p.fv_m as number) }))
     .sort((a, b) => b.markdown_m - a.markdown_m)
     .slice(0, 25);
 
@@ -1088,10 +1094,10 @@ export default function CreditPage() {
               <span style={{ color: "#9ca3af" }}>{r.investment_type ?? "—"}</span>
             ) },
             { key: "cost_m", label: "Cost ($M)", align: "right", render: (r) => (
-              <span className="font-mono" style={{ color: "#fafafa" }}>{r.cost_m.toFixed(1)}</span>
+              <span className="font-mono" style={{ color: "#fafafa" }}>{fmtMeasured(r.cost_m)}</span>
             ) },
             { key: "fv_m", label: "FV ($M)", align: "right", render: (r) => (
-              <span className="font-mono" style={{ color: "#fafafa" }}>{r.fv_m.toFixed(1)}</span>
+              <span className="font-mono" style={{ color: "#fafafa" }}>{fmtMeasured(r.fv_m)}</span>
             ) },
             { key: "markdown_m", label: "Markdown ($M)", align: "right", render: (r) => (
               <span className="font-mono font-semibold" style={{ color: "#fca5a5" }}>{r.markdown_m.toFixed(1)}</span>

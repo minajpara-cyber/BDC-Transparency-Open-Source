@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { X } from "lucide-react";
 import { stressedPositions, StressedPosition } from "@/data/stressed_positions";
 import { effectiveMark } from "@/lib/parFromDescription";
+import { byMeasured } from "@/lib/maybeNumber";
 
 type FlagKey = "f_na" | "f_below_95" | "f_below_90" | "f_below_80" | "f_pik";
 
@@ -43,7 +44,7 @@ export default function LoanDetailsModal({
 
   const rows = stressedPositions
     .filter((p) => p.ticker === ticker && p.period_end === period_end && p[flagKey] === 1)
-    .sort((a, b) => b.cost_m - a.cost_m);
+    .sort(byMeasured((p) => p.cost_m));
 
   const fmtNum = (n: number | null | undefined, d = 1) =>
     n === null || n === undefined ? "—" : n.toFixed(d);
