@@ -14,7 +14,8 @@
 import { bdcs, BDC } from "@/data/bdcs";
 import { bdcsHistory, BDCQuarter } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
-import { hasReportedSize } from "@/lib/quarterCoverage";
+import { hasReportedSize, naRateNeverObserved } from "@/lib/quarterCoverage";
+import { creditQuality } from "@/data/credit_quality";
 
 export interface BDCEnriched extends BDC {
   asOf?: string;                  // 'YYYY-MM-DD' from parsed data
@@ -49,15 +50,29 @@ export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriche
   if (rows.length === 0) return bdc;
   const latest = rows[rows.length - 1];
   const prior = rows.length >= 2 ? rows[rows.length - 2] : null;
+
+  // Where this BDC's non-accrual series never fires at all, it is a signal that
+  // did not reach the filer rather than a clean book, so read the rate from
+  // credit_quality, which does carry it. MFIC is the case: 0.00 in all 35
+  // bdcs_history quarters, 4.6% in credit_quality for the same latest quarter.
+  const naFromHistory = !naRateNeverObserved(bdc.ticker);
+  const cqAt = (p: string) =>
+    creditQuality.find((c) => c.ticker === bdc.ticker && c.period_end === p)?.pct_non_accrual;
+  const naLatest = naFromHistory ? latest.na_pct_at_cost : cqAt(latest.period_end);
+  const naPrior = prior
+    ? (naFromHistory ? prior.na_pct_at_cost : cqAt(prior.period_end))
+    : undefined;
+
   return {
     ...bdc,
     portfolioFairValue: latest.total_fv_b,
-    nonAccrualRate: latest.na_pct_at_cost,
+    // Falls back to the hand-entered figure when neither source measured it.
+    nonAccrualRate: naLatest ?? bdc.nonAccrualRate,
     pikRate: latest.pik_pct_at_cost,
     asOf: latest.period_end,
     parsed: true,
     delta_fv_b:   prior ? latest.total_fv_b      - prior.total_fv_b      : null,
-    delta_na_pct: prior ? latest.na_pct_at_cost  - prior.na_pct_at_cost  : null,
+    delta_na_pct: naLatest !== undefined && naPrior !== undefined ? naLatest - naPrior : null,
     delta_pik_pct: prior ? latest.pik_pct_at_cost - prior.pik_pct_at_cost : null,
   };
 }

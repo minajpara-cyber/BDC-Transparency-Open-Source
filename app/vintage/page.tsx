@@ -417,7 +417,10 @@ export default function VintagePage() {
             <span>
               High-confidence vintage only{" "}
               <span style={{ color: "#6b6b88" }}>
-                (HIGH+MED tier: stable acq_date across quarters & holders; default on — see methodology)
+                (HIGH+MED tier, dated from the acquisition date the filer disclosed; default on.
+                Those dates are frequently retagged when a loan is amended or refinanced, which
+                moves loans into later vintages than they belong to, so this tier is more
+                consistent than the alternative rather than known to be right — see methodology)
               </span>
             </span>
           </label>
