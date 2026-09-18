@@ -7,9 +7,10 @@ const tabs = [
   { href: "/vintage", label: "Vintage" },
   { href: "/maturity", label: "Maturity" },
   { href: "/non-accruals", label: "Non-accruals" },
+  { href: "/income", label: "PIK & dividends" },
 ];
 
-/** Tab strip shared by the four credit-section pages so they read as one hub. */
+/** Tab strip shared by the credit-section pages so they read as one hub. */
 export default function CreditNav() {
   const pathname = usePathname();
   return (
