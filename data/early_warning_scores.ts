@@ -34,7 +34,7 @@ export const ewsMeta = {
     "mark_below_90": 8.56,
     "mark_drop_3pt": 6.81,
     "pik_flip": 3.41,
-    "modified": 1.06,
+    "modified": 1.08,
     "xholder_na": 6.7,
     "junior": 1.09
   },

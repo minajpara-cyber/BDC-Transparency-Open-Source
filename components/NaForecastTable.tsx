@@ -2,8 +2,8 @@
 
 // Forward non-accrual view. The headline is EXPECTED NEW NON-ACCRUAL FORMATION
 // OVER FOUR QUARTERS, not next quarter's rate: the signals predict defaults, and
-// defaults take time to arrive. Forecast-to-outcome correlation runs +0.09 at one
-// quarter against +0.47 at four, so the longer horizon is the honest one.
+// defaults take time to arrive. Forecast-to-outcome correlation runs +0.30 at one
+// quarter against +0.53 at four, so the longer horizon is the honest one.
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { naForecast, naFcMeta } from "@/data/na_forecast";
@@ -175,33 +175,47 @@ export default function NaForecastTable() {
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
             The ranking is the robust part — correlation of forecast to outcome{" "}
             <span className="text-white">{fm.corr >= 0 ? "+" : ""}{fm.corr.toFixed(2)}</span>, against
-            roughly +0.09 for the same build at a one-quarter horizon. Mean absolute error is{" "}
+            roughly +0.30 for the same build at a one-quarter horizon. Mean absolute error is{" "}
             {fm.mean_abs.toFixed(2)}pp on an average outcome of {fm.actual_mean.toFixed(2)}%, so read
             the quartile a BDC sits in, not the decimal. The band is the empirical 10th–90th percentile
             of walk-forward errors and is deliberately asymmetric: a bad year is far worse than a good
             year is good.
           </p>
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-            <span className="text-white">What drives it.</span> Twelve borrower-level signals, fitted
+            <span className="text-white">What drives it.</span> Eleven borrower-level signals, fitted
             cost-weighted. The lifts alone are misleading — what matters is lift × how much cost the
-            signal covers. Being non-accrual at another BDC is the sharpest signal we have (31.6%
-            convert, 41× the base rate) but touches only 0.2% of cost, so it barely moves a portfolio
-            total. Most of the work is done by the broad middle: cash→PIK flips (6.3% of cost, 4.6×),
-            par haircuts (12.0%, 2.5×), any modification (16.6%, 2.4×), loans aged 4–5 years (11.6%,
-            3.4×) and equity/warrant paper (7.7%, 2.0×). Two signals earn their place despite tiny
-            coverage because they are so sharp: cross-holder non-accrual, and a borrower that has been
-            on non-accrual at <span className="text-white">this</span> BDC before (21× lift).
+            signal covers. Being non-accrual at another BDC is the sharpest signal we have (72%
+            convert within a year, 61× the base rate) but touches only 0.1% of cost, so it barely
+            moves a portfolio total. Most of the work is done by the broad middle: marks of 80–95¢
+            (7.0% of cost, 4–10×), cash→PIK flips (5.4%, 4.7×), any modification (15.4%, 2.4×), par
+            haircuts (11.6%, 1.9×), loans aged 4–5 years (10.1%, 3.2×), severe PIK (4.2%, 3.0×) and
+            equity/warrant paper (9.5%, 1.7×). A borrower that has been on non-accrual at{" "}
+            <span className="text-white">this</span> BDC before earns its place despite tiny coverage
+            (11× lift).
+          </p>
+          <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+            <span className="text-white">Corrected September 2026.</span>{" "}Borrowers are now tracked by
+            entity, not by the name string in the filing. Filers mark a non-accrual with a footnote on
+            the company name, so the string changes at the moment of default; keyed on the string, about
+            a third of new non-accruals went uncounted (trailing formation read 0.00% for GBDC, OBDC,
+            CCAP, OTF and OCIC in quarters that had real defaults), and the model&apos;s track record
+            looked better than it was. Everything on this table is re-measured on the corrected history.
+            MFIC is forecast but not scored: it discloses non-accruals only in aggregate, so its
+            realised formation cannot be measured.
           </p>
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
             <span className="text-white">What we tested and threw away</span>, since the misses are as
             informative as the hits. Maturity proximity is the instructive one: loans maturing in 1–2
             years default at 3.3× the base rate, but adding it makes the portfolio forecast{" "}
             <span className="text-white">worse</span> — a real borrower-level signal that does not
-            survive aggregation. Also discarded: cross-holder intensity and interaction terms,
+            survive aggregation. Marks below 80¢ are the same story: still-accruing paper marked that
+            deep converts <span className="text-white">less</span> often than 80–90¢ paper (it tends
+            to be restructured or sold instead), and a separate flag for it made the portfolio
+            forecast worse. Also discarded: cross-holder intensity and interaction terms,
             quarter-over-quarter mark drop, syndication breadth, second-lien and subordinated flags,
             position size, spread cuts, maturity extensions, and the HY OAS credit cycle (inverted —
             wide-spread quarters were followed by lower formation, not higher). Coupon and PIK share
-            parse on only 8% and 7% of positions, too sparse to use.
+            parse on too few positions to use as continuous inputs.
             {dir ? ` The optional next-quarter columns are far weaker (AUC ${dir.auc.toFixed(2)}); they are kept for continuity, not confidence.` : ""}
           </p>
         </div>
