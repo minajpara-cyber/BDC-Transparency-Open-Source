@@ -99,6 +99,8 @@ export default function IncomePage() {
   }, []);
   const drU = defaultRateUniverse[defaultRateUniverse.length - 1];
   const drU1y = defaultRateUniverse.find((u) => u.period_end === shiftYears(drU.period_end, -1));
+  const drPoolN = defaultRateUniverse.filter((u) => u.period_end >= "2019-12-31").map((u) => u.n_bdcs);
+  const drPool = { min: Math.min(...drPoolN), last: drU.n_bdcs };
   const navDefault = [...dividendSupport].sort((a, b) => (a.nav_chg_3y ?? 0) - (b.nav_chg_3y ?? 0))
     .slice(0, 3).map((r) => r.ticker).concat(["MAIN", "HTGC"]);
   const trendDefault = tickers.slice(0, 5);
@@ -202,8 +204,9 @@ export default function IncomePage() {
         <div className="rounded-xl border p-5 mt-4 text-xs leading-relaxed" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#8b8ba8" }}>
           <div className="text-sm font-semibold text-white mb-2">Why published default rates disagree</div>
           <p className="mb-2">
-            The same loan book can honestly produce a &quot;default rate&quot; anywhere from under 2% to over 6%,
-            depending on five choices. <span className="text-white">Stock or flow:</span>{" "}the share of the book
+            The same loan book can honestly produce a &quot;default rate&quot; anywhere from{" "}
+            {Math.min(drU.na_stock_pct, drU.hard_rate, drU.count_rate_hard).toFixed(1)}% to{" "}
+            {Math.max(drU.default_rate, drU.count_rate).toFixed(1)}%, depending on five choices. <span className="text-white">Stock or flow:</span>{" "}the share of the book
             on non-accrual today ({drU.na_stock_pct.toFixed(1)}%) is not a default rate; the share of performing
             loans that defaulted over a year is. <span className="text-white">What counts:</span>{" "}hard defaults
             ({drU.hard_rate.toFixed(1)}%) versus a &quot;shadow&quot; rate that adds lenders&apos; workarounds —
@@ -219,9 +222,9 @@ export default function IncomePage() {
             earlier is followed through the year at the same BDC; it counts once, under its first event. A PIK
             amendment counts only when PIK becomes at least a fifth of the coupon after at least two cash-pay quarters,
             and a modification only when it touches at least a quarter of the borrower&apos;s debt at that BDC. MFIC
-            reports non-accruals only in aggregate, so its rate is partial. The chart starts at the end of 2019,
-            once at least eight BDCs report reliably; the set of BDCs grows from 8 to 18 over the period, so early
-            points rest on fewer books. The 2020 peak is the COVID wave of PIK amendments.
+            reports non-accruals only in aggregate, so its rate is partial. The chart starts at the end of 2019; the
+            pool holds as few as {drPool.min} BDCs in the early years and {drPool.last} today, so early points rest
+            on fewer books. The 2020 peak is the COVID wave of PIK amendments.
           </p>
         </div>
       </section>
