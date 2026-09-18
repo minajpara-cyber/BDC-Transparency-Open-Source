@@ -16,6 +16,12 @@ import IncomeTrendChart from "@/components/IncomeTrendChart";
 import DividendCoverageTable from "@/components/DividendCoverageTable";
 import IncomeMixChart from "@/components/IncomeMixChart";
 import { incomeTtm, incomeQuarterly, incomeUniverse, incomeMeta } from "@/data/income_coverage";
+import DefaultRateChart from "@/components/DefaultRateChart";
+import DefaultRateTable from "@/components/DefaultRateTable";
+import DividendSupportTable from "@/components/DividendSupportTable";
+import NavPerShareChart from "@/components/NavPerShareChart";
+import { defaultRates, defaultRateUniverse } from "@/data/default_rate";
+import { dividendSupport, navPerShare } from "@/data/dividend_support";
 
 type HeatMetric = "pik_pct_nii" | "pik_pct_tii" | "noncash_pct_nii" | "gap";
 
@@ -83,6 +89,18 @@ export default function IncomePage() {
   const worstCash = [...latest].sort((a, b) => (a.cov_ex_pik ?? 9) - (b.cov_ex_pik ?? 9)).slice(0, 3);
 
   const arcc = latest.find((r) => r.ticker === "ARCC");
+  const drLatest = useMemo(() => {
+    const m = new Map<string, (typeof defaultRates)[number]>();
+    for (const r of defaultRates) {
+      const cur = m.get(r.ticker);
+      if (!cur || r.period_end > cur.period_end) m.set(r.ticker, r);
+    }
+    return [...m.values()];
+  }, []);
+  const drU = defaultRateUniverse[defaultRateUniverse.length - 1];
+  const drU1y = defaultRateUniverse.find((u) => u.period_end === shiftYears(drU.period_end, -1));
+  const navDefault = [...dividendSupport].sort((a, b) => (a.nav_chg_3y ?? 0) - (b.nav_chg_3y ?? 0))
+    .slice(0, 3).map((r) => r.ticker).concat(["MAIN", "HTGC"]);
   const trendDefault = tickers.slice(0, 5);
   const coverageDefault = worstCash.map((r) => r.ticker).concat(tickers.slice(-2));
 
@@ -91,7 +109,7 @@ export default function IncomePage() {
       <CreditNav />
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2 flex-wrap">
-          <h1 className="text-2xl font-bold text-white">PIK income &amp; dividend coverage</h1>
+          <h1 className="text-2xl font-bold text-white">PIK income, defaults &amp; dividend coverage</h1>
           <span className="px-2 py-1 rounded text-xs font-medium"
             style={{ background: "#1a1a28", color: "#a5b4fc", border: "1px solid #2d2d50" }}>
             trailing four quarters to {incomeMeta.latest_period}
@@ -161,6 +179,53 @@ export default function IncomePage() {
         </div>
       </section>
 
+      <section id="defaults" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Default rate{" "}
+          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· including the defaults that do not look like defaults</span>
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <StatCard label="Shadow default rate — last 12 months" value={`${drU.default_rate.toFixed(1)}%`}
+            sub={drU1y ? `${drU1y.default_rate.toFixed(1)}% a year earlier · all BDCs pooled, by $` : "all BDCs pooled, by $"}
+            color="#f97316" highlight />
+          <StatCard label="Hard default rate" value={`${drU.hard_rate.toFixed(1)}%`}
+            sub="new non-accruals + distressed exits only" color="#ef4444" />
+          <StatCard label="Shadow rate by borrower count" value={`${drU.count_rate.toFixed(1)}%`}
+            sub={`hard rate by count ${drU.count_rate_hard.toFixed(1)}%`} color="#fde68a" />
+          <StatCard label="Non-accrual stock today" value={`${drU.na_stock_pct.toFixed(1)}%`}
+            sub="point in time, % of cost — not a rate" color="#6b7280" />
+        </div>
+        <DefaultRateChart data={defaultRateUniverse} />
+        <div className="mt-4">
+          <DefaultRateTable rows={drLatest} />
+        </div>
+        <div className="rounded-xl border p-5 mt-4 text-xs leading-relaxed" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#8b8ba8" }}>
+          <div className="text-sm font-semibold text-white mb-2">Why published default rates disagree</div>
+          <p className="mb-2">
+            The same loan book can honestly produce a &quot;default rate&quot; anywhere from under 2% to over 6%,
+            depending on five choices. <span className="text-white">Stock or flow:</span>{" "}the share of the book
+            on non-accrual today ({drU.na_stock_pct.toFixed(1)}%) is not a default rate; the share of performing
+            loans that defaulted over a year is. <span className="text-white">What counts:</span>{" "}hard defaults
+            ({drU.hard_rate.toFixed(1)}%) versus a &quot;shadow&quot; rate that adds lenders&apos; workarounds —
+            switching a struggling borrower to PIK, extending its maturity at a distressed mark, cutting principal,
+            swapping debt for equity ({drU.default_rate.toFixed(1)}%). <span className="text-white">Dollars or
+            borrowers:</span>{" "}a count-based rate ({drU.count_rate.toFixed(1)}%) weights a $5m loan like a $500m
+            one. <span className="text-white">Whose book:</span>{" "}BDCs, private credit funds and broadly syndicated
+            loans have different borrowers. <span className="text-white">Timing:</span>{" "}lenders place loans on
+            non-accrual at different points in a borrower&apos;s decline.
+          </p>
+          <p>
+            <span className="text-white">How this one is built.</span> Every borrower that was performing twelve months
+            earlier is followed through the year at the same BDC; it counts once, under its first event. A PIK
+            amendment counts only when PIK becomes at least a fifth of the coupon after at least two cash-pay quarters,
+            and a modification only when it touches at least a quarter of the borrower&apos;s debt at that BDC. MFIC
+            reports non-accruals only in aggregate, so its rate is partial. The chart starts at the end of 2019,
+            once at least eight BDCs report reliably; the set of BDCs grows from 8 to 18 over the period, so early
+            points rest on fewer books. The 2020 peak is the COVID wave of PIK amendments.
+          </p>
+        </div>
+      </section>
+
       <section id="coverage" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           Can the dividend be covered in cash?{" "}
@@ -178,6 +243,24 @@ export default function IncomePage() {
           />
           <IncomeMixChart rows={incomeQuarterly} defaultTicker={worstCash[0]?.ticker ?? "ARCC"} />
         </div>
+      </section>
+
+      <section id="dividend-support" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Dividend support{" "}
+          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· cushions, NAV trend and warning signs</span>
+        </h2>
+        <DividendSupportTable rows={dividendSupport} />
+        <div className="mt-4">
+          <NavPerShareChart points={navPerShare} defaultTickers={navDefault} />
+        </div>
+        <p className="text-xs mt-3 max-w-4xl" style={{ color: "#6b6b88" }}>
+          PIK collected in cash is shown only where a BDC reports it separately on its cash-flow statement
+          {arcc && arcc.pik_collected_m != null ? ` (ARCC: $${arcc.pik_collected_m.toFixed(0)}m of $${arcc.pik_m.toFixed(0)}m over the last four quarters)` : ""};
+          elsewhere it is folded into repayment proceeds. Spillover comes from each BDC&apos;s 10-K tax note (XBRL),
+          so it is as of the last fiscal year end; TSLX and HTGC do not tag it. NAV per share is split-adjusted;
+          the non-traded BDCs (ADS, ASIF, BCRED, OCIC) use their Class I NAV.
+        </p>
       </section>
 
       <section id="method" className="mb-12 scroll-mt-6">
