@@ -13,9 +13,17 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { crossIssuerDisagreement } from "@/data/non_accrual_events";
 import { managerOf } from "@/lib/managerMap";
+import { measured, type MaybeNumber } from "@/lib/maybeNumber";
 
 const cleanName = (s: string) => s.replace(/\s*\((?:\d+|[a-z])\)(?:\((?:\d+|[a-z])\))*\s*$/i, "").trim();
-const fmtM = (m: number) => (m >= 1000 ? `$${(m / 1000).toFixed(2)}B` : m >= 1 ? `$${m.toFixed(0)}M` : `$${m.toFixed(1)}M`);
+// A holder whose fair value did not parse has no size to print. It is still a
+// holder, and still counts toward the consensus, so the chip stays and only
+// the amount is withheld.
+const fmtM = (v: MaybeNumber) => {
+  const m = measured(v);
+  if (m === null) return "—";
+  return m >= 1000 ? `$${(m / 1000).toFixed(2)}B` : m >= 1 ? `$${m.toFixed(0)}M` : `$${m.toFixed(1)}M`;
+};
 // marks come from fv÷par on the underlying tranches; par is misparsed in a few
 // BDCs (ARCC/GBDC), yielding impossible >110¢ marks. Hide those rather than show "200¢".
 const markStr = (m: number | null) => (m != null && m > 0 && m <= 1.1 ? `${Math.round(m * 100)}¢` : null);

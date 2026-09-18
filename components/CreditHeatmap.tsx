@@ -190,7 +190,7 @@ export default function CreditHeatmap({
                       : v.toFixed(1);
                   const titleText =
                     v === null
-                      ? "no filing"
+                      ? "not reported"
                       : `${ticker} · ${p}: ${unit.toLowerCase().includes("bps") ? Math.round(v) : v.toFixed(2)}${unit}${reliable ? "" : "  (partial coverage)"}${canClick ? "  — click for loan detail" : ""}`;
                   return (
                     <td

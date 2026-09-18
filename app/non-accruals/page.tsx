@@ -6,6 +6,7 @@ import AlertBadge from "@/components/AlertBadge";
 import { portfolioCompanies } from "@/data/companies";
 import { recentAlerts } from "@/data/market";
 import { enrichedBDCs } from "@/lib/enrichBDC";
+import { fmtMeasured, measured, sumMeasured } from "@/lib/maybeNumber";
 import {
   currentNonAccruals,
   nonAccrualFlow,
@@ -13,6 +14,9 @@ import {
 } from "@/data/non_accrual_events";
 
 type SortKey = "ticker" | "company" | "fv_m" | "cost_m" | "par_m" | "mark_at_par";
+
+/** Columns where a missing value means unread rather than zero. */
+const MONEY_KEYS = new Set<SortKey>(["fv_m", "cost_m", "par_m", "mark_at_par"]);
 
 export default function NonAccrualsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("fv_m");
@@ -35,15 +39,24 @@ export default function NonAccrualsPage() {
     return [...rows].sort((a, b) => {
       const av = (a as unknown as Record<string, unknown>)[sortKey];
       const bv = (b as unknown as Record<string, unknown>)[sortKey];
-      if (typeof av === "number" && typeof bv === "number") return sortDir === "desc" ? bv - av : av - bv;
+      // A money column that did not parse is absent, not small. It sorts to
+      // the bottom whichever way the column is pointed, rather than leading a
+      // "smallest first" sort with values nobody measured.
+      const aNum = typeof av === "number", bNum = typeof bv === "number";
+      if (MONEY_KEYS.has(sortKey)) {
+        if (!aNum && !bNum) return 0;
+        if (!aNum) return 1;
+        if (!bNum) return -1;
+      }
+      if (aNum && bNum) return sortDir === "desc" ? (bv as number) - (av as number) : (av as number) - (bv as number);
       return sortDir === "desc"
         ? String(bv ?? "").localeCompare(String(av ?? ""))
         : String(av ?? "").localeCompare(String(bv ?? ""));
     });
   }, [tickerFilter, sortKey, sortDir]);
 
-  const totalFV   = filteredCurrent.reduce((s, r) => s + r.fv_m, 0);
-  const totalCost = filteredCurrent.reduce((s, r) => s + r.cost_m, 0);
+  const totalFV   = sumMeasured(filteredCurrent, (r) => r.fv_m);
+  const totalCost = sumMeasured(filteredCurrent, (r) => r.cost_m);
   const haircut   = totalCost - totalFV;
   const latestPeriod = currentNonAccruals.map((r) => r.period_end).sort().at(-1) ?? "—";
 
@@ -194,9 +207,9 @@ export default function NonAccrualsPage() {
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{r.industry ?? "—"}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{r.investment_type ?? "—"}</td>
-                    <td className="px-4 py-3 text-right text-sm font-medium" style={{ color: "#ef4444" }}>${r.fv_m.toFixed(1)}</td>
-                    <td className="px-4 py-3 text-right text-sm" style={{ color: "#9ca3af" }}>${r.cost_m.toFixed(1)}</td>
-                    <td className="px-4 py-3 text-right text-sm" style={{ color: "#9ca3af" }}>{r.par_m > 0 ? `$${r.par_m.toFixed(1)}` : "—"}</td>
+                    <td className="px-4 py-3 text-right text-sm font-medium" style={{ color: "#ef4444" }}>{fmtMeasured(r.fv_m, 1, "$")}</td>
+                    <td className="px-4 py-3 text-right text-sm" style={{ color: "#9ca3af" }}>{fmtMeasured(r.cost_m, 1, "$")}</td>
+                    <td className="px-4 py-3 text-right text-sm" style={{ color: "#9ca3af" }}>{typeof r.par_m === "number" && r.par_m > 0 ? `$${r.par_m.toFixed(1)}` : "—"}</td>
                     <td className="px-4 py-3 text-right text-sm font-semibold" style={{ color: markColor }}>
                       {markPct != null ? `${markPct.toFixed(1)}¢` : "—"}
                     </td>
@@ -337,7 +350,7 @@ export default function NonAccrualsPage() {
                       }}
                     >
                       <span className="font-bold">{h.ticker}</span>
-                      <span style={{ color: "#d1d5db" }}>${h.fv_m.toFixed(1)}M</span>
+                      <span style={{ color: "#d1d5db" }}>{measured(h.fv_m) === null ? "—" : `$${(h.fv_m as number).toFixed(1)}M`}</span>
                       {h.mark_at_par != null && (
                         <span style={{ color: "#8b8ba8" }}>· {(h.mark_at_par * 100).toFixed(0)}¢</span>
                       )}

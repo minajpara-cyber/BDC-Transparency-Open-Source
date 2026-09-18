@@ -10,7 +10,9 @@ import BDCTimelineChart from "@/components/BDCTimelineChart";
 import BDCHoldingsTable from "@/components/BDCHoldingsTable";
 import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
-import { hasReportedSize, reportedCostB, reportedFvB, reportedMarkPct } from "@/lib/quarterCoverage";
+import { hasReportedSize, reportedCostB, reportedFvB, reportedMarkPct, reportedPositions } from "@/lib/quarterCoverage";
+import { measured } from "@/lib/maybeNumber";
+import { sizeCaveatFor } from "@/lib/reliability";
 import { ewsByBdc, ewsTopByBdc, ewsMeta, ewsHistory } from "@/data/early_warning_scores";
 import { holdingsAsOfByTicker } from "@/data/bdc_holdings";
 import EwsTrendChart from "@/components/EwsTrendChart";
@@ -60,11 +62,25 @@ export default async function BDCDetailPage({ params }: PageProps) {
   // parsed. Several BDCs open (or, at OCSL and OCIC, run for years) on rows
   // where a size field came out 0, and measuring "change since start" from one
   // of those reports the whole portfolio as growth.
-  const tlSized        = timelineRows.filter(hasReportedSize);
+  // A quarter under a size caveat is a partial parse, so it cannot serve as a
+  // baseline either: BCRED's pre-2024-09 quarters carry nearly twice the cost
+  // BCRED files with the SEC, which would make "change since start" negative
+  // on a fund that grew.
+  const tlSized        = timelineRows.filter(
+    (r) => hasReportedSize(r) && !sizeCaveatFor(r.ticker, r.period_end),
+  );
   const tlSizedFirst   = tlSized[0];
   const tlSizedLast    = tlSized[tlSized.length - 1];
-  const tlFvChangeB    = tlSizedFirst && tlSizedLast ? tlSizedLast.total_fv_b - tlSizedFirst.total_fv_b : 0;
-  const tlPositionChg  = tlSizedFirst && tlSizedLast ? tlSizedLast.n_positions - tlSizedFirst.n_positions : 0;
+  // Read the endpoints back through the coverage helpers rather than off the
+  // row. hasReportedSize already guarantees they are there, but only at
+  // runtime, and the export is moving from 0 to null for a size it could not
+  // read — this way the page is right under either.
+  const tlFvFirst      = tlSizedFirst ? reportedFvB(tlSizedFirst) : null;
+  const tlFvLast       = tlSizedLast  ? reportedFvB(tlSizedLast)  : null;
+  const tlPosFirst     = tlSizedFirst ? reportedPositions(tlSizedFirst) : null;
+  const tlPosLast      = tlSizedLast  ? reportedPositions(tlSizedLast)  : null;
+  const tlFvChangeB    = tlFvFirst !== null && tlFvLast !== null ? tlFvLast - tlFvFirst : 0;
+  const tlPositionChg  = tlPosFirst !== null && tlPosLast !== null ? tlPosLast - tlPosFirst : 0;
 
   // ---- Build per-BDC credit slices from our parsed data ---------------------
   const cqRows = creditQuality
@@ -577,7 +593,15 @@ export default async function BDCDetailPage({ params }: PageProps) {
         const mine = ewsByBdc.find((r) => r.ticker === bdc.ticker);
         if (!mine) return null;
         const ind = ewsByBdc.find((r) => r.ticker === "industry");
-        const peers = ewsByBdc.filter((r) => r.ticker !== "industry");
+        // Rank on the value being ranked. This read the position of the fund in
+        // the exported array, which is right only for as long as the export
+        // happens to emit its rows in descending implied_na_2q_pct — an
+        // incidental property of a file the pipeline writes, not a guarantee.
+        // A run that emitted the same rows in another order would renumber
+        // every fund page silently: nothing throws, nothing fails to build.
+        const peers = [...ewsByBdc]
+          .filter((r) => r.ticker !== "industry")
+          .sort((a, b) => b.implied_na_2q_pct - a.implied_na_2q_pct);
         const rank = peers.findIndex((r) => r.ticker === bdc.ticker) + 1;
         const queue = ewsTopByBdc.filter((r) => r.ticker === bdc.ticker);
         const vsInd = ind ? mine.implied_na_2q_pct / Math.max(ind.implied_na_2q_pct, 0.0001) : null;
@@ -618,9 +642,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
                 <div className="text-xs" style={{ color: "#6b7280" }}>over ~2 quarters</div>
               </div>
               <div>
-                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>High-score positions</div>
-                <div className="text-xl font-bold text-white">{mine.n_hi}</div>
-                <div className="text-xs" style={{ color: "#6b7280" }}>{mine.pct_book_hi.toFixed(1)}% of book at score ≥5</div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Book at score ≥5</div>
+                <div className="text-xl font-bold text-white">{mine.pct_book_hi.toFixed(1)}%</div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>{mine.n_hi} of {mine.n_scored} positions</div>
               </div>
               <div>
                 <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Rank among 19 BDCs</div>
@@ -762,15 +786,15 @@ export default async function BDCDetailPage({ params }: PageProps) {
             />
             <StatCard
               label="Latest portfolio"
-              value={tlSizedLast ? `$${tlSizedLast.total_fv_b.toFixed(1)}B` : "—"}
-              sub={tlSizedLast ? `${tlSizedLast.n_positions.toLocaleString()} positions` : "not reported"}
+              value={tlFvLast !== null ? `$${tlFvLast.toFixed(1)}B` : "—"}
+              sub={tlPosLast !== null ? `${tlPosLast.toLocaleString()} positions` : "not reported"}
             />
             <StatCard
               label="FV change since start"
               value={tlSizedFirst && tlSizedLast ? `${tlFvChangeB >= 0 ? "+" : ""}$${tlFvChangeB.toFixed(1)}B` : "—"}
               color={tlFvChangeB >= 0 ? "#22c55e" : "#ef4444"}
               trend={tlFvChangeB >= 0 ? "up" : "down"}
-              trendLabel={tlSizedFirst ? `${((tlFvChangeB / tlSizedFirst.total_fv_b) * 100).toFixed(0)}%` : undefined}
+              trendLabel={tlFvFirst ? `${((tlFvChangeB / tlFvFirst) * 100).toFixed(0)}%` : undefined}
               sub={tlSizedFirst ? `since ${tlSizedFirst.period_end.slice(0, 7)}` : undefined}
             />
             <StatCard
@@ -814,6 +838,12 @@ export default async function BDCDetailPage({ params }: PageProps) {
                     const costB = reportedCostB(r);
                     const fvB = reportedFvB(r);
                     const markPct = reportedMarkPct(r);
+                    // Quarters the repo already flags as a partial parse are
+                    // shown muted rather than as plain fact.
+                    const caveat = sizeCaveatFor(r.ticker, r.period_end);
+                    const positions = reportedPositions(r);
+                    const naPct = measured(r.na_pct_at_cost);
+                    const pikPct = measured(r.pik_pct_at_cost);
                     const ratioColor = markPct === null
                       ? "#6b7280"
                       : markPct >= 100 ? "#22c55e" : markPct >= 97 ? "#eab308" : "#ef4444";
@@ -821,14 +851,17 @@ export default async function BDCDetailPage({ params }: PageProps) {
                       <tr
                         key={r.period_end}
                         className="border-t"
+                        title={caveat ? `Partial coverage: ${caveat.reason}` : undefined}
                         style={{
                           borderColor: "#1a1a28",
                           background: i % 2 === 0 ? "#111118" : "#0f0f16",
+                          opacity: caveat ? 0.55 : 1,
+                          fontStyle: caveat ? "italic" : "normal",
                         }}
                       >
                         <td className="px-4 py-2.5 font-mono text-xs text-white">{r.period_end}</td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: "#d1d5db" }}>
-                          {r.n_positions.toLocaleString()}
+                          {positions === null ? "—" : positions.toLocaleString()}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: costB === null ? "#6b7280" : "#d1d5db" }}>
                           {costB === null ? "—" : `$${costB.toFixed(2)}`}
@@ -840,14 +873,14 @@ export default async function BDCDetailPage({ params }: PageProps) {
                           {markPct === null ? "—" : `${markPct.toFixed(2)}%`}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{
-                          color: r.na_pct_at_cost >= 3 ? "#ef4444" : r.na_pct_at_cost >= 1 ? "#eab308" : "#9ca3af",
+                          color: naPct === null ? "#6b7280" : naPct >= 3 ? "#ef4444" : naPct >= 1 ? "#eab308" : "#9ca3af",
                         }}>
-                          {r.na_pct_at_cost > 0 ? `${r.na_pct_at_cost.toFixed(2)}%` : "—"}
+                          {naPct !== null && naPct > 0 ? `${naPct.toFixed(2)}%` : "—"}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{
-                          color: r.pik_pct_at_cost >= 15 ? "#f97316" : r.pik_pct_at_cost >= 5 ? "#eab308" : "#9ca3af",
+                          color: pikPct === null ? "#6b7280" : pikPct >= 15 ? "#f97316" : pikPct >= 5 ? "#eab308" : "#9ca3af",
                         }}>
-                          {r.pik_pct_at_cost > 0 ? `${r.pik_pct_at_cost.toFixed(2)}%` : "—"}
+                          {pikPct !== null && pikPct > 0 ? `${pikPct.toFixed(2)}%` : "—"}
                         </td>
                       </tr>
                     );

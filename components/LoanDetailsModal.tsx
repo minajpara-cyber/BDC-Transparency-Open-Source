@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import { stressedPositions, StressedPosition } from "@/data/stressed_positions";
+import { effectiveMark } from "@/lib/parFromDescription";
+import { byMeasured } from "@/lib/maybeNumber";
 
 type FlagKey = "f_na" | "f_below_95" | "f_below_90" | "f_below_80" | "f_pik";
 
@@ -42,7 +44,7 @@ export default function LoanDetailsModal({
 
   const rows = stressedPositions
     .filter((p) => p.ticker === ticker && p.period_end === period_end && p[flagKey] === 1)
-    .sort((a, b) => b.cost_m - a.cost_m);
+    .sort(byMeasured((p) => p.cost_m));
 
   const fmtNum = (n: number | null | undefined, d = 1) =>
     n === null || n === undefined ? "—" : n.toFixed(d);
@@ -126,7 +128,12 @@ export default function LoanDetailsModal({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
+              {rows.map((r, i) => {
+                // ARCC prints the par inside the description and leaves par_m
+                // at 0, so mark_at_par comes through null for 479 of its rows.
+                // Read it back out rather than showing a dash.
+                const mark = effectiveMark(r.mark_at_par, r.fv_m, r.par_m, r.investment_type);
+                return (
                 <tr
                   key={`${r.company}-${r.investment_type}-${i}`}
                   style={{
@@ -153,18 +160,18 @@ export default function LoanDetailsModal({
                     className="px-3 py-2 font-mono text-right"
                     style={{
                       color:
-                        r.mark_at_par === null
+                        mark === null
                           ? "#6b6b88"
-                          : r.mark_at_par < 0.8
+                          : mark < 0.8
                           ? "#fca5a5"
-                          : r.mark_at_par < 0.9
+                          : mark < 0.9
                           ? "#fdba74"
-                          : r.mark_at_par < 0.95
+                          : mark < 0.95
                           ? "#fde68a"
                           : "#86efac",
                     }}
                   >
-                    {fmtMark(r.mark_at_par)}
+                    {fmtMark(mark)}
                   </td>
                   <td className="px-3 py-2" style={{ color: "#9ca3af", whiteSpace: "nowrap" }}>
                     {r.coupon ?? "—"}
@@ -173,7 +180,8 @@ export default function LoanDetailsModal({
                     {r.maturity_date ?? "—"}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={COLS.length} className="px-3 py-8 text-center" style={{ color: "#6b6b88" }}>

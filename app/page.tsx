@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { ArrowRight, AlertTriangle, TrendingDown, Clock, Users } from "lucide-react";
 import { siteMeta } from "@/data/site_meta";
 import { bdcsHistory } from "@/data/bdcs_history";
+import { sumMeasured } from "@/lib/maybeNumber";
 import { creditQuality } from "@/data/credit_quality";
 import { nonAccrualFlow } from "@/data/non_accrual_events";
 import { ewsRows, ewsMeta } from "@/data/early_warning_scores";
@@ -50,7 +51,7 @@ export default function HomePage() {
       const prev = latestByTicker.get(r.ticker);
       if (!prev || r.period_end > prev.period_end) latestByTicker.set(r.ticker, r);
     }
-    const totCost = [...latestByTicker.values()].reduce((s, r) => s + r.total_cost_b, 0);
+    const totCost = sumMeasured([...latestByTicker.values()], (r) => r.total_cost_b);
 
     const ind = creditQuality
       .filter((r) => r.ticker === "industry")

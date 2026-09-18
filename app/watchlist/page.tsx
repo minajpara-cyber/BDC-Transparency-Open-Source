@@ -17,6 +17,7 @@ import SortableTable, { Column } from "@/components/SortableTable";
 import CrossHolderDivergence from "@/components/CrossHolderDivergence";
 import CsvDownloadButton from "@/components/CsvDownloadButton";
 import { watchlist, WatchlistRow } from "@/data/early_warning";
+import { fmtMeasured, sumMeasured, type MaybeNumber } from "@/lib/maybeNumber";
 import { watchlistByManager, watchlistByTicker } from "@/data/early_warning_history";
 import CreditHeatmap from "@/components/CreditHeatmap";
 import NaForecastTable from "@/components/NaForecastTable";
@@ -61,7 +62,8 @@ const WL_CUT_META: Record<WlCut, {
   },
 };
 
-function fmtM(v: number): string {
+function fmtM(v: MaybeNumber): string {
+  if (typeof v !== "number") return "—";
   return v >= 1000 ? `$${(v / 1000).toFixed(1)}B` : `$${v.toFixed(0)}M`;
 }
 
@@ -159,11 +161,11 @@ export default function WatchlistPage() {
     });
   }, [tier, mgr, fund, q, newOnly, hideStructured]);
 
-  const totalFV = rows.reduce((s, r) => s + r.fv_m, 0);
+  const totalFV = sumMeasured(rows, (r) => r.fv_m);
   const nHigh = rows.filter((r) => r.tier === "High").length;
   const nElevated = rows.filter((r) => r.tier === "Elevated").length;
   const nNew = rows.filter((r) => r.is_new).length;
-  const newFV = rows.filter((r) => r.is_new).reduce((s, r) => s + r.fv_m, 0);
+  const newFV = sumMeasured(rows.filter((r) => r.is_new), (r) => r.fv_m);
 
   const highBacktest = signalBacktest.find((b) => b.signal === "tier: High");
   const baseRate = signalBacktest.find((b) => b.signal === "ALL (base rate)");
@@ -362,7 +364,7 @@ export default function WatchlistPage() {
                           </span>
                         ))}
                       </td>
-                      <td className="px-3 py-2 text-sm" style={{ color: "#9ca3af" }}>${r.fv_m.toFixed(0)}M</td>
+                      <td className="px-3 py-2 text-sm" style={{ color: "#9ca3af" }}>{fmtMeasured(r.fv_m, 0, "$")}M</td>
                       <td className="px-3 py-2 text-sm font-mono" style={{ color: "#9ca3af" }}>{r.mark == null ? "—" : `${(100 * r.mark).toFixed(0)}¢`}</td>
                     </tr>
                   ))}

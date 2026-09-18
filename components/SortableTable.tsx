@@ -73,6 +73,14 @@ export default function SortableTable<T>({
     const aVal = (a as Record<string, unknown>)[sortKey];
     const bVal = (b as Record<string, unknown>)[sortKey];
     if (aVal === undefined || bVal === undefined) return 0;
+    // A null is an absent measurement, not a small one. Without this it falls
+    // through to the string branch and sorts as the literal text "null",
+    // landing in the middle of a numeric column for no reason. Nulls go last
+    // whichever way the column is pointed.
+    if (aVal === null || bVal === null) {
+      if (aVal === null && bVal === null) return 0;
+      return aVal === null ? 1 : -1;
+    }
     if (typeof aVal === "number" && typeof bVal === "number") {
       return sortDir === "asc" ? aVal - bVal : bVal - aVal;
     }

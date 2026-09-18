@@ -10,6 +10,7 @@
 import { bdcsHistory } from "@/data/bdcs_history";
 import { creditQuality } from "@/data/credit_quality";
 import { isReliable } from "@/lib/reliability";
+import { measured } from "@/lib/maybeNumber";
 
 export interface DerivedMarketStats {
   latest_period: string;             // 'YYYY-MM-DD'  most recent quarter w/ broad coverage
@@ -66,13 +67,24 @@ function aggregate(period: string) {
   let naCostWeighted = 0;
   let pikCostWeighted = 0;
   let n = 0;
+  // A BDC whose rate for this quarter was never measured cannot be weighted
+  // into the industry average, and weighting it in as 0% would pull the average
+  // down as though its book were clean. It is left out of that metric's
+  // denominator instead, which is why na and pik carry their own.
+  let naCost = 0;
+  let pikCost = 0;
   for (const r of bdcsHistory) {
     if (r.period_end !== period) continue;
     if (!isReliable(r.ticker, r.period_end)) continue;
-    totalCost += r.total_cost_b;
-    totalFV   += r.total_fv_b;
-    naCostWeighted  += r.total_cost_b * r.na_pct_at_cost;
-    pikCostWeighted += r.total_cost_b * r.pik_pct_at_cost;
+    const cost = measured(r.total_cost_b);
+    const fv = measured(r.total_fv_b);
+    if (cost === null) continue;
+    totalCost += cost;
+    totalFV   += fv ?? 0;
+    const na = measured(r.na_pct_at_cost);
+    if (na !== null) { naCostWeighted += cost * na; naCost += cost; }
+    const pik = measured(r.pik_pct_at_cost);
+    if (pik !== null) { pikCostWeighted += cost * pik; pikCost += cost; }
     n += 1;
   }
   // below_95 / below_90 from credit_quality (cost-weighted by total cost from bdcsHistory)
@@ -87,16 +99,18 @@ function aggregate(period: string) {
       (b) => b.ticker === cq.ticker && b.period_end === cq.period_end,
     );
     if (!w) continue;
-    below95 += w.total_cost_b * cq.pct_below_95;
-    below90 += w.total_cost_b * cq.pct_below_90;
-    cqCost  += w.total_cost_b;
+    const wCost = measured(w.total_cost_b);
+    if (wCost === null) continue;
+    below95 += wCost * cq.pct_below_95;
+    below90 += wCost * cq.pct_below_90;
+    cqCost  += wCost;
   }
   return {
     totalCost,
     totalFV,
     n,
-    naPct:  totalCost  ? naCostWeighted  / totalCost  : 0,
-    pikPct: totalCost  ? pikCostWeighted / totalCost  : 0,
+    naPct:  naCost     ? naCostWeighted  / naCost     : 0,
+    pikPct: pikCost    ? pikCostWeighted / pikCost    : 0,
     pctBelow95: cqCost ? below95         / cqCost     : 0,
     pctBelow90: cqCost ? below90         / cqCost     : 0,
   };
