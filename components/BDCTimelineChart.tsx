@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import type { BDCQuarter } from "@/data/bdcs_history";
 import type { PIKModEvent } from "@/data/pik_modifications";
+import { reportedCostB, reportedFvB } from "@/lib/quarterCoverage";
 
 interface Props {
   rows: BDCQuarter[];
@@ -32,10 +33,13 @@ const hasNonZero = (rows: { na: number; pik: number }[]) =>
   rows.some((r) => r.na > 0 || r.pik > 0);
 
 export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPanel }: Props) {
+  // A quarter whose cost or fair value did not parse is exported as 0. Plotting
+  // it draws the portfolio to zero and back; null leaves a gap in the line,
+  // which is what a quarter we could not size actually looks like.
   const data = rows.map((r) => ({
     period_end: r.period_end,
-    cost: r.total_cost_b,
-    fv: r.total_fv_b,
+    cost: reportedCostB(r),
+    fv: reportedFvB(r),
     n: r.n_positions,
     na: r.na_pct_at_cost,
     pik: r.pik_pct_at_cost,
@@ -105,6 +109,7 @@ export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPane
               }}
               labelStyle={{ color: "#d1d5db" }}
               formatter={(value, name) => {
+                if (value === null || value === undefined) return ["not reported", name as string];
                 const v = Number(value);
                 if (name === "Positions") return [v.toString(), name as string];
                 return [fmtBn(v), name as string];
