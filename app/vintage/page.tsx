@@ -530,7 +530,7 @@ export default function VintagePage() {
               <tr>
                 {[
                   "Vintage", "# loans", "# exited", "% exited", "# distress",
-                  "% distress", "Distress cost ($B)", "Realized loss ($B)", "Implied LGD",
+                  "% distress", "Distress cost ($M)", "Realized loss ($M)", "Implied LGD",
                 ].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>
                     {h}
@@ -573,9 +573,9 @@ export default function VintagePage() {
           </table>
         </div>
         <div className="px-5 py-3 text-xs border-t" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
-          Positive realized loss in 2024 reflects refis exiting above cost (BDCs sold loans at
-          slight premium during the tighter spread environment) — not all distress exits are
-          losses.
+          Dollar columns are US$ millions. Every vintage shows a net realized loss on its distress
+          exits; the LGD% spread across vintages reflects how much of the exited cost was recovered,
+          not whether there was a loss at all.
         </div>
       </div>
 
