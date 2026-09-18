@@ -146,5 +146,87 @@ ok("export const bdcIncome" in src and "BDCIncomeRow" in src,
 os.unlink(path)
 
 print()
+
+# ---- PIK family precedence: income statement and cash flow are never added ----
+# Regression for a real double-count: ARCC tags BOTH the income-statement PIK
+# lines and the cash flow add-back. Summing them inflated its PIK income ~48%.
+facts_fam = {"facts": {"us-gaap": {
+  "InterestIncomeOperatingPaidInKind": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",50,"2025-05-01")]}},
+  "DividendIncomeOperatingPaidInKind": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",67,"2025-05-01")]}},
+  "PaidInKindInterest": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",38,"2025-05-01")]}},
+}}}
+tag, series, src = M.pik_series(facts_fam)
+q = M._parse("2025-03-31")
+ok(series[q]==117, "income-statement PIK used, cash flow add-back not added on top")
+ok(src[q]=="is_components", "source recorded as income-statement components")
+
+# The combined tag wins over its own components, never sums with them.
+facts_comb = {"facts": {"us-gaap": {
+  "InterestAndDividendIncomeOperatingPaidInKind": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",7.5,"2025-05-01")]}},
+  "InterestIncomeOperatingPaidInKind": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",4.3,"2025-05-01")]}},
+  "DividendIncomeOperatingPaidInKind": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",3.1,"2025-05-01")]}},
+}}}
+tag, series, src = M.pik_series(facts_comb)
+ok(series[q]==7.5, "combined PIK tag wins over its components, not summed with them")
+ok(src[q]=="is_combined", "source recorded as combined")
+
+# Precedence is per period: combined for one quarter, components for the next.
+facts_mix = {"facts": {"us-gaap": {
+  "InterestAndDividendIncomeOperatingPaidInKind": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",37.3,"2025-05-01")]}},
+  "InterestIncomeOperatingPaidInKind": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",22.3,"2025-05-01"),
+      dur("2025-04-01","2025-06-30",15.0,"2025-08-01")]}},
+}}}
+tag, series, src = M.pik_series(facts_mix)
+ok(series[M._parse("2025-03-31")]==37.3 and series[M._parse("2025-06-30")]==15.0,
+   "PIK source resolved per quarter, not once per filer")
+
+# A filer that tags ONLY the cash flow add-back still gets a figure.
+facts_cf = {"facts": {"x": {"PaymentInKindInterest": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",12,"2025-05-01")]}}}}}
+tag, series, src = M.pik_series(facts_cf)
+ok(series[q]==12 and src[q]=="cashflow_addback", "cash flow add-back used as fallback")
+
+# ---- NII falls back to the after-tax tag, on one basis, and says so ----
+facts_nii = {"facts": {"us-gaap": {
+  "GrossInvestmentIncomeOperating": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",400,"2025-05-01")]}},
+  "InvestmentIncomeOperatingAfterExpenseAndTax": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",160,"2025-05-01")]}},
+  "InvestmentIncomeOperatingTaxExpenseBenefit": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",6,"2025-05-01")]}},
+}}}
+rows, tm = M.build_rows("FSK", 1, facts_nii, 2014)
+r = [r for r in rows if r["period_end"]=="2025-03-31"][0]
+ok(r["net_investment_income"]==166, "NII reconstructed pre-tax from the after-tax tag")
+ok(r["nii_basis"]=="after_tax_plus_tax", "nii_basis flags the reconstructed basis")
+
+
+# ---- coverage denominator prefers TOTAL DECLARED over cash paid ----
+# Cash paid is net of distributions taken as shares, so using it would flatter
+# the non-traded funds (OCIC reinvests 44% of its distribution).
+facts_d = {"facts": {"us-gaap": {
+  "NetInvestmentIncome": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",1000,"2025-05-01")]}},
+  "InvestmentCompanyDividendDistribution": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",900,"2025-05-01")]}},
+  "PaymentsOfDividends": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",500,"2025-05-01")]}},
+  "InterestIncomeOperatingPaidInKind": {"units": {"USD": [
+      dur("2025-01-01","2025-03-31",100,"2025-05-01")]}},
+}}}
+rows, tm = M.build_rows("OCIC", 1, facts_d, 2014)
+r = [r for r in rows if r["period_end"]=="2025-03-31"][0]
+ok(r["distributions_basis"]=="declared", "declared distributions preferred over cash paid")
+ok(abs(r["cash_dividend_cover"] - 900/900) < 1e-9,
+   "coverage uses declared distributions, not the smaller cash figure")
+
 print(f"{'ALL PASS' if not fails else str(len(fails))+' FAILED'}")
 sys.exit(1 if fails else 0)

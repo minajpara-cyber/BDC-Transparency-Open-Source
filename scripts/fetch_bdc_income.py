@@ -144,6 +144,12 @@ CONCEPTS = {
         "InvestmentCompanyNetInvestmentIncomeLoss",
         "NetInvestmentIncomeLoss",
     ],
+    # Newer, better-populated NII tag. It is NII AFTER income tax, where
+    # NetInvestmentIncome is before it, so the two are NOT interchangeable —
+    # they are reconciled in build_rows rather than merged blindly. FSK and
+    # TSLX tag this on quarters where they tag no pre-tax NII at all.
+    "nii_after_tax": ["InvestmentIncomeOperatingAfterExpenseAndTax"],
+    "nii_tax": ["InvestmentIncomeOperatingTaxExpenseBenefit"],
     "operating_expenses": [
         "InvestmentCompanyInvestmentIncomeOperatingExpenses",
         "OperatingExpenses",
@@ -164,6 +170,14 @@ CONCEPTS = {
         "PaymentsOfDistributionsToAffiliates",
         "PaymentsOfDividends",
     ],
+    # TOTAL distributions declared, in dollars. This is the right denominator
+    # for coverage: cash paid is net of dividends taken as shares instead, so
+    # it understates the obligation badly at the non-traded funds (OCIC
+    # reinvests 44%, BCRED 46%) and would flatter exactly them. Checked
+    # against cash paid + DRIP shares issued: agrees within 3% at every filer
+    # that tags both. 18 of 19 tag it; only MAIN does not.
+    "distributions_declared_total": ["InvestmentCompanyDividendDistribution"],
+    "drip_value": ["StockIssuedDuringPeriodValueDividendReinvestmentPlan"],
     "wavg_shares": [
         "WeightedAverageNumberOfSharesOutstandingBasic",
         "WeightedAverageNumberOfDilutedSharesOutstanding",
@@ -185,6 +199,16 @@ ACCRETION_PATTERNS = [
 ]
 # Guard against matching balance-sheet or per-share variants of the same words.
 PIK_EXCLUDE = re.compile(r"pershare|receivable|fairvalue|costbasis|balance", re.I)
+
+# PIK shows up in TWO different statements, and they must never be added
+# together. The income statement reports PIK income EARNED; the cash flow
+# statement reports a non-cash add-back that several filers tag net of PIK
+# received in cash. Summing both roughly doubled ARCC, ASIF, BBDC and MFIC.
+# Income-statement PIK concepts all carry "IncomeOperatingPaidInKind".
+PIK_INCOME_STATEMENT = re.compile(r"IncomeOperatingPaidInKind", re.I)
+PIK_COMBINED = "InterestAndDividendIncomeOperatingPaidInKind"
+PIK_INTEREST = "InterestIncomeOperatingPaidInKind"
+PIK_DIVIDEND = "DividendIncomeOperatingPaidInKind"
 
 QUARTER_DAYS = (80, 100)
 
@@ -417,6 +441,76 @@ def scan_patterns(facts: dict, patterns, exclude=None) -> tuple:
 # Assembly
 # ---------------------------------------------------------------------------
 
+def pik_series(facts: dict):
+    """
+    PIK income per quarter, resolved per period so the same dollars are never
+    counted twice.
+
+    Precedence, highest first:
+      1. the combined income-statement tag (interest AND dividend PIK) — this
+         is the filer's own total, so it is preferred even where it looks
+         lumpy; OBDC really did report $90.1m in Q4 2024 and $29.1m in Q1 2025.
+      2. the interest and dividend income-statement components, summed.
+      3. the cash flow add-back, for any filer that tags nothing else.
+
+    Returns (tag_description, {quarter_end: value}, {quarter_end: source}).
+    """
+    gaap = (facts.get("facts") or {}).get("us-gaap") or {}
+
+    def series_for(tag):
+        block = gaap.get(tag)
+        if not block:
+            return {}
+        entries = _units_of(block)
+        if not entries or not any(e.get("start") for e in entries):
+            return {}
+        return {k: v for k, v in quarterly_series(entries).items() if v is not None}
+
+    combined = series_for(PIK_COMBINED)
+    interest = series_for(PIK_INTEREST)
+    dividend = series_for(PIK_DIVIDEND)
+
+    # Everything matching the PIK patterns that is NOT an income-statement
+    # concept is a cash flow add-back.
+    cf_tags, cf = [], defaultdict(float)
+    for ns, concepts in (facts.get("facts") or {}).items():
+        for tag, block in concepts.items():
+            if PIK_EXCLUDE.search(tag) or PIK_INCOME_STATEMENT.search(tag):
+                continue
+            if not any(p.search(tag) for p in PIK_PATTERNS):
+                continue
+            entries = _units_of(block)
+            if not entries or not any(e.get("start") for e in entries):
+                continue
+            ser = quarterly_series(entries)
+            if not ser:
+                continue
+            cf_tags.append(f"{ns}:{tag}")
+            for k, v in ser.items():
+                if v is not None:
+                    cf[k] += v
+
+    out, source = {}, {}
+    for end in set(combined) | set(interest) | set(dividend) | set(cf):
+        if end in combined:
+            out[end], source[end] = combined[end], "is_combined"
+        elif end in interest or end in dividend:
+            out[end] = (interest.get(end) or 0) + (dividend.get(end) or 0)
+            source[end] = "is_components"
+        else:
+            out[end], source[end] = cf[end], "cashflow_addback"
+
+    used = []
+    if any(v == "is_combined" for v in source.values()):
+        used.append(f"us-gaap:{PIK_COMBINED}")
+    if any(v == "is_components" for v in source.values()):
+        used += [f"us-gaap:{t}" for t in (PIK_INTEREST, PIK_DIVIDEND)
+                 if (t == PIK_INTEREST and interest) or (t == PIK_DIVIDEND and dividend)]
+    if any(v == "cashflow_addback" for v in source.values()):
+        used += sorted(cf_tags)
+    return ("+".join(used) or None), out, source
+
+
 def _div(a, b):
     if a is None or b in (None, 0):
         return None
@@ -429,7 +523,7 @@ def build_rows(ticker: str, cik: int, facts: dict, since_year: int):
         tag, s = pick_concept(facts, candidates)
         series[metric], tagmap[metric] = s, tag
 
-    pik_tag, pik = scan_patterns(facts, PIK_PATTERNS, PIK_EXCLUDE)
+    pik_tag, pik, pik_source = pik_series(facts)
     acc_tag, acc = scan_patterns(facts, ACCRETION_PATTERNS, PIK_EXCLUDE)
     series["pik_income"], tagmap["pik_income"] = pik, pik_tag
     series["accretion"], tagmap["accretion"] = acc, acc_tag
@@ -443,14 +537,34 @@ def build_rows(ticker: str, cik: int, facts: dict, since_year: int):
         tii, nii = g("total_investment_income"), g("net_investment_income")
         pik_v, acc_v = g("pik_income"), g("accretion")
 
+        # Where the filer tagged no pre-tax NII this quarter, fall back to the
+        # after-tax tag and add income tax back so the series stays on ONE
+        # basis. Without this FSK loses 8 quarters and TSLX 4. nii_basis says
+        # which was used, so a mixed series is visible rather than silent.
+        nii_basis = "reported" if nii is not None else None
+        if nii is None:
+            after = g("nii_after_tax")
+            if after is not None:
+                tax = g("nii_tax")
+                nii = after + tax if tax is not None else after
+                nii_basis = "after_tax_plus_tax" if tax is not None else "after_tax"
+
         noncash = None
         if pik_v is not None or acc_v is not None:
             noncash = (pik_v or 0) + (acc_v or 0)
 
         dps, shares = g("distributions_declared_per_share"), g("wavg_shares")
-        dist_total = g("distributions_paid_cash")
+        # Preference order for the coverage denominator: total declared, then
+        # cash actually paid, then per-share x shares. The per-share route is
+        # last because it misses supplemental and special dividends — it came
+        # out BELOW cash paid at every filer tested, so it understates.
+        dist_total = g("distributions_declared_total")
+        dist_basis = "declared" if dist_total is not None else None
+        if dist_total is None:
+            dist_total = g("distributions_paid_cash")
+            dist_basis = "cash_paid" if dist_total is not None else None
         if dist_total is None and dps is not None and shares:
-            dist_total = dps * shares
+            dist_total, dist_basis = dps * shares, "per_share_x_shares"
 
         cash_nii = None if (nii is None or noncash is None) else nii - noncash
 
@@ -468,6 +582,11 @@ def build_rows(ticker: str, cik: int, facts: dict, since_year: int):
             "distributions_declared_per_share": dps,
             "distributions_paid_cash": g("distributions_paid_cash"),
             "wavg_shares": shares,
+            "nii_basis": nii_basis,
+            "pik_source": pik_source.get(end),
+            "distributions_declared_total": g("distributions_declared_total"),
+            "drip_value": g("drip_value"),
+            "distributions_basis": dist_basis,
             "pik_pct_of_tii": _div(pik_v, tii),
             "pik_pct_of_nii": _div(pik_v, nii),
             "noncash_pct_of_nii": _div(noncash, nii),
@@ -483,6 +602,8 @@ CSV_FIELDS = [
     "pik_income", "accretion", "noncash_income",
     "nii_per_share", "distributions_declared_per_share",
     "distributions_paid_cash", "wavg_shares",
+    "nii_basis", "pik_source",
+    "distributions_declared_total", "drip_value", "distributions_basis",
     "pik_pct_of_tii", "pik_pct_of_nii", "noncash_pct_of_nii",
     "cash_nii", "cash_dividend_cover",
 ]
