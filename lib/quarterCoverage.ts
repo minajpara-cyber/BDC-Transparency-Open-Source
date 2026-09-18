@@ -14,6 +14,7 @@
 // null for such a value so callers can skip it or show it as missing.
 
 import { bdcsHistory, type BDCQuarter } from "@/data/bdcs_history";
+import { measured } from "@/lib/maybeNumber";
 
 // The test is per ROW, not per field. Where one size field of a quarter failed
 // to parse, its neighbours from the same parse are suspect too, and they do not
@@ -23,30 +24,45 @@ import { bdcsHistory, type BDCQuarter } from "@/data/bdcs_history";
 // today at a third of the positions. Reporting that cost as measured while
 // dashing the fair value beside it would present the same failed parse as a
 // fact. So a quarter is sized only when both its size fields came through.
-function sized(r: BDCQuarter): boolean {
-  return r.n_positions > 0 && r.total_cost_b > 0 && r.total_fv_b > 0;
+//
+// The export writes 0 for an unread size today and is being changed to write
+// null instead, so both have to mean the same thing here. Returning the three
+// values together rather than testing them separately is what lets callers use
+// them without re-checking: a quarter is either sized, with all three numbers,
+// or it is not.
+function sizeOf(r: BDCQuarter): { n: number; cost: number; fv: number } | null {
+  const n = measured(r.n_positions);
+  const cost = measured(r.total_cost_b);
+  const fv = measured(r.total_fv_b);
+  if (n === null || cost === null || fv === null) return null;
+  if (n <= 0 || cost <= 0 || fv <= 0) return null;
+  return { n, cost, fv };
 }
 
 /** Amortized cost in $B, or null when the quarter's size did not parse. */
 export function reportedCostB(r: BDCQuarter): number | null {
-  return sized(r) ? r.total_cost_b : null;
+  return sizeOf(r)?.cost ?? null;
 }
 
 /** Fair value in $B, or null when the quarter's size did not parse. */
 export function reportedFvB(r: BDCQuarter): number | null {
-  return sized(r) ? r.total_fv_b : null;
+  return sizeOf(r)?.fv ?? null;
+}
+
+/** Position count, or null when the quarter's size did not parse. */
+export function reportedPositions(r: BDCQuarter): number | null {
+  return sizeOf(r)?.n ?? null;
 }
 
 /** FV / cost as a percentage, or null when either side did not parse. */
 export function reportedMarkPct(r: BDCQuarter): number | null {
-  const cost = reportedCostB(r);
-  const fv = reportedFvB(r);
-  return cost !== null && fv !== null ? (fv / cost) * 100 : null;
+  const s = sizeOf(r);
+  return s ? (s.fv / s.cost) * 100 : null;
 }
 
 /** True when the quarter's size parsed, i.e. the row can be aggregated on. */
 export function hasReportedSize(r: BDCQuarter): boolean {
-  return sized(r);
+  return sizeOf(r) !== null;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,7 +85,7 @@ const neverObservedNa = new Set<string>(
     const byTicker = new Map<string, { any: boolean; n: number }>();
     for (const r of bdcsHistory) {
       const s = byTicker.get(r.ticker) ?? { any: false, n: 0 };
-      s.any = s.any || r.na_pct_at_cost > 0;
+      s.any = s.any || (measured(r.na_pct_at_cost) ?? 0) > 0;
       s.n += 1;
       byTicker.set(r.ticker, s);
     }

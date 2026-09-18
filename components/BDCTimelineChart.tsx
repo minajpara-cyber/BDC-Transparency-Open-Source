@@ -16,6 +16,7 @@ import {
 import type { BDCQuarter } from "@/data/bdcs_history";
 import type { PIKModEvent } from "@/data/pik_modifications";
 import { reportedCostB, reportedFvB } from "@/lib/quarterCoverage";
+import { measured, type MaybeNumber } from "@/lib/maybeNumber";
 
 interface Props {
   rows: BDCQuarter[];
@@ -29,8 +30,8 @@ interface Props {
 const fmtBn = (v: number) => `$${v.toFixed(1)}B`;
 const fmtPct = (v: number) => `${v.toFixed(2)}%`;
 
-const hasNonZero = (rows: { na: number; pik: number }[]) =>
-  rows.some((r) => r.na > 0 || r.pik > 0);
+const hasNonZero = (rows: { na: MaybeNumber; pik: MaybeNumber }[]) =>
+  rows.some((r) => (measured(r.na) ?? 0) > 0 || (measured(r.pik) ?? 0) > 0);
 
 export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPanel }: Props) {
   // A quarter whose cost or fair value did not parse is exported as 0. Plotting
@@ -40,9 +41,9 @@ export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPane
     period_end: r.period_end,
     cost: reportedCostB(r),
     fv: reportedFvB(r),
-    n: r.n_positions,
-    na: r.na_pct_at_cost,
-    pik: r.pik_pct_at_cost,
+    n: measured(r.n_positions),
+    na: measured(r.na_pct_at_cost),
+    pik: measured(r.pik_pct_at_cost),
   }));
 
   // Build modification series aligned to the SAME quarter axis as `data`.

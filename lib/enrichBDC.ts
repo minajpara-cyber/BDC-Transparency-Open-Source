@@ -14,7 +14,8 @@
 import { bdcs, BDC } from "@/data/bdcs";
 import { bdcsHistory, BDCQuarter } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
-import { hasReportedSize, naRateNeverObserved } from "@/lib/quarterCoverage";
+import { hasReportedSize, naRateNeverObserved, reportedFvB } from "@/lib/quarterCoverage";
+import { measured } from "@/lib/maybeNumber";
 import { creditQuality } from "@/data/credit_quality";
 
 export interface BDCEnriched extends BDC {
@@ -58,22 +59,30 @@ export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriche
   const naFromHistory = !naRateNeverObserved(bdc.ticker);
   const cqAt = (p: string) =>
     creditQuality.find((c) => c.ticker === bdc.ticker && c.period_end === p)?.pct_non_accrual;
-  const naLatest = naFromHistory ? latest.na_pct_at_cost : cqAt(latest.period_end);
+  const naLatest = measured(naFromHistory ? latest.na_pct_at_cost : cqAt(latest.period_end));
   const naPrior = prior
-    ? (naFromHistory ? prior.na_pct_at_cost : cqAt(prior.period_end))
-    : undefined;
+    ? measured(naFromHistory ? prior.na_pct_at_cost : cqAt(prior.period_end))
+    : null;
+
+  // The size fields are guaranteed present by the hasReportedSize filter above,
+  // but only at runtime — read them back through the same helpers so this holds
+  // whether the export writes 0 or null for a size it could not read.
+  const fvLatest = reportedFvB(latest);
+  const fvPrior = prior ? reportedFvB(prior) : null;
+  const pikLatest = measured(latest.pik_pct_at_cost);
+  const pikPrior = prior ? measured(prior.pik_pct_at_cost) : null;
 
   return {
     ...bdc,
-    portfolioFairValue: latest.total_fv_b,
+    portfolioFairValue: fvLatest ?? bdc.portfolioFairValue,
     // Falls back to the hand-entered figure when neither source measured it.
     nonAccrualRate: naLatest ?? bdc.nonAccrualRate,
-    pikRate: latest.pik_pct_at_cost,
+    pikRate: pikLatest ?? bdc.pikRate,
     asOf: latest.period_end,
     parsed: true,
-    delta_fv_b:   prior ? latest.total_fv_b      - prior.total_fv_b      : null,
-    delta_na_pct: naLatest !== undefined && naPrior !== undefined ? naLatest - naPrior : null,
-    delta_pik_pct: prior ? latest.pik_pct_at_cost - prior.pik_pct_at_cost : null,
+    delta_fv_b:    fvLatest  !== null && fvPrior  !== null ? fvLatest  - fvPrior  : null,
+    delta_na_pct:  naLatest  !== null && naPrior  !== null ? naLatest  - naPrior  : null,
+    delta_pik_pct: pikLatest !== null && pikPrior !== null ? pikLatest - pikPrior : null,
   };
 }
 

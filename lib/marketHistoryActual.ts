@@ -10,6 +10,7 @@
 import { bdcsHistory } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
 import { reportedFvB } from "@/lib/quarterCoverage";
+import { measured } from "@/lib/maybeNumber";
 
 export interface MarketHistoryPoint {
   date: string;       // 'YYYY-Qq' for display
@@ -37,13 +38,18 @@ function buildSeries(field: Field): MarketHistoryPoint[] {
   >();
   for (const r of bdcsHistory) {
     if (!isReliable(r.ticker, r.period_end)) continue;
-    if (!r.total_cost_b) continue;
+    const cost = measured(r.total_cost_b);
+    const pct = measured(r[field]);
+    // A quarter with no cost cannot be weighted, and one with no rate would be
+    // weighted in as 0% — which is the failure this whole sweep is about. Both
+    // are left out rather than counted as a clean book.
+    if (cost === null || cost === 0 || pct === null) continue;
     if (!byPeriod.has(r.period_end)) {
       byPeriod.set(r.period_end, { sumCostTimesPct: 0, sumCost: 0, coverage: 0 });
     }
     const slot = byPeriod.get(r.period_end)!;
-    slot.sumCostTimesPct += r.total_cost_b * r[field];
-    slot.sumCost += r.total_cost_b;
+    slot.sumCostTimesPct += cost * pct;
+    slot.sumCost += cost;
     slot.coverage += 1;
   }
   return Array.from(byPeriod.entries())
