@@ -22,6 +22,10 @@ import DividendSupportTable from "@/components/DividendSupportTable";
 import NavPerShareChart from "@/components/NavPerShareChart";
 import { defaultRates, defaultRateUniverse } from "@/data/default_rate";
 import { dividendSupport, navPerShare } from "@/data/dividend_support";
+import PikLedgerTable from "@/components/PikLedgerTable";
+import PikLedgerYearChart from "@/components/PikLedgerYearChart";
+import PikStockChart from "@/components/PikStockChart";
+import { pikLedger, pikLedgerByYear, pikLedgerQuarterly, pikLedgerMeta } from "@/data/pik_ledger";
 
 type HeatMetric = "pik_pct_nii" | "pik_pct_tii" | "noncash_pct_nii" | "gap";
 
@@ -101,6 +105,18 @@ export default function IncomePage() {
   const drU1y = defaultRateUniverse.find((u) => u.period_end === shiftYears(drU.period_end, -1));
   const drPoolN = defaultRateUniverse.filter((u) => u.period_end >= "2019-12-31").map((u) => u.n_bdcs);
   const drPool = { min: Math.min(...drPoolN), last: drU.n_bdcs };
+  // PIK ledger: the BDCs with the most uncollected PIK relative to their book
+  // open the stock chart; the seasoned-year sentence uses the year six years
+  // before the latest one, old enough for most of its PIK to have resolved.
+  const stockDefault = [...pikLedger]
+    .sort((a, b) => (b.unresolved_pct_book ?? 0) - (a.unresolved_pct_book ?? 0))
+    .slice(0, 4).map((r) => r.ticker);
+  const arccLedger = pikLedger.find((r) => r.ticker === "ARCC");
+  const ledgerYear = pikLedgerMeta.latest_period.slice(0, 4);
+  const seasonedYear = String(Number(ledgerYear) - 6);
+  const seasoned = pikLedgerByYear.find((r) => r.year === seasonedYear);
+  const inBookPct = (pikLedgerMeta.pooled_in_book_performing_pct ?? 0) + (pikLedgerMeta.pooled_in_book_impaired_pct ?? 0);
+  const windowYear = pikLedgerMeta.window_start.slice(0, 4);
   const navDefault = [...dividendSupport].sort((a, b) => (a.nav_chg_3y ?? 0) - (b.nav_chg_3y ?? 0))
     .slice(0, 3).map((r) => r.ticker).concat(["MAIN", "HTGC"]);
   const trendDefault = tickers.slice(0, 5);
@@ -248,6 +264,63 @@ export default function IncomePage() {
         </div>
       </section>
 
+      <section id="pik-ledger" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Where did the PIK go?{" "}
+          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· the PIK booked since {windowYear}, followed loan by loan</span>
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          <StatCard label={`PIK booked since ${windowYear}`} value={`$${(pikLedgerMeta.pooled_accrued_bn ?? 0).toFixed(1)}bn`}
+            sub={`${pikLedgerMeta.n_bdcs} BDCs, from the cash-flow statements`} color="#a5b4fc" highlight />
+          <StatCard label="Collected on exits" value={`${(pikLedgerMeta.pooled_collected_pct ?? 0).toFixed(0)}%`}
+            sub="repaid as principal when the loan left — a floor" color="#86efac" />
+          <StatCard label="Still in the book" value={`${inBookPct.toFixed(0)}%`}
+            sub={`${(pikLedgerMeta.pooled_in_book_impaired_pct ?? 0).toFixed(0)} points of it in impaired loans`} color="#fcd34d" />
+          <StatCard label="Lost" value={`${(pikLedgerMeta.pooled_lost_pct ?? 0).toFixed(0)}%`}
+            sub="unrecovered on exits below par" color="#fca5a5" />
+        </div>
+        <PikLedgerYearChart rows={pikLedgerByYear} latestYear={ledgerYear} />
+        <div className="mt-4">
+          <PikLedgerTable rows={pikLedger} />
+        </div>
+        <div className="mt-4">
+          <PikStockChart points={pikLedgerQuarterly} defaultTickers={stockDefault} />
+        </div>
+        <div className="rounded-xl border p-5 mt-4 text-xs leading-relaxed" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#8b8ba8" }}>
+          <div className="text-sm font-semibold text-white mb-2">How this is measured — and why it is a floor</div>
+          <p className="mb-2">
+            A BDC that books a third of its NII as PIK for years is only fine if that PIK keeps turning into cash later:
+            the loan is repaid or refinanced and the capitalized PIK comes back as principal. The cash-flow statement gives
+            the PIK booked each quarter; the schedule of investments gives every loan&apos;s PIK rate. Rate × principal
+            reproduces the statement figure closely for most BDCs
+            {arccLedger?.loan_coverage_of_statement != null ? ` (ARCC: ${(100 * arccLedger.loan_coverage_of_statement).toFixed(0)}% of it)` : ""},
+            so each quarter&apos;s statement PIK is allocated to the loans it accrued on, and each loan is followed to its
+            outcome.
+          </p>
+          <p className="mb-2">
+            <span className="text-white">Collected is measured on exits only.</span>{" "}A loan that left the book with
+            no successor position at a mark of 97¢ or better repaid its capitalized PIK as principal. PIK paid in cash
+            while a loan stays on the book — partial paydowns, PIK toggles switching to cash — is invisible in the
+            schedule, so the collected share is a floor
+            {arccLedger?.reported_collected_last4q_m != null
+              ? `: ARCC reports $${arccLedger.reported_collected_last4q_m.toFixed(0)}m of PIK collected over the last four quarters, of which $${arccLedger.collected_last4q_m.toFixed(0)}m shows up here as exits`
+              : ""}.
+            &quot;Refinanced&quot; loans left at par while the borrower kept a position at the same BDC: the PIK was rolled
+            into the new loan, or repaid from its proceeds — the schedule cannot tell which, so it is kept separate.
+          </p>
+          <p>
+            <span className="text-white">Reading the maturation curve.</span>{" "}
+            {seasoned
+              ? `Of the PIK booked in ${seasonedYear}, ${(seasoned.collected_pct ?? 0).toFixed(0)}% has been collected, ${(seasoned.lost_pct ?? 0).toFixed(0)}% lost and ${((seasoned.in_book_performing_pct ?? 0) + (seasoned.in_book_impaired_pct ?? 0)).toFixed(0)}% is still in the book six years later. `
+              : ""}
+            The newest PIK is almost all still in the book, which is expected; the question is whether the older years
+            keep converting. PIK booked before {windowYear} is not tracked, so the uncollected stock is a floor in each
+            BDC&apos;s early years. NMFC (†) prints only a broader non-cash income line, so its loan-level dollars are
+            used unscaled; OCSL&apos;s statement PIK is net of cash collected, a floor.
+          </p>
+        </div>
+      </section>
+
       <section id="dividend-support" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           Dividend support{" "}
@@ -274,7 +347,8 @@ export default function IncomePage() {
             loan is refinanced or repaid, and a few filers show those collections separately
             {arcc && arcc.pik_collected_m != null
               ? ` (ARCC collected $${arcc.pik_collected_m.toFixed(0)}m of PIK in cash against $${arcc.pik_m.toFixed(0)}m accrued over the last four quarters)`
-              : ""}. Cash coverage below 1.0x means
+              : ""}. The &quot;Where did the PIK go?&quot; section above follows every PIK loan since {windowYear} to
+            see how much actually came back. Cash coverage below 1.0x means
             the dividend currently relies on income that will arrive later — or not at all if the borrower
             fails. That is the risk this tab sizes; the stress slider and the severe-PIK column put numbers
             on it. Severe PIK is PIK making up more than half a loan&apos;s coupon, or all of it — the
