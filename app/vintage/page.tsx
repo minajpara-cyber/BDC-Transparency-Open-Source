@@ -42,15 +42,18 @@ const METRIC_META: Record<Metric, { label: string; sub: string; color: string }>
 // where the HC value is null (cohort had <15 HIGH+MED loans) are dropped.
 // l1Only switches the default metric to the first-lien-only RJ-comparable
 // series (overrides hcOnly for that metric — there is no HC∩1L variant).
-function buildSeries(rows: VintageRow[], metric: Metric, hcOnly: boolean = false, l1Only: boolean = false): VintageSeries[] {
+function resolveMetricKey(metric: Metric, hcOnly: boolean, l1Only: boolean): keyof VintageRow {
   const hcVariant: Partial<Record<Metric, keyof VintageRow>> = {
     pct_ever_default: "pct_ever_default_hc",
     pct_ever_modified: "pct_ever_modified_hc",
   };
-  const useKey: keyof VintageRow =
-    (l1Only && metric === "pct_ever_default") ? "pct_ever_default_1l"
-    : (hcOnly && hcVariant[metric]) ? hcVariant[metric]!
-    : metric;
+  if (l1Only && metric === "pct_ever_default") return "pct_ever_default_1l";
+  if (hcOnly && hcVariant[metric]) return hcVariant[metric]!;
+  return metric;
+}
+
+function buildSeries(rows: VintageRow[], metric: Metric, hcOnly: boolean = false, l1Only: boolean = false): VintageSeries[] {
+  const useKey = resolveMetricKey(metric, hcOnly, l1Only);
   const byVintage = new Map<number, VintageRow[]>();
   for (const r of rows) {
     if (!byVintage.has(r.vintage_year)) byVintage.set(r.vintage_year, []);
@@ -85,10 +88,14 @@ function latestPerVintage(rows: VintageRow[]) {
 
 // At a specific age (years), pluck the cumulative metric per vintage. Returns
 // null for vintages too young to have reached that age.
-function metricAtAge(rows: VintageRow[], vintage: number, ageYears: number, metric: Metric): number | null {
+// `field` is the already-resolved VintageRow key (see resolveMetricKey), so
+// callers pick up the same high-confidence / first-lien toggles as the charts.
+function metricAtAge(rows: VintageRow[], vintage: number, ageYears: number, field: keyof VintageRow): number | null {
   const targetQ = Math.round(ageYears * 4);
   const r = rows.find((x) => x.vintage_year === vintage && x.age_quarters === targetQ);
-  return r ? (r[metric] as number) : null;
+  if (!r) return null;
+  const v = r[field];
+  return typeof v === "number" ? v : null;
 }
 
 // For the BDC × Vintage matrix: per (ticker, vintage_year), get the latest
@@ -304,6 +311,9 @@ export default function VintagePage() {
     return industryRows.filter((r) => !r.is_partial);
   }, [industryRows, includePartial]);
 
+  // Resolved once so the "Cumulative Default % at Standard Ages" table below
+  // reads the same column the default-curve chart plots.
+  const defaultMetricKey = useMemo(() => resolveMetricKey("pct_ever_default", hcOnly, l1Only), [hcOnly, l1Only]);
   const defaultSeries = useMemo(() => buildSeries(visibleRows, "pct_ever_default", hcOnly, l1Only), [visibleRows, hcOnly, l1Only]);
   const modSeries     = useMemo(() => buildSeries(visibleRows, "pct_ever_modified", hcOnly), [visibleRows, hcOnly]);
   const naSeries  = useMemo(() => buildSeries(visibleRows, "pct_ever_na"),  [visibleRows]);
@@ -520,7 +530,7 @@ export default function VintagePage() {
               <tr>
                 {[
                   "Vintage", "# loans", "# exited", "% exited", "# distress",
-                  "% distress", "Distress cost ($B)", "Realized loss ($B)", "Implied LGD",
+                  "% distress", "Distress cost ($M)", "Realized loss ($M)", "Implied LGD",
                 ].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>
                     {h}
@@ -563,9 +573,9 @@ export default function VintagePage() {
           </table>
         </div>
         <div className="px-5 py-3 text-xs border-t" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
-          Positive realized loss in 2024 reflects refis exiting above cost (BDCs sold loans at
-          slight premium during the tighter spread environment) — not all distress exits are
-          losses.
+          Dollar columns are US$ millions. Every vintage shows a net realized loss on its distress
+          exits; the LGD% spread across vintages reflects how much of the exited cost was recovered,
+          not whether there was a loss at all.
         </div>
       </div>
 
@@ -695,7 +705,10 @@ export default function VintagePage() {
           <h2 className="font-semibold text-white">Cumulative Default % at Standard Ages</h2>
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
             Share of vintage cost that has defaulted (on-book NA OR exited in distress) by year T. RJ-comparable.
-            &mdash; means the vintage hasn&apos;t aged that far yet.
+            &mdash; means the vintage hasn&apos;t aged that far yet. Follows the same basis as the curves above:{" "}
+            <b>
+              {l1Only ? "first-lien only" : hcOnly ? "high-confidence vintage only" : "all loans"}
+            </b>.
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -712,7 +725,7 @@ export default function VintagePage() {
                 <tr key={r.vintage_year} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
                   <td className="px-4 py-3 font-semibold text-white">{r.vintage_year}</td>
                   {[1, 2, 3, 4, 5, 6].map((yr) => {
-                    const v = metricAtAge(visibleRows, r.vintage_year, yr, "pct_ever_default");
+                    const v = metricAtAge(visibleRows, r.vintage_year, yr, defaultMetricKey);
                     if (v === null) return <td key={yr} className="px-4 py-3 text-sm" style={{ color: "#444" }}>&mdash;</td>;
                     const color = v >= 8 ? "#dc2626" : v >= 4 ? "#f97316" : "#22c55e";
                     return <td key={yr} className="px-4 py-3 text-sm font-semibold" style={{ color }}>{v.toFixed(2)}%</td>;
