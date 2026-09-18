@@ -14,6 +14,7 @@
 import { bdcs, BDC } from "@/data/bdcs";
 import { bdcsHistory, BDCQuarter } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
+import { hasReportedSize } from "@/lib/quarterCoverage";
 
 export interface BDCEnriched extends BDC {
   asOf?: string;                  // 'YYYY-MM-DD' from parsed data
@@ -38,8 +39,14 @@ function indexHistory(): Map<string, BDCQuarter[]> {
 }
 
 export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriched {
-  const rows = hist.get(bdc.ticker);
-  if (!rows || rows.length === 0) return bdc;
+  const all = hist.get(bdc.ticker);
+  if (!all || all.length === 0) return bdc;
+  // Only quarters whose size parsed can stand in for the portfolio. An
+  // unparsed quarter exports as 0, so taking it as "latest" would show the BDC
+  // at $0.0B, and taking it as "prior" would make the QoQ change the whole
+  // portfolio. ADS, MAIN, OCIC, OCSL, CCAP and BCRED each have such rows.
+  const rows = all.filter(hasReportedSize);
+  if (rows.length === 0) return bdc;
   const latest = rows[rows.length - 1];
   const prior = rows.length >= 2 ? rows[rows.length - 2] : null;
   return {

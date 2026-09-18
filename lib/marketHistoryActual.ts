@@ -9,6 +9,7 @@
 
 import { bdcsHistory } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
+import { reportedFvB } from "@/lib/quarterCoverage";
 
 export interface MarketHistoryPoint {
   date: string;       // 'YYYY-Qq' for display
@@ -69,9 +70,13 @@ export function industryFVHistory(): MarketHistoryPoint[] {
   const byPeriod = new Map<string, { sumFV: number; coverage: number }>();
   for (const r of bdcsHistory) {
     if (!isReliable(r.ticker, r.period_end)) continue;
+    // Adding an unparsed fair value as 0 both understates the total and counts
+    // the BDC as covered. OCSL alone takes ~$5B out of 2020-06-30 that way.
+    const fv = reportedFvB(r);
+    if (fv === null) continue;
     if (!byPeriod.has(r.period_end)) byPeriod.set(r.period_end, { sumFV: 0, coverage: 0 });
     const slot = byPeriod.get(r.period_end)!;
-    slot.sumFV += r.total_fv_b;
+    slot.sumFV += fv;
     slot.coverage += 1;
   }
   return Array.from(byPeriod.entries())

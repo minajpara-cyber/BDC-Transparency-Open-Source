@@ -10,6 +10,7 @@ import BDCTimelineChart from "@/components/BDCTimelineChart";
 import BDCHoldingsTable from "@/components/BDCHoldingsTable";
 import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
+import { hasReportedSize, reportedCostB, reportedFvB, reportedMarkPct } from "@/lib/quarterCoverage";
 import { ewsByBdc, ewsTopByBdc, ewsMeta, ewsHistory } from "@/data/early_warning_scores";
 import { holdingsAsOfByTicker } from "@/data/bdc_holdings";
 import EwsTrendChart from "@/components/EwsTrendChart";
@@ -54,9 +55,16 @@ export default async function BDCDetailPage({ params }: PageProps) {
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
   const tlEarliest = timelineRows[0];
   const tlLatest   = timelineRows[timelineRows.length - 1];
-  const tlFvChangeB    = tlLatest && tlEarliest ? tlLatest.total_fv_b - tlEarliest.total_fv_b : 0;
-  const tlPositionChg  = tlLatest && tlEarliest ? tlLatest.n_positions  - tlEarliest.n_positions : 0;
   const tlQuarters     = timelineRows.length;
+  // Size comparisons run over the quarters whose cost and fair value actually
+  // parsed. Several BDCs open (or, at OCSL and OCIC, run for years) on rows
+  // where a size field came out 0, and measuring "change since start" from one
+  // of those reports the whole portfolio as growth.
+  const tlSized        = timelineRows.filter(hasReportedSize);
+  const tlSizedFirst   = tlSized[0];
+  const tlSizedLast    = tlSized[tlSized.length - 1];
+  const tlFvChangeB    = tlSizedFirst && tlSizedLast ? tlSizedLast.total_fv_b - tlSizedFirst.total_fv_b : 0;
+  const tlPositionChg  = tlSizedFirst && tlSizedLast ? tlSizedLast.n_positions - tlSizedFirst.n_positions : 0;
 
   // ---- Build per-BDC credit slices from our parsed data ---------------------
   const cqRows = creditQuality
@@ -754,21 +762,22 @@ export default async function BDCDetailPage({ params }: PageProps) {
             />
             <StatCard
               label="Latest portfolio"
-              value={`$${tlLatest.total_fv_b.toFixed(1)}B`}
-              sub={`${tlLatest.n_positions.toLocaleString()} positions`}
+              value={tlSizedLast ? `$${tlSizedLast.total_fv_b.toFixed(1)}B` : "—"}
+              sub={tlSizedLast ? `${tlSizedLast.n_positions.toLocaleString()} positions` : "not reported"}
             />
             <StatCard
               label="FV change since start"
-              value={`${tlFvChangeB >= 0 ? "+" : ""}$${tlFvChangeB.toFixed(1)}B`}
+              value={tlSizedFirst && tlSizedLast ? `${tlFvChangeB >= 0 ? "+" : ""}$${tlFvChangeB.toFixed(1)}B` : "—"}
               color={tlFvChangeB >= 0 ? "#22c55e" : "#ef4444"}
               trend={tlFvChangeB >= 0 ? "up" : "down"}
-              trendLabel={tlEarliest.total_fv_b ? `${((tlFvChangeB / tlEarliest.total_fv_b) * 100).toFixed(0)}%` : undefined}
+              trendLabel={tlSizedFirst ? `${((tlFvChangeB / tlSizedFirst.total_fv_b) * 100).toFixed(0)}%` : undefined}
+              sub={tlSizedFirst ? `since ${tlSizedFirst.period_end.slice(0, 7)}` : undefined}
             />
             <StatCard
               label="Position change"
-              value={`${tlPositionChg >= 0 ? "+" : ""}${tlPositionChg.toLocaleString()}`}
+              value={tlSizedFirst && tlSizedLast ? `${tlPositionChg >= 0 ? "+" : ""}${tlPositionChg.toLocaleString()}` : "—"}
               color={tlPositionChg >= 0 ? "#22c55e" : "#ef4444"}
-              sub={`${tlEarliest.n_positions} → ${tlLatest.n_positions}`}
+              sub={tlSizedFirst && tlSizedLast ? `${tlSizedFirst.n_positions} → ${tlSizedLast.n_positions}` : undefined}
             />
           </div>
 
@@ -799,8 +808,15 @@ export default async function BDCDetailPage({ params }: PageProps) {
                 </thead>
                 <tbody>
                   {[...timelineRows].reverse().map((r, i) => {
-                    const ratio = r.total_cost_b ? r.total_fv_b / r.total_cost_b : 0;
-                    const ratioColor = ratio >= 1 ? "#22c55e" : ratio >= 0.97 ? "#eab308" : "#ef4444";
+                    // A quarter whose cost or fair value did not parse comes
+                    // through as 0. Show it as missing rather than as a real
+                    // $0.00 marked at 0% of cost.
+                    const costB = reportedCostB(r);
+                    const fvB = reportedFvB(r);
+                    const markPct = reportedMarkPct(r);
+                    const ratioColor = markPct === null
+                      ? "#6b7280"
+                      : markPct >= 100 ? "#22c55e" : markPct >= 97 ? "#eab308" : "#ef4444";
                     return (
                       <tr
                         key={r.period_end}
@@ -814,14 +830,14 @@ export default async function BDCDetailPage({ params }: PageProps) {
                         <td className="px-4 py-2.5 text-xs" style={{ color: "#d1d5db" }}>
                           {r.n_positions.toLocaleString()}
                         </td>
-                        <td className="px-4 py-2.5 text-xs" style={{ color: "#d1d5db" }}>
-                          ${r.total_cost_b.toFixed(2)}
+                        <td className="px-4 py-2.5 text-xs" style={{ color: costB === null ? "#6b7280" : "#d1d5db" }}>
+                          {costB === null ? "—" : `$${costB.toFixed(2)}`}
                         </td>
-                        <td className="px-4 py-2.5 text-xs" style={{ color: "#d1d5db" }}>
-                          ${r.total_fv_b.toFixed(2)}
+                        <td className="px-4 py-2.5 text-xs" style={{ color: fvB === null ? "#6b7280" : "#d1d5db" }}>
+                          {fvB === null ? "—" : `$${fvB.toFixed(2)}`}
                         </td>
                         <td className="px-4 py-2.5 text-xs font-semibold" style={{ color: ratioColor }}>
-                          {(ratio * 100).toFixed(2)}%
+                          {markPct === null ? "—" : `${markPct.toFixed(2)}%`}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{
                           color: r.na_pct_at_cost >= 3 ? "#ef4444" : r.na_pct_at_cost >= 1 ? "#eab308" : "#9ca3af",
