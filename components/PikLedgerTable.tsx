@@ -33,10 +33,10 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
     ["ticker", "BDC", ""],
     ["pik_accrued_m", "PIK booked ($m)", "PIK income on the cash-flow statement since the window start"],
     ["pik_pct_nii_window", "% of NII", "PIK income as a share of NII over the window"],
-    ["collected_pct", "Collected", "loans repaid at par, or the recovered part of loans exited below par"],
+    ["collected_pct", "Collected", "loans repaid at par or refinanced at par at the same BDC, plus the recovered part of loans exited below par"],
+    ["refinanced_pct", "of which refinanced", "included in Collected: loans that left at par while the borrower kept a position at the same BDC — the old loan was repaid from the new facility"],
     ["still_pik_pct", "Still PIK", "loans still on the book and still accruing PIK"],
     ["cured_pct", "Cured", "loans back on cash-pay; the PIK already capitalized is still owed as principal"],
-    ["refinanced_pct", "Refinanced", "loans that left at par while the borrower kept a position at the same BDC"],
     ["in_book_impaired_pct", "Impaired", "loans on non-accrual or marked under 80c, and restructurings at the same BDC"],
     ["lost_pct", "Lost", "the unrecovered part of exits below par"],
     ["unresolved_pct_book", "Uncollected, % of book", "PIK not yet collected or lost, as a share of the portfolio at cost"],
@@ -99,9 +99,9 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
                 <td className="px-3 py-2 text-right tabular-nums text-white">{r.pik_accrued_m.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                 <td className="px-3 py-2 text-right tabular-nums" style={{ color: (r.pik_pct_nii_window ?? 0) >= 20 ? "#fcd34d" : "#d1d5db" }}>{pct(r.pik_pct_nii_window)}</td>
                 <td className="px-3 py-2 text-right tabular-nums font-semibold text-white" style={{ background: green(r.collected_pct, 60) }}>{pct(r.collected_pct)}</td>
+                <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#6b6b88" }}>{pct(r.refinanced_pct)}</td>
                 <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#d1d5db" }}>{pct(r.still_pik_pct)}</td>
                 <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#9ca3af" }}>{pct(r.cured_pct)}</td>
-                <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#9ca3af" }}>{pct(r.refinanced_pct)}</td>
                 <td className="px-3 py-2 text-right tabular-nums" style={{ background: red(r.in_book_impaired_pct, 30), color: "#e5e7eb" }}>{pct(r.in_book_impaired_pct)}</td>
                 <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ background: red(r.lost_pct, 15), color: "#e5e7eb" }}>{pct(r.lost_pct)}</td>
                 <td className="px-3 py-2 text-right tabular-nums" style={{ color: (r.unresolved_pct_book ?? 0) >= 5 ? "#fcd34d" : "#d1d5db" }}>{pct(r.unresolved_pct_book, 1)}</td>
@@ -114,9 +114,10 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
         </table>
       </div>
       <div className="px-4 py-3 border-t text-xs" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
-        Collected + still PIK + cured + refinanced + impaired + lost = 100% of the PIK booked. &quot;Collected&quot; counts
-        only loans that left the book, so it is a floor: PIK paid in cash on loans that stay on the book is not visible in
-        the schedule of investments. † NMFC prints only a broader non-cash income line (PIK plus accretion), so its
+        Collected + still PIK + cured + impaired + lost = 100% of the PIK booked; &quot;of which refinanced&quot; is the
+        part of Collected that was rolled into a new loan at the same BDC. Collected counts only loans that left the
+        book or were refinanced, so it is a floor: PIK paid in cash on loans that stay on the book is not visible in
+        the schedule of investments (ARCC&apos;s reported collections are 94% explained by exits plus refinancings). † NMFC prints only a broader non-cash income line (PIK plus accretion), so its
         loan-level dollars are used as they are rather than scaled to it; OCSL prints PIK net of cash collected, a
         floor for gross PIK.
       </div>

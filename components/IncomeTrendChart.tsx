@@ -21,7 +21,7 @@ const COLORS = ["#a5b4fc", "#fda4af", "#86efac", "#fde68a", "#67e8f9", "#d8b4fe"
 const MEDIAN_COLOR = "#e5e7eb";
 const MAX_BDCS = COLORS.length;
 
-export type TrendMetric = "pik_pct_nii" | "cov_ex_pik";
+export type TrendMetric = "pik_pct_nii" | "cov_ex_pik" | "net_pik_pct_nii" | "cov_ex_net_pik";
 
 interface Props {
   rows: IncomeTtmRow[];
@@ -33,7 +33,14 @@ interface Props {
   from?: string;
 }
 
-const isCoverage = (m: TrendMetric) => m === "cov_ex_pik";
+const isCoverage = (m: TrendMetric) => m === "cov_ex_pik" || m === "cov_ex_net_pik";
+
+function medianOf(u: IncomeUniverseRow, m: TrendMetric): number | null {
+  if (m === "pik_pct_nii") return u.pik_pct_nii_median;
+  if (m === "net_pik_pct_nii") return u.net_pik_pct_nii_median;
+  if (m === "cov_ex_net_pik") return u.cov_ex_net_pik_median;
+  return u.cov_ex_pik_median;
+}
 
 function fmt(m: TrendMetric, v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "—";
@@ -50,10 +57,7 @@ export default function IncomeTrendChart({
     const byP = new Map<string, Record<string, string | number | null>>();
     for (const u of universe) {
       if (u.period_end < from) continue;
-      byP.set(u.period_end, {
-        period_end: u.period_end,
-        median: metric === "pik_pct_nii" ? u.pik_pct_nii_median : u.cov_ex_pik_median,
-      });
+      byP.set(u.period_end, { period_end: u.period_end, median: medianOf(u, metric) });
     }
     for (const r of rows) {
       if (r.period_end < from || !sel.includes(r.ticker)) continue;

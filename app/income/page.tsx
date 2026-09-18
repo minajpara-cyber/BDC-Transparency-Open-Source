@@ -27,13 +27,18 @@ import PikLedgerYearChart from "@/components/PikLedgerYearChart";
 import PikStockChart from "@/components/PikStockChart";
 import { pikLedger, pikLedgerByYear, pikLedgerQuarterly, pikLedgerMeta } from "@/data/pik_ledger";
 
-type HeatMetric = "pik_pct_nii" | "pik_pct_tii" | "noncash_pct_nii" | "gap";
+type HeatMetric = "pik_pct_nii" | "net_pik_pct_nii" | "pik_pct_tii" | "noncash_pct_nii" | "gap";
 
 const HEAT: Record<HeatMetric, { label: string; desc: string; thresholds: [number, number, number] }> = {
   pik_pct_nii: {
     label: "PIK % of NII",
     desc: "PIK income as a share of net investment income, trailing four quarters. Colored 10% → 25% → 40%+.",
     thresholds: [10, 25, 40],
+  },
+  net_pik_pct_nii: {
+    label: "PIK net of recapture, % of NII",
+    desc: "PIK income less the PIK collected in cash within the same four quarters, as a share of NII. Recapture is reported by ARCC and ASIF; elsewhere it is estimated from loans that left the book or were refinanced at par — a floor, so these values are ceilings. Estimates start at end-2019. Colored 5% → 12% → 20%+.",
+    thresholds: [5, 12, 20],
   },
   pik_pct_tii: {
     label: "PIK % of total income",
@@ -189,10 +194,13 @@ export default function IncomePage() {
           <IncomeTrendChart
             rows={incomeTtm}
             universe={incomeUniverse}
-            metric="pik_pct_nii"
+            metric={metric === "net_pik_pct_nii" ? "net_pik_pct_nii" : "pik_pct_nii"}
+            from={metric === "net_pik_pct_nii" ? "2019-12-31" : undefined}
             defaultTickers={trendDefault}
-            title="PIK as % of NII over time"
-            subtitle="The five most PIK-dependent BDCs today against the median BDC. Toggle any BDC on or off."
+            title={metric === "net_pik_pct_nii" ? "PIK net of recapture as % of NII over time" : "PIK as % of NII over time"}
+            subtitle={metric === "net_pik_pct_nii"
+              ? "PIK income less the PIK that came back as cash in the same four quarters. ARCC and ASIF report their collections; the rest are estimated from exits and refinancings at par, a floor. The five most PIK-dependent BDCs today against the median BDC."
+              : "The five most PIK-dependent BDCs today against the median BDC. Toggle any BDC on or off."}
           />
         </div>
       </section>
@@ -272,8 +280,8 @@ export default function IncomePage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <StatCard label={`PIK booked since ${windowYear}`} value={`$${(pikLedgerMeta.pooled_accrued_bn ?? 0).toFixed(1)}bn`}
             sub={`${pikLedgerMeta.n_bdcs} BDCs, from the cash-flow statements`} color="#a5b4fc" highlight />
-          <StatCard label="Collected on exits" value={`${(pikLedgerMeta.pooled_collected_pct ?? 0).toFixed(0)}%`}
-            sub="repaid as principal when the loan left — a floor" color="#86efac" />
+          <StatCard label="Collected" value={`${(pikLedgerMeta.pooled_collected_pct ?? 0).toFixed(0)}%`}
+            sub="repaid on exit or refinanced at par — a floor" color="#86efac" />
           <StatCard label="Still in the book" value={`${inBookPct.toFixed(0)}%`}
             sub={`${(pikLedgerMeta.pooled_in_book_impaired_pct ?? 0).toFixed(0)} points of it in impaired loans`} color="#fcd34d" />
           <StatCard label="Lost" value={`${(pikLedgerMeta.pooled_lost_pct ?? 0).toFixed(0)}%`}
@@ -298,15 +306,14 @@ export default function IncomePage() {
             outcome.
           </p>
           <p className="mb-2">
-            <span className="text-white">Collected is measured on exits only.</span>{" "}A loan that left the book with
-            no successor position at a mark of 97¢ or better repaid its capitalized PIK as principal. PIK paid in cash
+            <span className="text-white">Collected is measured on exits and refinancings.</span>{" "}A loan that
+            left the book at a mark of 97¢ or better repaid its capitalized PIK as principal — including loans
+            refinanced at par at the same BDC, where the old loan is repaid from the new facility. PIK paid in cash
             while a loan stays on the book — partial paydowns, PIK toggles switching to cash — is invisible in the
-            schedule, so the collected share is a floor
+            schedule, so the collected share is a floor, but a close one
             {arccLedger?.reported_collected_last4q_m != null
-              ? `: ARCC reports $${arccLedger.reported_collected_last4q_m.toFixed(0)}m of PIK collected over the last four quarters, of which $${arccLedger.collected_last4q_m.toFixed(0)}m shows up here as exits`
-              : ""}.
-            &quot;Refinanced&quot; loans left at par while the borrower kept a position at the same BDC: the PIK was rolled
-            into the new loan, or repaid from its proceeds — the schedule cannot tell which, so it is kept separate.
+              ? `: ARCC reports $${arccLedger.reported_collected_last4q_m.toFixed(0)}m of PIK collected over the last four quarters, and exits plus refinancings account for $${arccLedger.collected_last4q_m.toFixed(0)}m of it`
+              : ""}. Over 2019–25, exits alone explained 60% of ARCC&apos;s reported collections; with refinancings, 94%.
           </p>
           <p>
             <span className="text-white">Reading the maturation curve.</span>{" "}
@@ -353,6 +360,14 @@ export default function IncomePage() {
             fails. That is the risk this tab sizes; the stress slider and the severe-PIK column put numbers
             on it. Severe PIK is PIK making up more than half a loan&apos;s coupon, or all of it — the
             borrowers least likely to be paying for choice.
+          </p>
+          <p className="mb-2">
+            <span className="text-white">PIK net of recapture.</span>{" "}A mature book recycles PIK: loans with
+            capitalized PIK get repaid or refinanced and the PIK comes back as cash. The &quot;net of recapture&quot;
+            measures take that year&apos;s collections out first — ARCC&apos;s reported line where it exists, otherwise
+            the PIK on loans that left the book or were refinanced at par in the same four quarters. The estimate is
+            a floor (exits plus refinancings explain 94% of ARCC&apos;s reported collections over 2019–25), so the
+            net PIK share is a ceiling for the BDCs that do not report it.
           </p>
           <p className="mb-2">
             <span className="text-white">Accretion is shown but not in the headline.</span>{" "}Net accretion of

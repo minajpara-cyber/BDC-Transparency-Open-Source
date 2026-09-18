@@ -17,7 +17,7 @@ import {
 import type { PikLedgerYear } from "@/data/pik_ledger";
 
 const SERIES = [
-  { key: "collected", label: "Collected on exit", color: "#86efac" },
+  { key: "collected", label: "Collected (repaid or refinanced at par)", color: "#86efac" },
   { key: "in_book_performing", label: "Still in the book, performing", color: "#a5b4fc" },
   { key: "in_book_impaired", label: "In impaired loans", color: "#fcd34d" },
   { key: "lost", label: "Lost", color: "#fca5a5" },
