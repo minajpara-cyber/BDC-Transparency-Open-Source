@@ -453,7 +453,7 @@ export const navPerShare: NavPoint[] = [
 ];
 
 export const dividendSupportMeta = {
-  "generated": "2026-09-18",
+  "generated": "2026-09-20",
   "latest_period": "2026-06-30",
   "n_bdcs": 19
 } as const;

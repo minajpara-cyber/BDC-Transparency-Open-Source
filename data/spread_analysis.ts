@@ -315,6 +315,7 @@ export const spreadAnalysis: SpreadRow[] = [
   {"ticker": "HTGC", "period_end": "2025-12-31", "avg_spread_book_bps": 518, "avg_spread_new_bps": 490, "avg_spread_exit_bps": 645, "n_positions_priced": 130, "n_new": 18, "n_exit": 15, "n_bdcs": null},
   {"ticker": "HTGC", "period_end": "2026-03-31", "avg_spread_book_bps": 525, "avg_spread_new_bps": 562, "avg_spread_exit_bps": 462, "n_positions_priced": 143, "n_new": 18, "n_exit": 8, "n_bdcs": null},
   {"ticker": "HTGC", "period_end": "2026-06-30", "avg_spread_book_bps": 527, "avg_spread_new_bps": 484, "avg_spread_exit_bps": 522, "n_positions_priced": 140, "n_new": 16, "n_exit": 20, "n_bdcs": null},
+  {"ticker": "MAIN", "period_end": "2020-12-31", "avg_spread_book_bps": null, "avg_spread_new_bps": null, "avg_spread_exit_bps": null, "n_positions_priced": 18, "n_new": 0, "n_exit": 0, "n_bdcs": null},
   {"ticker": "MAIN", "period_end": "2021-12-31", "avg_spread_book_bps": 719, "avg_spread_new_bps": null, "avg_spread_exit_bps": null, "n_positions_priced": 130, "n_new": 0, "n_exit": 0, "n_bdcs": null},
   {"ticker": "MAIN", "period_end": "2022-09-30", "avg_spread_book_bps": 734, "avg_spread_new_bps": null, "avg_spread_exit_bps": null, "n_positions_priced": 182, "n_new": 0, "n_exit": 0, "n_bdcs": null},
   {"ticker": "MAIN", "period_end": "2022-12-31", "avg_spread_book_bps": 711, "avg_spread_new_bps": 874, "avg_spread_exit_bps": 868, "n_positions_priced": 179, "n_new": 9, "n_exit": 17, "n_bdcs": null},
