@@ -153,17 +153,25 @@ export default function AboutPage() {
         <p className="text-sm leading-relaxed mb-3" style={{ color: "#d1d5db" }}>
           The <Link href="/vintage" className="text-indigo-400 hover:underline">vintage analysis</Link>{" "}
           and quarterly credit-modification metrics use distinct methodologies and covered populations.
-          Quarterly flow rates use matched debt observations; vintage metrics track cumulative cohort
-          outcomes. MFIC&apos;s disclosed issuer NA rate is shown separately from the industry position-based ratio.
+          Quarterly flow rates use matched debt observations; holding cohorts show quarter-end
+          non-accrual evidence and unresolved observation bounds. MFIC&apos;s disclosed issuer NA rate is shown separately from the industry position-based ratio.
         </p>
 
-        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Cumulative default exposure (pct_ever_default)</h3>
+        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Dated holding cohorts</h3>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          Cumulative share of vintage cost ever flagged non-accrual OR exited the portfolio in distress
-          (loan exited at a mark below 0.85, or after ever being NA / below 80¢). This matches Raymond
-          James&apos;s published &ldquo;cumulative 1L default exposure&rdquo; methodology. The prior
-          pct_ever_na metric only counted on-book non-accruals, so it ran 4-10× LOWER than RJ — loans
-          that defaulted then exited via write-off, distressed sale, or debt-for-equity were invisible.
+          Cohorts separate the holder&apos;s own disclosed acquisition date from the first observation
+          in our filing history. Neither establishes original loan origination. Acquisition cohorts
+          require first observation in the acquisition quarter; monitoring cohorts can contain seasoned
+          loans. Ambiguous identities are excluded. For a selected follow-up horizon, fully seasoned
+          holding groups retain the same initial-cost denominator at every age.
+        </p>
+        <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
+          The lower bound counts initial cost of groups with any observed quarter-end non-accrual;
+          the upper adds groups with unresolved past status. A positive position contributes the entire
+          holding-group weight, not the actual non-accrual dollars. Baseline positives are included,
+          gaps remain unresolved, and disappearance does not establish an outcome. These bounds do
+          not estimate continuous-time defaults, realized losses or survival. Current acquisition
+          composition is shown separately, with unknown dates and issuer reporting dates retained.
         </p>
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Quarterly inferred modifications</h3>
@@ -189,8 +197,8 @@ export default function AboutPage() {
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
           Named events include source-row comparison references and before/after evidence. Those
           references identify observed comparisons, not permanent legal facilities. An observed
-          PIK → cash transition does not establish a credit cure. Cumulative vintage modification
-          metrics use a separate historical cohort definition and should not be read as quarterly flows.
+          PIK → cash transition does not establish a credit cure. Holding-cohort non-accrual bounds
+          use a separate historical population and should not be read as quarterly modification flows.
         </p>
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Sector classification &amp; borrower profiles</h3>
@@ -215,10 +223,10 @@ export default function AboutPage() {
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Coverage caveats</h3>
         <ul className="text-xs leading-relaxed pl-5 list-disc" style={{ color: "#9ca3af" }}>
-          <li>Vintage rollup excludes loans whose holder BDC&apos;s parser coverage started <em>after</em> their vintage_year (eliminates BCRED / ADS / ASIF / BBDC survivor bias from older vintages)</li>
+          <li>Acquisition cohorts exclude holdings first observed after their acquisition quarter. This limits late-entry bias but does not establish complete historical coverage; missing quarters and unknown flags remain visible in the bounds.</li>
           <li>Modification matching can confuse an amendment, refinancing or changed instrument label. The signal rules do not establish legal amendment terms or measured recall of all modifications.</li>
-          <li>BDC-disclosed acquisition_date is the latest amendment date in some filers (notably non-traded BDCs), not original origination. We correct this with MIN-across-observations, cross-BDC consensus favoring public filers, and a LIBOR→SOFR retag detector; the residual 2021-cohort inflation (~2.25× neighbors vs Raymond James&apos;s ~1.5×) is the floor achievable without external origination data</li>
-          <li>Pre-2018 vintages are excluded; FSK/OBDC pre-2022 excluded due to parser limitations</li>
+          <li>Acquisition disclosures can refer to purchases or new securities, and changing or contradictory dates require review. First observed is a monitoring anchor only. No externally validated origination-accuracy rate is claimed.</li>
+          <li>Cohort results depend on available issuer history, identified funded-debt coverage and the chosen follow-up horizon. Current composition and historical cohort denominators are different populations.</li>
         </ul>
       </div>
 

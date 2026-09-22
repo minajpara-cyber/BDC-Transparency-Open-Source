@@ -257,7 +257,7 @@ export default function HomePage() {
         <h2 className="font-semibold text-white mb-3">Deep dives</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
           {[
-            { href: "/vintage", icon: TrendingDown, t: "Vintage analysis", d: "Cumulative default curves by origination year, validated against 85 documented deals" },
+            { href: "/vintage", icon: TrendingDown, t: "Vintage analysis", d: "Dated holding cohorts, quarter-end non-accrual bounds and explicit coverage" },
             { href: "/credit", icon: AlertTriangle, t: "Credit quality", d: "Non-accruals, marks and PIK trends quarterly since 2018, with a 160-fund industry blend" },
             { href: "/maturity", icon: Clock, t: "Maturity walls", d: "When each BDC's borrowers must repay or refinance" },
             { href: "/borrowers", icon: Users, t: "Borrower universe", d: "1,900+ entity-resolved borrowers with cross-holder marks and history" },

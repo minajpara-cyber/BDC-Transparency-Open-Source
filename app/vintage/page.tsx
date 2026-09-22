@@ -1,935 +1,112 @@
 "use client";
-import React, { useMemo, useState } from "react";
+
+import { useState } from "react";
 import Link from "next/link";
 import CreditNav from "@/components/CreditNav";
-import VintageChart, { VintageSeries } from "@/components/VintageChart";
-import { vintageRows, VintageRow } from "@/data/vintage_analysis";
-import { vintageLGD } from "@/data/vintage_lgd";
+import VintageChart from "@/components/VintageChart";
 import VintageExposureTable from "@/components/VintageExposureTable";
+import { vintageCohorts, vintagePoints, vintageCoverage } from "@/data/vintage_analysis";
 
-type Metric = "pct_ever_default" | "pct_ever_modified" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive";
-
-const METRIC_META: Record<Metric, { label: string; sub: string; color: string }> = {
-  pct_ever_default: {
-    label: "% Cost Ever Defaulted (cumulative default exposure)",
-    sub: "Cumulative — share of vintage cost ever flagged non-accrual OR exited in distress (write-off, distressed sale, debt-for-equity). Directionally comparable to Raymond James's 'cumulative 1L default exposure' (ours spans all instruments; RJ is 1L-only). Primary vintage-performance metric.",
-    color: "#dc2626",
-  },
-  pct_ever_modified: {
-    label: "% Cost Ever Modified (multi-signal)",
-    sub: "Cumulative — share of vintage cost that has experienced ANY modification event by age T: a material cash→PIK flip (PIK ≥20% of the coupon, after 2+ cash-pay quarters), a maturity extension (>6 months, tracked on the same tranche even when the maturity year changes), a par haircut (>15% cut at a stressed mark, on non-accrual, or with equity received — not a repayment), a spread cut (>50bps of spread, not base-rate moves), or a lien downgrade. Captures restructuring activity broader than non-accrual.",
-    color: "#a855f7",
-  },
-  pct_ever_na: {
-    label: "% Cost Ever Non-Accrual (on-book only)",
-    sub: "Legacy metric — only counts loans still on the balance sheet flagged non-accrual. Excludes loans that defaulted then exited. Runs ~5pp LOWER than pct_ever_default.",
-    color: "#ef4444",
-  },
-  pct_ever_b80: {
-    label: "% Cost Ever Marked < 80¢",
-    sub: "Cumulative — share of vintage cost ever marked below 80¢ on the dollar by age T",
-    color: "#f97316",
-  },
-  pct_b90_alive: {
-    label: "% Surviving Cost Marked < 90¢",
-    sub: "Point-in-time — share of currently-alive cost marked below 90¢ at age T (leading indicator)",
-    color: "#eab308",
-  },
-};
-
-// Compress raw rows into one series per vintage_year for a given metric.
-// When hcOnly=true and the metric has a *_hc counterpart, use that; rows
-// where the HC value is null (cohort had <15 HIGH+MED loans) are dropped.
-// l1Only switches the default metric to the first-lien-only RJ-comparable
-// series (overrides hcOnly for that metric — there is no HC∩1L variant).
-function resolveMetricKey(metric: Metric, hcOnly: boolean, l1Only: boolean): keyof VintageRow {
-  const hcVariant: Partial<Record<Metric, keyof VintageRow>> = {
-    pct_ever_default: "pct_ever_default_hc",
-    pct_ever_modified: "pct_ever_modified_hc",
-  };
-  if (l1Only && metric === "pct_ever_default") return "pct_ever_default_1l";
-  if (hcOnly && hcVariant[metric]) return hcVariant[metric]!;
-  return metric;
-}
-
-function buildSeries(rows: VintageRow[], metric: Metric, hcOnly: boolean = false, l1Only: boolean = false): VintageSeries[] {
-  const useKey = resolveMetricKey(metric, hcOnly, l1Only);
-  const byVintage = new Map<number, VintageRow[]>();
-  for (const r of rows) {
-    if (!byVintage.has(r.vintage_year)) byVintage.set(r.vintage_year, []);
-    byVintage.get(r.vintage_year)!.push(r);
-  }
-  return Array.from(byVintage.entries()).map(([vy, list]) => {
-    const sorted = [...list].sort((a, b) => a.age_quarters - b.age_quarters);
-    return {
-      vintage_year: vy,
-      is_partial: sorted[0]?.is_partial ?? false,
-      points: sorted
-        .map((r) => ({
-          age_years: r.age_years,
-          value: r[useKey] as number | null,
-          alive_cost_b: r.alive_cost_b,
-        }))
-        .filter((p) => p.value !== null && p.value !== undefined)
-        .map((p) => ({ age_years: p.age_years, value: p.value as number, alive_cost_b: p.alive_cost_b })),
-    };
-  });
-}
-
-// Latest data point per vintage — what the table shows in each column.
-function latestPerVintage(rows: VintageRow[]) {
-  const byV = new Map<number, VintageRow>();
-  for (const r of rows) {
-    const prev = byV.get(r.vintage_year);
-    if (!prev || r.age_quarters > prev.age_quarters) byV.set(r.vintage_year, r);
-  }
-  return Array.from(byV.values()).sort((a, b) => a.vintage_year - b.vintage_year);
-}
-
-// At a specific age (years), pluck the cumulative metric per vintage. Returns
-// null for vintages too young to have reached that age.
-// `field` is the already-resolved VintageRow key (see resolveMetricKey), so
-// callers pick up the same high-confidence / first-lien toggles as the charts.
-function metricAtAge(rows: VintageRow[], vintage: number, ageYears: number, field: keyof VintageRow): number | null {
-  const targetQ = Math.round(ageYears * 4);
-  const r = rows.find((x) => x.vintage_year === vintage && x.age_quarters === targetQ);
-  if (!r) return null;
-  const v = r[field];
-  return typeof v === "number" ? v : null;
-}
-
-// For the BDC × Vintage matrix: per (ticker, vintage_year), get the latest
-// observation row for that BDC's cohort AND the industry's row at the
-// SAME age_quarters (so the BDC↔industry comparison is apples-to-apples).
-interface MatrixCell {
-  bdcVal: number;
-  indVal: number;
-  delta: number;       // bdcVal - indVal
-  age_years: number;
-  cohort_b: number;    // BDC's cohort entry cost
-  n_loans: number;
-}
-
-interface MatrixData {
-  tickers: string[];
-  vintages: number[];
-  cells: Map<string, MatrixCell>;          // key = `${ticker}|${vintage}`
-  bdcTotal: Map<string, number>;           // per BDC: cohort-weighted aggregate metric
-  industryByVintage: Map<number, number>;  // per vintage: industry's latest reading
-  industryTotal: number;                   // industry cohort-weighted across vintages
-}
-
-function buildMatrix(
-  bdcRows: VintageRow[],
-  industryRows: VintageRow[],
-  metric: Metric,
-  hcOnly: boolean = false,
-): MatrixData {
-  // Honor the page-level HC toggle so the matrix shows the SAME flavor of
-  // the metric as the charts/table above (it previously always used the
-  // all-loans value, silently disagreeing with the headline view).
-  const hcVariantM: Partial<Record<Metric, keyof VintageRow>> = {
-    pct_ever_default: "pct_ever_default_hc",
-    pct_ever_modified: "pct_ever_modified_hc",
-  };
-  const mKey: keyof VintageRow =
-    (hcOnly && hcVariantM[metric]) ? hcVariantM[metric]! : metric;
-  const cells = new Map<string, MatrixCell>();
-
-  // Group BDC rows by (ticker, vintage) and take the latest age observed.
-  const latestByPair = new Map<string, VintageRow>();
-  for (const r of bdcRows) {
-    if (r.is_partial) continue;
-    const key = `${r.ticker}|${r.vintage_year}`;
-    const prev = latestByPair.get(key);
-    if (!prev || r.age_quarters > prev.age_quarters) latestByPair.set(key, r);
-  }
-
-  const tickerSet = new Set<string>();
-  const vintageSet = new Set<number>();
-
-  for (const [, bdcR] of latestByPair) {
-    // Industry baseline at the SAME (vintage, age_quarters)
-    const indR = industryRows.find(
-      (i) => i.vintage_year === bdcR.vintage_year && i.age_quarters === bdcR.age_quarters && !i.is_partial,
-    );
-    if (!indR) continue;
-    const bdcVal = bdcR[mKey] as number | null;
-    const indVal = indR[mKey] as number | null;
-    if (bdcVal === null || bdcVal === undefined || indVal === null || indVal === undefined) continue;
-    cells.set(`${bdcR.ticker}|${bdcR.vintage_year}`, {
-      bdcVal,
-      indVal,
-      delta: bdcVal - indVal,
-      age_years: bdcR.age_years,
-      cohort_b: bdcR.cohort_entry_cost_b,
-      n_loans: bdcR.n_loans_cohort,
-    });
-    tickerSet.add(bdcR.ticker);
-    vintageSet.add(bdcR.vintage_year);
-  }
-
-  // Per-BDC total: cohort-weighted aggregate of the metric across all this
-  // BDC's vintages. For cumulative metrics (ever_na, ever_b80) the weight is
-  // entry-cost; for the point-in-time snapshot (curr <90) we'd ideally weight
-  // by alive_cost, but cohort_entry_cost is a reasonable scale proxy and keeps
-  // the totals comparable to the per-cell values.
-  const bdcTotal = new Map<string, number>();
-  for (const ticker of tickerSet) {
-    let num = 0;
-    let den = 0;
-    for (const vy of vintageSet) {
-      const c = cells.get(`${ticker}|${vy}`);
-      if (!c) continue;
-      num += (c.bdcVal / 100) * c.cohort_b;
-      den += c.cohort_b;
-    }
-    if (den > 0) bdcTotal.set(ticker, (num / den) * 100);
-  }
-
-  // Industry row per vintage: industry's metric at its LATEST observable age
-  // for that vintage (i.e., the freshest industry snapshot, vintage by vintage).
-  const industryByVintage = new Map<number, number>();
-  const industryLatest = new Map<number, VintageRow>();
-  for (const r of industryRows) {
-    if (r.is_partial) continue;
-    const prev = industryLatest.get(r.vintage_year);
-    if (!prev || r.age_quarters > prev.age_quarters) industryLatest.set(r.vintage_year, r);
-  }
-  for (const vy of vintageSet) {
-    const r = industryLatest.get(vy);
-    const v = r ? (r[mKey] as number | null) : null;
-    if (v !== null && v !== undefined) industryByVintage.set(vy, v);
-  }
-
-  // Industry overall total: cohort-weighted across vintages
-  let indNum = 0;
-  let indDen = 0;
-  for (const vy of vintageSet) {
-    const r = industryLatest.get(vy);
-    if (!r) continue;
-    const v = r[mKey] as number | null;
-    if (v === null || v === undefined) continue;
-    indNum += (v / 100) * r.cohort_entry_cost_b;
-    indDen += r.cohort_entry_cost_b;
-  }
-  const industryTotal = indDen > 0 ? (indNum / indDen) * 100 : 0;
-
-  return {
-    tickers: Array.from(tickerSet).sort(),
-    vintages: Array.from(vintageSet).sort(),
-    cells,
-    bdcTotal,
-    industryByVintage,
-    industryTotal,
-  };
-}
-
-// Measured dating error by source bucket (golden-set validation 2026-06-10:
-// 85 documented financings, 1,200 loan-tranches — see methodology box).
-// Mean absolute error in YEARS, weighted within each bucket by sample size.
-const SRC_MAE = {
-  disclosed: 1.15,    // own_acq
-  corrected: 1.24,    // xbdc_earlier_peer (1.43) + retag override (0.38)
-  borrowed: 0.82,     // tranche-matched peer dates
-  name_matched: 1.23, // long-tail name match / sibling facility / DERA floor
-  inferred: 1.3,      // tenor model / first-observed heuristics
-};
-function cohortDatingError(r: VintageRow): number | null {
-  const parts: Array<[number, number]> = [
-    [r.n_src_disclosed ?? 0, SRC_MAE.disclosed],
-    [r.n_src_corrected ?? 0, SRC_MAE.corrected],
-    [r.n_src_borrowed ?? 0, SRC_MAE.borrowed],
-    [r.n_src_name_matched ?? 0, SRC_MAE.name_matched],
-    [r.n_src_inferred ?? 0, SRC_MAE.inferred],
-  ];
-  const n = parts.reduce((s, [c]) => s + c, 0);
-  if (!n) return null;
-  return parts.reduce((s, [c, mae]) => s + c * mae, 0) / n;
-}
-
-// Color helpers — picks a tinted background and a text color given a metric
-// value, in either "absolute" (color by level) or "relative" (color by delta vs
-// industry, where negative delta is good since lower NA% is better).
-type ViewMode = "absolute" | "relative";
-
-function absLevelColor(value: number, metric: Metric): { bg: string; fg: string } {
-  // Thresholds tuned per metric so the colors mean roughly the same thing
-  // across the views (good / amber / bad). pct_ever_default uses RJ-scale
-  // thresholds (~5% = average, 8%+ = severe). pct_ever_modified runs higher
-  // since restructurings precede defaults (2022/23 vintages ~15% modified).
-  const t = metric === "pct_b90_alive"
-    ? { greenMax: 3, yellowMax: 7, orangeMax: 12 }
-    : metric === "pct_ever_b80"
-      ? { greenMax: 1.5, yellowMax: 4, orangeMax: 8 }
-      : metric === "pct_ever_default"
-        ? { greenMax: 2, yellowMax: 5, orangeMax: 8 }
-        : metric === "pct_ever_modified"
-          ? { greenMax: 4, yellowMax: 10, orangeMax: 18 }
-          : { greenMax: 0.75, yellowMax: 2, orangeMax: 4 };
-  if (value < t.greenMax) return { bg: "rgba(34,197,94,0.10)",  fg: "#22c55e" };
-  if (value < t.yellowMax) return { bg: "rgba(234,179,8,0.08)", fg: "#eab308" };
-  if (value < t.orangeMax) return { bg: "rgba(249,115,22,0.10)", fg: "#f97316" };
-  return { bg: "rgba(239,68,68,0.14)", fg: "#ef4444" };
-}
-
-function relDeltaColor(delta: number): { bg: string; fg: string } {
-  // delta = bdc - industry. Lower NA% is better, so negative delta = good.
-  const directed = -delta;
-  const saturate = Math.min(Math.abs(directed) / 2.0, 1.0);
-  if (directed > 0.25) return { bg: `rgba(34,197,94,${0.08 + 0.18 * saturate})`,  fg: "#22c55e" };
-  if (directed < -0.25) return { bg: `rgba(239,68,68,${0.08 + 0.18 * saturate})`, fg: "#ef4444" };
-  return { bg: "transparent", fg: "#9ca3af" };
-}
+const pct = (value: number | null | undefined) => value == null ? "Unknown" : `${value.toFixed(2)}%`;
+const money = (value: number | null | undefined) => value == null ? "Unknown" : `$${value.toFixed(3)}B`;
+const dates = (min: string | null | undefined, max: string | null | undefined) => !min || !max ? "No snapshot" : min === max ? min : `${min} – ${max}`;
+const panel = { background: "#111118", borderColor: "#1e1e2e" };
 
 export default function VintagePage() {
-  const [includePartial, setIncludePartial] = useState(false);
-  // Default ON — per docs/acq_date_methodology.md, low-confidence vintage
-  // assignments (heuristic first-observed inference, or drifted disclosed
-  // acq_dates likely indicating amendments not originations) shouldn't drive
-  // the headline view. User can toggle off to see all-loans rollup.
-  const [hcOnly, setHcOnly] = useState(true);
-  // First-lien-only RJ-comparable series for the default metric (numerator
-  // AND denominator restricted to 1L loans — matches RJ's universe).
-  const [l1Only, setL1Only] = useState(false);
-  const [matrixMetric, setMatrixMetric] = useState<Metric>("pct_ever_default");
-  const [matrixView, setMatrixView] = useState<ViewMode>("absolute");
-  const [matrixSortKey, setMatrixSortKey] = useState<number | "total" | null>("total");
-  const [matrixSortDir, setMatrixSortDir] = useState<"asc" | "desc">("asc");
-
-  const industryRows = useMemo(
-    () => vintageRows.filter((r) => r.ticker === "industry"),
-    [],
-  );
-  const bdcRows = useMemo(
-    () => vintageRows.filter((r) => r.ticker !== "industry"),
-    [],
-  );
-
-  const visibleRows = useMemo(() => {
-    if (includePartial) return industryRows;
-    return industryRows.filter((r) => !r.is_partial);
-  }, [industryRows, includePartial]);
-
-  // Resolved once so the "Cumulative Default % at Standard Ages" table below
-  // reads the same column the default-curve chart plots.
-  const defaultMetricKey = useMemo(() => resolveMetricKey("pct_ever_default", hcOnly, l1Only), [hcOnly, l1Only]);
-  const defaultSeries = useMemo(() => buildSeries(visibleRows, "pct_ever_default", hcOnly, l1Only), [visibleRows, hcOnly, l1Only]);
-  const modSeries     = useMemo(() => buildSeries(visibleRows, "pct_ever_modified", hcOnly), [visibleRows, hcOnly]);
-  const naSeries  = useMemo(() => buildSeries(visibleRows, "pct_ever_na"),  [visibleRows]);
-  const b80Series = useMemo(() => buildSeries(visibleRows, "pct_ever_b80"), [visibleRows]);
-  const b90Series = useMemo(() => buildSeries(visibleRows, "pct_b90_alive"), [visibleRows]);
-
-  const tableRows = useMemo(() => latestPerVintage(visibleRows), [visibleRows]);
-
-  const matrix = useMemo(
-    () => buildMatrix(bdcRows, industryRows, matrixMetric, hcOnly),
-    [bdcRows, industryRows, matrixMetric, hcOnly],
-  );
-
-  // Sort tickers by clicked column (vintage year or "total"). Default = sort by
-  // overall total ascending (best aggregate performer first).
-  const sortedTickers = useMemo(() => {
-    const ts = [...matrix.tickers];
-    if (matrixSortKey === null) return ts;
-    return ts.sort((a, b) => {
-      const va = matrixSortKey === "total"
-        ? (matrix.bdcTotal.get(a) ?? Number.POSITIVE_INFINITY)
-        : (matrix.cells.get(`${a}|${matrixSortKey}`)?.bdcVal ?? Number.POSITIVE_INFINITY);
-      const vb = matrixSortKey === "total"
-        ? (matrix.bdcTotal.get(b) ?? Number.POSITIVE_INFINITY)
-        : (matrix.cells.get(`${b}|${matrixSortKey}`)?.bdcVal ?? Number.POSITIVE_INFINITY);
-      return matrixSortDir === "asc" ? va - vb : vb - va;
-    });
-  }, [matrix, matrixSortKey, matrixSortDir]);
-
-  const onSortClick = (key: number | "total") => {
-    if (matrixSortKey === key) {
-      setMatrixSortDir(matrixSortDir === "asc" ? "desc" : "asc");
-    } else {
-      setMatrixSortKey(key);
-      setMatrixSortDir("asc");
-    }
-  };
-
-  // Cell renderer: one centered % per cell, no second-line annotation. Color
-  // and value depend on the active view mode.
-  const renderCell = (cell: MatrixCell | undefined): React.ReactElement => {
-    if (!cell) {
-      return <td className="px-3 py-2.5 text-center text-xs" style={{ color: "#444" }}>—</td>;
-    }
-    const isAbs = matrixView === "absolute";
-    const value = isAbs ? cell.bdcVal : cell.delta;
-    const { bg, fg } = isAbs
-      ? absLevelColor(cell.bdcVal, matrixMetric)
-      : relDeltaColor(cell.delta);
-    const displayed = isAbs
-      ? `${value.toFixed(2)}%`
-      : `${value > 0 ? "+" : ""}${value.toFixed(2)}pp`;
-    return (
-      <td
-        className="px-3 py-2.5 text-center font-semibold tabular-nums"
-        style={{ background: bg, color: fg, fontSize: "0.95rem" }}
-        title={`Age ${cell.age_years.toFixed(2)}y · cohort ${cell.n_loans} loans / $${cell.cohort_b.toFixed(2)}B · industry ${cell.indVal.toFixed(2)}%`}
-      >
-        {displayed}
-      </td>
-    );
-  };
+  const [basis, setBasis] = useState<"holder_acquisition" | "first_observed">("holder_acquisition");
+  const [horizon, setHorizon] = useState(4);
+  const [scope, setScope] = useState<"all" | "first_lien">("all");
+  const [ticker, setTicker] = useState("industry");
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const tickers = Array.from(new Set([...vintageCohorts.map((r) => r.ticker), ...vintageCoverage.map((r) => r.ticker)])).filter((t) => t !== "industry").sort();
+  const selected = vintageCohorts.filter((r) => r.ticker === ticker && r.basis === basis && r.horizon_quarters === horizon && r.debt_scope === scope).sort((a, b) => a.cohort_year - b.cohort_year);
+  const cohorts = selected.filter((r) => r.n_holdings > 0 && r.entry_cost_b > 0);
+  const ids = new Set(cohorts.map((r) => r.cohort_id));
+  const points = vintagePoints.filter((r) => ids.has(r.cohort_id));
+  const series = cohorts.map((c) => ({ cohort_year: c.cohort_year, n_issuers: c.n_issuers, issuers: c.issuers, n_holdings: c.n_holdings, entry_cost_b: c.entry_cost_b, points: points.filter((r) => r.cohort_id === c.cohort_id).map((r) => ({ age_quarters: r.age_quarters, lower: r.na_lower_pct, upper: r.na_upper_pct })) }));
+  const detail = cohorts.find((r) => r.cohort_year === selectedYear) ?? cohorts[cohorts.length - 1];
+  const detailPoints = detail ? points.filter((r) => r.cohort_id === detail.cohort_id).sort((a, b) => a.age_quarters - b.age_quarters) : [];
+  const coverage = vintageCoverage.find((r) => r.ticker === ticker);
+  const n = cohorts.reduce((sum, r) => sum + r.n_holdings, 0);
+  const cost = cohorts.reduce((sum, r) => sum + r.entry_cost_b, 0);
+  const unseasoned = selected.reduce((sum, r) => sum + r.n_unseasoned, 0);
+  const unseasonedCost = selected.reduce((sum, r) => sum + r.unseasoned_cost_b, 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <CreditNav />
-      {/* Header */}
-      <div className="mb-7">
-        <h1 className="text-2xl font-bold text-white mb-2">Vintage Analysis</h1>
-        <p className="text-sm" style={{ color: "#8b8ba8" }}>
-          Cumulative credit performance by vintage year — sliced by{" "}
-          <span className="text-white">when each loan first appeared on a BDC&apos;s book</span>{" "}
-          (the
-          BDC&apos;s acquisition date when disclosed; otherwise the period of first
-          observation in our parser). All metrics are <span className="text-white">cost-weighted</span>.
-          MFIC excluded from non-accrual metrics — its SOI doesn&apos;t flag NA per position.
-        </p>
-        <div className="mt-3 rounded-lg border p-3 text-xs"
-             style={{ background: "rgba(99,102,241,0.05)", borderColor: "rgba(99,102,241,0.2)", color: "#9ca3af" }}>
-          <span className="text-white font-semibold">Methodology in one breath:</span>{" "}
-          primary metric is <span className="text-white">% Cost Ever Defaulted</span> (on-book
-          non-accrual ∪ distress exits — directionally comparable to Raymond James&apos;s 1L
-          cumulative default exposure), and every loan&apos;s vintage carries a confidence tier.{" "}
-          <span className="text-white">
-            Validated against 85 externally-documented financings: 73% of assigned vintages land
-            within ±1 year
-          </span>{" "}
-          (mean error 1.1y; the per-cohort ± badges below come from that scoring).{" "}
-          <Link href="/methodology#vintage" className="text-indigo-400 hover:text-indigo-300">
-            Full vintage methodology →
-          </Link>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
-            <input
-              type="checkbox"
-              checked={hcOnly}
-              onChange={(e) => setHcOnly(e.target.checked)}
-              className="cursor-pointer"
-            />
-            <span>
-              High-confidence vintage only{" "}
-              <span style={{ color: "#6b6b88" }}>
-                (HIGH+MED tier: stable acq_date across quarters & holders; default on — see methodology)
-              </span>
-            </span>
-          </label>
-          <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
-            <input
-              type="checkbox"
-              checked={l1Only}
-              onChange={(e) => setL1Only(e.target.checked)}
-              className="cursor-pointer"
-            />
-            <span>
-              First-lien only{" "}
-              <span style={{ color: "#6b6b88" }}>
-                (the truly RJ-comparable universe; applies to the default metric and
-                overrides the HC filter for that chart)
-              </span>
-            </span>
-          </label>
-          <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
-            <input
-              type="checkbox"
-              checked={includePartial}
-              onChange={(e) => setIncludePartial(e.target.checked)}
-              className="cursor-pointer"
-            />
-            <span>
-              Include thin-coverage early vintages{" "}
-              <span style={{ color: "#6b6b88" }}>
-                (2018&ndash;2020: &lt;60% of BDCs were yet parsing, so the cohort under-samples
-                that year and over-weights survivors)
-              </span>
-            </span>
-          </label>
-        </div>
+      <h1 className="text-2xl font-bold text-white mb-3">Dated holding cohorts</h1>
+      <p className="text-sm text-gray-400 max-w-5xl">Track quarter-end non-accrual observations for groups of debt holdings at one BDC. Choose the holder&apos;s disclosed acquisition date or the start of our observation window. Neither establishes a loan&apos;s original origination date. Pooled holders can include the same borrower or facility more than once. Acquisition curves cover only the subset with qualifying date evidence and observed entry; they do not represent all BDC originations.</p>
+      <div className="rounded-xl border p-4 mt-4 text-sm text-gray-300" style={panel}>
+        <strong className="text-white">How to read the bounds.</strong> The solid line is the share of initial holding-group cost with any observed quarter-end non-accrual through that age. The dashed line also includes groups with unresolved quarter-end status. An earlier gap stays unresolved after a later clear observation. Baseline non-accrual is included. These are bounds on observed quarter-end status, not default rates, continuous-time event estimates, confidence intervals or survival probabilities.
       </div>
-
-      {/* Three industry curves stacked */}
-      {(Object.keys(METRIC_META) as Metric[]).map((m) => {
-        const meta = METRIC_META[m];
-        const series =
-          m === "pct_ever_default" ? defaultSeries :
-          m === "pct_ever_modified" ? modSeries :
-          m === "pct_ever_na" ? naSeries :
-          m === "pct_ever_b80" ? b80Series : b90Series;
-        return (
-          <div key={m} className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-            <h2 className="font-semibold text-white mb-1">{meta.label}</h2>
-            <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>{meta.sub}</p>
-            <VintageChart series={series} yLabel={meta.label} height={300} />
-          </div>
-        );
-      })}
-
-      {/* Cohort survival curve — % of vintage cohort cost still on book at age T */}
-      <div className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-        <h2 className="font-semibold text-white mb-1">% Cohort Cost Still On Book (survival)</h2>
-        <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-          Share of each vintage&apos;s entry cost still on a BDC&apos;s balance sheet at age T.
-          Declines reflect refis, paydowns, distressed sales, write-offs — anything that takes a
-          loan off the book. Pair with the cumulative-default curve: a vintage that survives
-          long &amp; defaults little is the gold standard.
-        </p>
-        {(() => {
-          // Build a survival series from industry rows: alive_cost_b /
-          // cohort_entry_cost_b at each age. Use ALL-tier rows (this is a
-          // book-level survival metric, not a default-pollution-sensitive one).
-          const indByVintage = new Map<number, VintageRow[]>();
-          for (const r of vintageRows) {
-            if (r.ticker !== "industry") continue;
-            if (!indByVintage.has(r.vintage_year)) indByVintage.set(r.vintage_year, []);
-            indByVintage.get(r.vintage_year)!.push(r);
-          }
-          const survivalSeries: VintageSeries[] = Array.from(indByVintage.entries()).map(
-            ([vy, list]) => {
-              const sorted = [...list].sort((a, b) => a.age_quarters - b.age_quarters);
-              return {
-                vintage_year: vy,
-                is_partial: sorted[0]?.is_partial ?? false,
-                points: sorted
-                  .filter((r) => r.cohort_entry_cost_b > 0 && r.alive_cost_b > 0)
-                  .map((r) => ({
-                    age_years: r.age_years,
-                    value: (100 * r.alive_cost_b) / r.cohort_entry_cost_b,
-                    alive_cost_b: r.alive_cost_b,
-                  })),
-              };
-            },
-          );
-          return <VintageChart series={survivalSeries} yLabel="% of cohort cost still on book" height={300} />;
-        })()}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 my-6">
+        <label className="text-xs text-gray-400">Cohort date basis
+          <select className="block w-full mt-1 p-2 rounded bg-gray-900 text-gray-200 border border-gray-700" value={basis} onChange={(e) => setBasis(e.target.value as typeof basis)}>
+            <option value="holder_acquisition">Holder acquisition</option><option value="first_observed">First observed (monitoring)</option>
+          </select>
+        </label>
+        <label className="text-xs text-gray-400">Required follow-up horizon
+          <select className="block w-full mt-1 p-2 rounded bg-gray-900 text-gray-200 border border-gray-700" value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>
+            {[4, 8, 12, 20].map((q) => <option key={q} value={q}>{q / 4} year{q === 4 ? "" : "s"} ({q} quarters)</option>)}
+          </select>
+        </label>
+        <label className="text-xs text-gray-400">Debt scope
+          <select className="block w-full mt-1 p-2 rounded bg-gray-900 text-gray-200 border border-gray-700" value={scope} onChange={(e) => setScope(e.target.value as typeof scope)}>
+            <option value="all">All identified funded debt</option><option value="first_lien">First lien</option>
+          </select>
+        </label>
+        <label className="text-xs text-gray-400">Holder
+          <select className="block w-full mt-1 p-2 rounded bg-gray-900 text-gray-200 border border-gray-700" value={ticker} onChange={(e) => setTicker(e.target.value)}>
+            <option value="industry">Pooled holders</option>{tickers.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
       </div>
-
-      {/* Loss-given-default table — per vintage realized losses on distress exits */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-        <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-          <h2 className="font-semibold text-white">Loss-given-default by vintage</h2>
-          <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
-            For loans that exited the book in distress (mark &lt; 0.85 at exit, ever NA, or ever
-            below 80¢ before exit), what was the realized loss?{" "}
-            <b>LGD% = realized loss / distress-exit cost</b>. Vintages 2014–2024 only — earlier has
-            selection bias (older loans pre-coverage are systematically the survivors), and 2025+
-            doesn&apos;t have enough exits yet. Realized loss uses last-observed FV − cost as a
-            proxy (we don&apos;t track actual sale proceeds), so this is a directional read, not
-            audited.
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-              <tr>
-                {[
-                  "Vintage", "# loans", "# exited", "% exited", "# distress",
-                  "% distress", "Distress cost ($M)", "Realized loss ($M)", "Implied LGD",
-                ].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {vintageLGD.map((r, i) => (
-                <tr key={r.vintage_year} style={{
-                  background: i % 2 === 0 ? "#111118" : "#0f0f16",
-                  borderBottom: "1px solid #1a1a28",
-                }}>
-                  <td className="px-4 py-2.5 font-semibold text-white">{r.vintage_year}</td>
-                  <td className="px-4 py-2.5 text-sm" style={{ color: "#9ca3af" }}>{r.n_loans_total.toLocaleString()}</td>
-                  <td className="px-4 py-2.5 text-sm" style={{ color: "#9ca3af" }}>{r.n_exited.toLocaleString()}</td>
-                  <td className="px-4 py-2.5 text-sm tabular-nums" style={{ color: "#9ca3af" }}>{r.pct_exited.toFixed(0)}%</td>
-                  <td className="px-4 py-2.5 text-sm" style={{ color: r.n_distress > 30 ? "#fdba74" : "#9ca3af" }}>{r.n_distress}</td>
-                  <td className="px-4 py-2.5 text-sm tabular-nums" style={{
-                    color: r.pct_distress >= 10 ? "#ef4444" : r.pct_distress >= 5 ? "#f97316" : "#22c55e",
-                  }}>
-                    {r.pct_distress.toFixed(1)}%
-                  </td>
-                  <td className="px-4 py-2.5 text-sm font-mono tabular-nums" style={{ color: "#d1d5db" }}>
-                    {r.distress_cost_b.toFixed(2)}
-                  </td>
-                  <td className="px-4 py-2.5 text-sm font-mono tabular-nums" style={{
-                    color: r.realized_loss_b < 0 ? "#fca5a5" : "#86efac",
-                  }}>
-                    {r.realized_loss_b.toFixed(2)}
-                  </td>
-                  <td className="px-4 py-2.5 text-sm font-semibold tabular-nums" style={{
-                    color: r.lgd_pct >= 30 ? "#ef4444" : r.lgd_pct >= 15 ? "#f97316" : r.lgd_pct < 0 ? "#86efac" : "#9ca3af",
-                  }}>
-                    {r.lgd_pct.toFixed(1)}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-5 py-3 text-xs border-t" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
-          Dollar columns are US$ millions. Every vintage shows a net realized loss on its distress
-          exits; the LGD% spread across vintages reflects how much of the exited cost was recovered,
-          not whether there was a loss at all.
-        </div>
+      <p className="text-xs text-gray-400 mb-5">
+        {basis === "holder_acquisition" ? "Acquisition cohorts require this holder’s own disclosed acquisition date and first observation in the same calendar quarter. Late-entry holdings are excluded because their earlier history is unobserved." : "Monitoring cohorts begin when a holding group first appears in the selected filing history. They can include seasoned loans; events before that point are outside this observation window."}
+        {" "}The denominator is fixed at every displayed age for the selected horizon. Holdings too young to reach that horizon are excluded from the entire curve. Changing the horizon changes the eligible population. Cohort years with no eligible groups are absent; the too-young count covers listed cohort years only.
+      </p>
+      <div className="grid sm:grid-cols-3 gap-3 mb-6">
+        {[["Eligible holding groups", n.toLocaleString()], ["Fixed initial cost", money(cost)], ["Too young within listed cohort years", `${unseasoned.toLocaleString()} groups · ${money(unseasonedCost)}`]].map(([label, value]) => (
+          <div className="rounded-xl border p-4" style={panel} key={label}><div className="text-xs text-gray-400">{label}</div><div className="text-lg text-white font-semibold mt-1">{value}</div></div>
+        ))}
       </div>
-
-      {/* Who HOLDS which vintage — composition, ahead of the performance tables */}
+      <section className="rounded-xl border p-5" style={panel}>
+        <h2 className="font-semibold text-white">Any quarter-end non-accrual: observation bounds</h2>
+        <p className="text-xs text-gray-400 mt-2 mb-4">Each year is a separate cohort. A group with any positive flag contributes its entire initial cost to the lower bound; this is not the actual amount of debt on non-accrual. The upper bound adds initial cost with missing, unknown or unobserved past status. Disappearance is unresolved evidence, not a repayment, default or cure.</p>
+        <VintageChart series={series} />
+      </section>
+      <section className="rounded-xl border overflow-hidden mt-6" style={panel}>
+        <div className="p-5"><h2 className="font-semibold text-white">Cohort denominators and {horizon / 4}-year bounds</h2><p className="text-xs text-gray-400 mt-2">The entry-cost denominator and group count stay fixed from baseline through the selected horizon. Reporting cutoff ranges show how far the available issuer histories extend.</p></div>
+        <div className="overflow-x-auto"><table className="w-full text-xs text-left">
+          <thead className="text-gray-400"><tr>{["Cohort year", "Contributing holders", "Eligible groups", "Initial cost", "Observed NA lower", "Including unresolved upper", "Unresolved cost", "Reporting cutoffs"].map((h) => <th key={h} className="p-3 whitespace-nowrap">{h}</th>)}</tr></thead>
+          <tbody>{cohorts.map((c) => { const p = points.find((r) => r.cohort_id === c.cohort_id && r.age_quarters === horizon); return (
+            <tr className="border-t border-gray-800 text-gray-300" key={c.cohort_id}><td className="p-3 font-semibold text-white">{c.cohort_year}</td><td className="p-3" title={c.issuers.join(", ")}>{c.n_issuers}</td><td className="p-3">{c.n_holdings.toLocaleString()}</td><td className="p-3">{money(c.entry_cost_b)}</td><td className="p-3">{pct(p?.na_lower_pct)}</td><td className="p-3">{pct(p?.na_upper_pct)}</td><td className="p-3">{money(p?.na_unresolved_cost_b)}</td><td className="p-3 whitespace-nowrap">{dates(c.as_of_min, c.as_of_max)}</td></tr>
+          ); })}</tbody>
+        </table></div>
+        {!cohorts.length && <p className="p-5 text-gray-400 text-sm">No eligible cohorts for these filters. Current composition may still be available below.</p>}
+      </section>
+      {detail && <section className="rounded-xl border overflow-hidden mt-6" style={panel}>
+        <div className="p-5"><div className="flex items-center gap-3"><h2 className="font-semibold text-white">Age-level evidence</h2><label className="text-xs text-gray-400">Cohort <select className="p-1 ml-2 rounded bg-gray-900 text-gray-200 border border-gray-700" value={detail.cohort_year} onChange={(e) => setSelectedYear(Number(e.target.value))}>{cohorts.map((c) => <option key={c.cohort_id} value={c.cohort_year}>{c.cohort_year}</option>)}</select></label></div>
+          <p className="text-xs text-gray-400 mt-2">Fixed denominator: {detail.n_holdings.toLocaleString()} groups / {money(detail.entry_cost_b)} from {detail.n_issuers} holder{detail.n_issuers === 1 ? "" : "s"} ({detail.issuers.join(", ")}). Snapshot measures use only holdings observed at that age, so their population and dates can change. Unknown snapshots stay unknown even when past non-accrual evidence remains known.</p></div>
+        <div className="overflow-x-auto"><table className="w-full text-xs text-left">
+          <thead className="text-gray-400"><tr>{["Age (quarters)", "Observed groups", "Observed initial cost", "NA lower", "NA upper", "Unresolved initial cost", "Snapshot cost", "Mark-covered cost", "Cost marked <90%", "Snapshot dates"].map((h) => <th key={h} className="p-3 whitespace-nowrap">{h}</th>)}</tr></thead>
+          <tbody>{detailPoints.map((p) => <tr className="border-t border-gray-800 text-gray-300" key={p.age_quarters}>
+            <td className="p-3">{p.age_quarters === 0 ? "0 (baseline)" : p.age_quarters}</td><td className="p-3">{p.n_observed.toLocaleString()}</td><td className="p-3">{money(p.observed_entry_cost_b)}</td><td className="p-3">{pct(p.na_lower_pct)}</td><td className="p-3">{pct(p.na_upper_pct)}</td><td className="p-3">{money(p.na_unresolved_cost_b)}</td><td className="p-3">{money(p.current_cost_b)}</td><td className="p-3">{money(p.mark_coverage_cost_b)}</td><td className="p-3">{pct(p.below_cost90_pct)}</td><td className="p-3 whitespace-nowrap">{dates(p.period_end_min, p.period_end_max)}</td>
+          </tr>)}</tbody>
+        </table></div><p className="text-xs text-gray-500 p-4">Mark measure: current cost with fair value below 90% of cost / current cost with an observed cost-based mark. This is a valuation snapshot, not a par recovery estimate.</p>
+      </section>}
+      {coverage && <section className="rounded-xl border p-5 mt-6" style={panel}>
+        <h2 className="font-semibold text-white">Current date, identity and cost coverage</h2>
+        <p className="text-xs text-gray-400 mt-2">{ticker === "industry" ? "Pooled holder" : ticker} reporting dates: {dates(coverage.period_end_min, coverage.period_end_max)}. These figures describe the current known positive funded-debt book, regardless of the horizon or scope controls above. They are separate from the historical cohort denominator.</p>
+        {!coverage.cost_complete && <p className="text-xs text-amber-300 mt-3">Cost coverage is incomplete: {coverage.n_missing_cost_holdings.toLocaleString()} holding groups have missing cost. Cost shares reflect known positive amounts only.</p>}
+        <dl className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 text-sm">
+          {[["Known funded-debt cost", money(coverage.latest_funded_cost_b)], ["Holder-acquisition dated", money(coverage.acquisition_dated_cost_b)], ["Unknown/conflicting date", money(coverage.unknown_date_cost_b)], ["First seen in acquisition quarter", money(coverage.acquisition_inception_cost_b)], ["Observed after acquisition quarter", money(coverage.acquisition_late_entry_cost_b)], ["Ambiguous identity (overlapping)", money(coverage.ambiguous_identity_cost_b)]].map(([label, value]) => <div key={label}><dt className="text-xs text-gray-400">{label}</dt><dd className="text-white mt-1">{value}</dd></div>)}
+        </dl>
+        <p className="text-xs text-gray-500 mt-4">{coverage.n_positions.toLocaleString()} current positions; {coverage.n_holdings.toLocaleString()} holding groups; {coverage.n_ambiguous_holdings.toLocaleString()} ambiguous groups; {coverage.n_date_conflicts.toLocaleString()} date conflicts. Dated and unknown cost partition the selected book. Ambiguous identity overlaps those categories and must not be added to them; ambiguous groups are excluded from cohort curves.</p>
+      </section>}
       <VintageExposureTable />
-
-      {/* Per-vintage summary table */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-        <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-          <h2 className="font-semibold text-white">Vintage Summary — Industry</h2>
-          <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-            Latest observation per vintage. NA% and Below-80% are cumulative through age; Below-90% is point-in-time among survivors.
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-              <tr>
-                {["Vintage", "Loans", "Hi-Conf", "Dating", "Cohort Size", "Latest Age", l1Only ? "Cum. Default % (1L)" : "Cum. Default %", "Ever Modified %", "On-book NA %", "Ever <80¢ %", "Current <90¢ %", "Coverage"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.map((r, i) => {
-                const defValue = l1Only ? r.pct_ever_default_1l
-                  : hcOnly ? r.pct_ever_default_hc : r.pct_ever_default;
-                const modValue = hcOnly ? r.pct_ever_modified_hc : r.pct_ever_modified;
-                const defColor = defValue == null ? "#444"
-                  : defValue >= 8 ? "#dc2626" : defValue >= 4 ? "#f97316" : "#22c55e";
-                const modColor = modValue == null ? "#444"
-                  : modValue >= 12 ? "#a855f7" : modValue >= 6 ? "#c084fc" : "#9ca3af";
-                const naColor  = r.pct_ever_na >= 3 ? "#ef4444" : r.pct_ever_na >= 1 ? "#f97316" : "#22c55e";
-                const b80Color = r.pct_ever_b80 >= 5 ? "#ef4444" : r.pct_ever_b80 >= 2 ? "#f97316" : "#22c55e";
-                const b90Color = r.pct_b90_alive >= 10 ? "#ef4444" : r.pct_b90_alive >= 5 ? "#f97316" : "#22c55e";
-                const discPct = r.cohort_entry_cost_b > 0 ? 100 * (r.cohort_high_conf_b ?? 0) / r.cohort_entry_cost_b : 0;
-                const discColor = discPct >= 75 ? "#22c55e" : discPct >= 50 ? "#eab308" : "#ef4444";
-                const altDef = (l1Only || hcOnly) ? r.pct_ever_default : r.pct_ever_default_hc;
-                const altLabel = (l1Only || hcOnly) ? "all" : "disc";
-                return (
-                  <tr key={r.vintage_year} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
-                    <td className="px-4 py-3 font-semibold text-white">{r.vintage_year}</td>
-                    <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }}>{r.n_loans_cohort.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }} title={
-                      `HIGH (stable acq_date ≤90d drift, peer spread ≤90d): ${r.n_loans_hi_tier ?? 0}\n` +
-                      `MED (drift ≤12mo OR peer spread ≤12mo): ${r.n_loans_med_tier ?? 0}\n` +
-                      `LOW (drift >12mo OR first_obs heuristic): ${r.n_loans_low_tier ?? 0}\n` +
-                      `Hi-Conf = HIGH + MED. Higher = more reliable vintage tagging.`
-                    }>
-                      {r.n_loans_high_conf?.toLocaleString() ?? "—"}
-                      {r.n_loans_cohort > 0 && r.n_loans_high_conf !== undefined && (
-                        <span className="ml-1 text-xs" style={{ color: "#6b6b88" }}>
-                          ({Math.round(100 * r.n_loans_high_conf / r.n_loans_cohort)}%)
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: discColor }}
-                        title="Share of cohort $ dated from a disclosed acquisition date or a cross-BDC peer — versus first-observed inference. Low = this vintage's metrics rest heavily on inferred dates; treat with caution.">
-                      {discPct.toFixed(0)}%
-                      {(() => {
-                        const err = cohortDatingError(r);
-                        return err == null ? null : (
-                          <span className="ml-1 text-xs font-normal" style={{ color: "#6b6b88" }}
-                                title="Estimated dating error for this cohort: its source mix weighted by each source's measured mean absolute error (golden-set validation, 85 documented loans).">
-                            ±{err.toFixed(1)}y
-                          </span>
-                        );
-                      })()}
-                      {(() => {
-                        const doc = (r.n_src_disclosed ?? 0) + (r.n_src_corrected ?? 0) + (r.n_src_borrowed ?? 0);
-                        const nm = r.n_src_name_matched ?? 0;
-                        const inf = r.n_src_inferred ?? 0;
-                        const tot = doc + nm + inf;
-                        if (!tot) return null;
-                        return (
-                          <div className="mt-1 flex h-1.5 w-16 overflow-hidden rounded"
-                               title={`How this cohort's loans were dated (count):\n` +
-                                 `own disclosed: ${r.n_src_disclosed}\n` +
-                                 `retag-corrected: ${r.n_src_corrected}\n` +
-                                 `peer tranche-matched: ${r.n_src_borrowed}\n` +
-                                 `name-matched / sibling facility / DERA: ${nm}\n` +
-                                 `tenor model / first-observed inference: ${inf}`}>
-                            <div style={{ width: `${(100 * doc) / tot}%`, background: "#6366f1" }} />
-                            <div style={{ width: `${(100 * nm) / tot}%`, background: "#eab308" }} />
-                            <div style={{ width: `${(100 * inf) / tot}%`, background: "#4b5563" }} />
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}>${r.cohort_entry_cost_b.toFixed(1)}B</td>
-                    <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }}>{r.age_years.toFixed(2)}y</td>
-                    <td className="px-4 py-3 text-sm font-bold" style={{ color: defColor }}>
-                      {defValue == null ? "—" : `${defValue.toFixed(2)}%`}
-                      {altDef != null && defValue != null && Math.abs(altDef - defValue) >= 0.3 && (
-                        <span className="ml-1 text-xs font-normal" style={{ color: "#6b6b88" }}
-                              title={l1Only ? "Rate across ALL instruments (not just first-lien)"
-                                : hcOnly ? "Rate INCLUDING first-observed-inferred dates"
-                                : "Rate on disclosed/anchored dates only"}>
-                          ({altLabel} {altDef.toFixed(1)})
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: modColor }}>{modValue == null ? "—" : `${modValue.toFixed(2)}%`}</td>
-                    <td className="px-4 py-3 text-sm" style={{ color: naColor }}>{r.pct_ever_na.toFixed(2)}%</td>
-                    <td className="px-4 py-3 text-sm" style={{ color: b80Color }}>{r.pct_ever_b80.toFixed(2)}%</td>
-                    <td className="px-4 py-3 text-sm" style={{ color: b90Color }}>{r.pct_b90_alive.toFixed(2)}%</td>
-                    <td className="px-4 py-3 text-xs">
-                      {r.is_partial ? (
-                        <span className="px-2 py-0.5 rounded text-xs" style={{ background: "rgba(234,179,8,0.12)", color: "#eab308", border: "1px solid rgba(234,179,8,0.2)" }}>
-                          partial
-                        </span>
-                      ) : (
-                        <span style={{ color: "#22c55e" }}>full</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Vintage-on-vintage comparison at standard ages */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-        <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-          <h2 className="font-semibold text-white">Cumulative Default % at Standard Ages</h2>
-          <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-            Share of vintage cost that has defaulted (on-book NA OR exited in distress) by year T. RJ-comparable.
-            &mdash; means the vintage hasn&apos;t aged that far yet. Follows the same basis as the curves above:{" "}
-            <b>
-              {l1Only ? "first-lien only" : hcOnly ? "high-confidence vintage only" : "all loans"}
-            </b>.
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-              <tr>
-                {["Vintage", "Y1", "Y2", "Y3", "Y4", "Y5", "Y6"].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.map((r, i) => (
-                <tr key={r.vintage_year} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
-                  <td className="px-4 py-3 font-semibold text-white">{r.vintage_year}</td>
-                  {[1, 2, 3, 4, 5, 6].map((yr) => {
-                    const v = metricAtAge(visibleRows, r.vintage_year, yr, defaultMetricKey);
-                    if (v === null) return <td key={yr} className="px-4 py-3 text-sm" style={{ color: "#444" }}>&mdash;</td>;
-                    const color = v >= 8 ? "#dc2626" : v >= 4 ? "#f97316" : "#22c55e";
-                    return <td key={yr} className="px-4 py-3 text-sm font-semibold" style={{ color }}>{v.toFixed(2)}%</td>;
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* BDC × Vintage performance matrix */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-        <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-          <h2 className="font-semibold text-white">BDC × Vintage Performance</h2>
-          <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-            Rows = BDCs, columns = vintage years. Each cell is the BDC&apos;s metric at the latest age its cohort has reached.
-            The <span className="text-white">Industry Average</span> row at the bottom is the cohort-weighted baseline per
-            vintage; the <span className="text-white">Total</span> column on the right aggregates each BDC&apos;s metric
-            across all its vintages (weighted by cohort size).
-          </p>
-
-          {/* Two rows of toggles: metric (which credit signal) + view (absolute level vs delta vs industry) */}
-          <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3 text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="uppercase tracking-wider mr-1" style={{ color: "#6b6b88" }}>Metric</span>
-              {(Object.keys(METRIC_META) as Metric[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMatrixMetric(m)}
-                  className="px-2.5 py-1 rounded border transition-all"
-                  style={{
-                    background: matrixMetric === m ? "rgba(99,102,241,0.15)" : "#111118",
-                    borderColor: matrixMetric === m ? "#6366f1" : "#2d2d45",
-                    color: matrixMetric === m ? "#a5b4fc" : "#9ca3af",
-                    whiteSpace: "nowrap",
-                  }}
-                  title={METRIC_META[m].sub}
-                >
-                  {m === "pct_ever_default" ? "Cum. Default"
-                    : m === "pct_ever_modified" ? "Ever Modified"
-                    : m === "pct_ever_na" ? "Ever NA"
-                    : m === "pct_ever_b80" ? "Ever <80¢"
-                    : "Curr. <90¢"}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="uppercase tracking-wider mr-1" style={{ color: "#6b6b88" }}>View</span>
-              {([
-                { id: "absolute" as ViewMode, label: "Absolute %", hint: "Each cell is the BDC's actual metric value" },
-                { id: "relative" as ViewMode, label: "Relative (vs ind.)", hint: "Each cell is the BDC's delta in percentage points vs the industry average at the same age" },
-              ]).map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => setMatrixView(opt.id)}
-                  className="px-2.5 py-1 rounded border transition-all"
-                  style={{
-                    background: matrixView === opt.id ? "rgba(99,102,241,0.15)" : "#111118",
-                    borderColor: matrixView === opt.id ? "#6366f1" : "#2d2d45",
-                    color: matrixView === opt.id ? "#a5b4fc" : "#9ca3af",
-                    whiteSpace: "nowrap",
-                  }}
-                  title={opt.hint}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-              <tr>
-                <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>BDC</th>
-                {matrix.vintages.map((vy) => {
-                  const active = matrixSortKey === vy;
-                  return (
-                    <th key={vy} className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
-                      <button
-                        onClick={() => onSortClick(vy)}
-                        className="hover:text-white transition-colors mx-auto"
-                        style={{ color: active ? "#a5b4fc" : "#8b8ba8" }}
-                      >
-                        {vy} {active ? (matrixSortDir === "asc" ? "↑" : "↓") : ""}
-                      </button>
-                    </th>
-                  );
-                })}
-                <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-nowrap border-l" style={{ borderColor: "#1e1e2e" }}>
-                  <button
-                    onClick={() => onSortClick("total")}
-                    className="hover:text-white transition-colors mx-auto"
-                    style={{ color: matrixSortKey === "total" ? "#a5b4fc" : "#8b8ba8" }}
-                    title="Cohort-weighted aggregate metric across all this BDC's vintages"
-                  >
-                    Total {matrixSortKey === "total" ? (matrixSortDir === "asc" ? "↑" : "↓") : ""}
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedTickers.map((ticker, i) => {
-                const total = matrix.bdcTotal.get(ticker);
-                const totalDelta = total != null ? total - matrix.industryTotal : null;
-                const isAbs = matrixView === "absolute";
-                const totalStyle = total == null
-                  ? { bg: "transparent", fg: "#444" }
-                  : isAbs
-                    ? absLevelColor(total, matrixMetric)
-                    : relDeltaColor(totalDelta ?? 0);
-                const totalText = total == null
-                  ? "—"
-                  : isAbs
-                    ? `${total.toFixed(2)}%`
-                    : `${(totalDelta ?? 0) > 0 ? "+" : ""}${(totalDelta ?? 0).toFixed(2)}pp`;
-                return (
-                  <tr key={ticker} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
-                    <td className="px-3 py-2.5">
-                      <a href={`/bdcs/${ticker.toLowerCase()}`}>
-                        <span className="px-2 py-0.5 rounded text-xs font-mono font-bold hover:opacity-80 cursor-pointer" style={{ background: "rgba(99,102,241,0.12)", color: "#a5b4fc", border: "1px solid rgba(99,102,241,0.2)" }}>
-                          {ticker}
-                        </span>
-                      </a>
-                    </td>
-                    {matrix.vintages.map((vy) => (
-                      <React.Fragment key={vy}>{renderCell(matrix.cells.get(`${ticker}|${vy}`))}</React.Fragment>
-                    ))}
-                    <td className="px-3 py-2.5 text-center font-semibold tabular-nums border-l" style={{
-                      background: totalStyle.bg,
-                      color: totalStyle.fg,
-                      borderColor: "#1e1e2e",
-                      fontSize: "0.95rem",
-                    }}
-                    title={total != null ? `Cohort-weighted across all of ${ticker}'s vintages · industry total ${matrix.industryTotal.toFixed(2)}%` : undefined}
-                    >
-                      {totalText}
-                    </td>
-                  </tr>
-                );
-              })}
-
-              {/* Industry Average row — always shows ABSOLUTE values regardless of mode,
-                  since it IS the baseline that "relative" is relative to. */}
-              <tr className="border-t-2" style={{ borderColor: "#2d2d45", background: "#0f0f16" }}>
-                <td className="px-3 py-2.5">
-                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#a5b4fc" }}>
-                    Industry avg
-                  </span>
-                </td>
-                {matrix.vintages.map((vy) => {
-                  const v = matrix.industryByVintage.get(vy);
-                  if (v == null) return <td key={vy} className="px-3 py-2.5 text-center text-xs" style={{ color: "#444" }}>—</td>;
-                  return (
-                    <td key={vy} className="px-3 py-2.5 text-center font-semibold tabular-nums"
-                        style={{ color: "#d1d5db", fontSize: "0.95rem" }}
-                        title={`Industry baseline for vintage ${vy} (latest observable age)`}>
-                      {v.toFixed(2)}%
-                    </td>
-                  );
-                })}
-                <td className="px-3 py-2.5 text-center font-semibold tabular-nums border-l"
-                    style={{ color: "#d1d5db", fontSize: "0.95rem", borderColor: "#1e1e2e" }}
-                    title="Industry cohort-weighted across all vintages">
-                  {matrix.industryTotal.toFixed(2)}%
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div className="px-5 py-3 text-xs border-t" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
-          Hover any cell for cohort size + age. {sortedTickers.length} BDCs · {matrix.vintages.length} vintages · industry baseline always shown in absolute %.
-        </div>
-      </div>
-
-      {/* Methodology */}
-      <div className="rounded-lg p-5 border" style={{ background: "#0f0f16", borderColor: "#1e1e2e" }}>
-        <h3 className="text-sm font-semibold text-white mb-2">Methodology</h3>
-        <ul className="text-xs space-y-1.5 list-disc list-inside" style={{ color: "#9ca3af" }}>
-          <li>
-            <span className="text-white">Vintage</span> = year of the BDC&apos;s first observation of the
-            loan. When acquisition_date is disclosed in the filing, we use that; otherwise we fall back
-            to the period_end of the quarter we first saw the loan in our parsed data.
-          </li>
-          <li>
-            <span className="text-white">Cohort cost</span> is fixed for the vintage&apos;s life
-            (= sum of cost at first observation across all loans in the cohort). This keeps the
-            denominator stable so cumulative curves are directly comparable.
-          </li>
-          <li>
-            <span className="text-white">Ever-NA / Ever-below-80</span> are cumulative through age T
-            and monotonically non-decreasing.{" "}
-            <span className="text-white">Currently below-90</span> is a point-in-time snapshot among
-            loans still on the book at age T — it can rise and fall as loans cure or exit.
-          </li>
-          <li>
-            Vintages flagged <span style={{ color: "#eab308" }}>partial</span> predate our parser
-            coverage. Their denominators include only the survivors that made it into our window —
-            real defaults from those years are under-counted.
-          </li>
-        </ul>
-      </div>
+      <p className="text-xs text-gray-400 mt-6">The acquisition and monitoring views do not infer original origination, bridge refinancings, assign defaults from exits or estimate realized losses. Missing histories limit what can be established. <Link href="/methodology#vintage" className="text-indigo-400 hover:underline">Read the cohort methodology</Link>.</p>
     </div>
   );
 }

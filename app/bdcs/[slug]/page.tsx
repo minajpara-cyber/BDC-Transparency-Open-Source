@@ -22,12 +22,12 @@ import { spreadAnalysis } from "@/data/spread_analysis";
 import { repaymentDynamics } from "@/data/repayment_dynamics";
 import SpreadLifecycleChart from "@/components/SpreadLifecycleChart";
 import RepaymentChart from "@/components/RepaymentChart";
-import { vintageRows } from "@/data/vintage_analysis";
+import { vintageExposure } from "@/data/vintage_exposure";
 import { bdcSponsorExposure } from "@/data/bdc_sponsor_exposure";
 import { bdcSectorExposure } from "@/data/bdc_sector_exposure";
 import { maturityByBdc, maturityMeta } from "@/data/maturity";
 import MaturityWallChart from "@/components/MaturityWallChart";
-import BDCVintageMix, { type VintageMixRow } from "@/components/BDCVintageMix";
+import BDCVintageMix from "@/components/BDCVintageMix";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -827,176 +827,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Vintage mix & non-accrual performance — how much of the current book sits
-          in each origination vintage, and how each vintage has aged on a non-accrual
-          basis. Anchored to each cohort's latest observation; partials under-count. */}
-      {(() => {
-        const mine = vintageRows.filter((r) => r.ticker === bdc.ticker);
-        if (mine.length === 0) return null;
-        // Latest observation (max age) per vintage = the most current snapshot of
-        // that cohort. Older-than-7yr cohorts are capped at their 7-year mark.
-        const latest = new Map<number, (typeof mine)[number]>();
-        for (const r of mine) {
-          const prev = latest.get(r.vintage_year);
-          if (!prev || r.age_quarters > prev.age_quarters) latest.set(r.vintage_year, r);
-        }
-        const picked = Array.from(latest.values());
-        const totalAlive = picked.reduce((s, r) => s + r.alive_cost_b, 0);
-        if (totalAlive <= 0) return null;
-        // Industry baseline at the SAME (vintage, age) for an apples-to-apples delta.
-        const indAt = (vy: number, ageQ: number) =>
-          vintageRows.find((i) => i.ticker === "industry" && i.vintage_year === vy && i.age_quarters === ageQ);
-        const mixRows: VintageMixRow[] = picked
-          .filter((r) => r.alive_cost_b > 0)
-          .map((r) => {
-            const ind = indAt(r.vintage_year, r.age_quarters);
-            return {
-              vintage_year: r.vintage_year,
-              pct_of_book: (100 * r.alive_cost_b) / totalAlive,
-              alive_cost_b: r.alive_cost_b,
-              entry_cost_b: r.cohort_entry_cost_b,
-              age_years: r.age_years,
-              n_loans: r.n_loans_cohort,
-              pct_ever_na: r.pct_ever_na,
-              pct_ever_default: r.pct_ever_default,
-              ind_ever_na: ind ? ind.pct_ever_na : null,
-              ind_ever_default: ind ? ind.pct_ever_default : null,
-              is_partial: r.is_partial,
-              period_end: r.period_end,
-            };
-          });
-        if (mixRows.length === 0) return null;
-        const asOf = picked.reduce((a, r) => (r.period_end > a ? r.period_end : a), "");
-        return <BDCVintageMix ticker={bdc.ticker} asOf={asOf} rows={mixRows} />;
-      })()}
-
-      {/* Vintage Performance — this BDC's per-vintage curves vs the industry average */}
-      {(() => {
-        const bdcVintage = vintageRows.filter((r) => r.ticker === bdc.ticker && !r.is_partial);
-        const industryVintage = vintageRows.filter((r) => r.ticker === "industry" && !r.is_partial);
-        if (bdcVintage.length === 0) return null;
-
-        // Pick the cumulative ever-NA % at each of years 1..5 per vintage, for
-        // both this BDC and the industry baseline. "−" if the vintage hasn't aged that far.
-        const vintageYears = Array.from(new Set(bdcVintage.map((r) => r.vintage_year))).sort();
-        const ageYears = [1, 2, 3, 4, 5];
-
-        // Prefer HC-restricted metric (HIGH+MED confidence vintage assignments
-        // only — per the acq_date methodology investigation, disclosed
-        // acquisition_date drifts forward for ~88% of amended loans, making
-        // "any disclosure" a poor confidence signal). Falls back to all-loans
-        // metric when the HC subset is too small for that cohort (<5 HC loans).
-        const pickMetric = (
-          rows: typeof bdcVintage,
-          vy: number,
-          age: number,
-          metric: "pct_ever_default" | "pct_ever_modified" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive",
-        ): { value: number | null; restricted: boolean } => {
-          const r = rows.find((x) => x.vintage_year === vy && x.age_quarters === age * 4);
-          if (!r) return { value: null, restricted: false };
-          const hcKey: Partial<Record<string, keyof typeof r>> = {
-            pct_ever_default: "pct_ever_default_hc",
-            pct_ever_modified: "pct_ever_modified_hc",
-          };
-          const hk = hcKey[metric];
-          if (hk && r[hk] != null) {
-            return { value: r[hk] as number, restricted: true };
-          }
-          return { value: r[metric] as number, restricted: false };
-        };
-
-        const deltaCell = (
-          bdc: { value: number | null; restricted: boolean },
-          ind: { value: number | null; restricted: boolean },
-        ) => {
-          if (bdc.value === null || ind.value === null) {
-            return <td className="px-3 py-2 text-xs" style={{ color: "#444" }}>—</td>;
-          }
-          const diff = bdc.value - ind.value;
-          const color = diff > 0.25 ? "#ef4444" : diff < -0.25 ? "#22c55e" : "#9ca3af";
-          const arrow = diff > 0.25 ? "↑" : diff < -0.25 ? "↓" : "≈";
-          return (
-            <td className="px-3 py-2" title={bdc.restricted ? "HC-restricted (HIGH+MED tier loans only)" : "All loans"}>
-              <div className="text-sm font-semibold flex items-center gap-1" style={{ color: "#d1d5db" }}>
-                {bdc.value.toFixed(2)}%
-                {bdc.restricted && <span className="text-[10px] px-1 py-0 rounded" style={{
-                  background: "rgba(34,197,94,0.12)", color: "#22c55e",
-                }}>HC</span>}
-              </div>
-              <div className="text-xs" style={{ color }}>
-                {arrow} {Math.abs(diff).toFixed(2)}pp vs ind. {ind.value.toFixed(2)}%
-              </div>
-            </td>
-          );
-        };
-
-        return (
-          <section className="mt-8">
-            <div className="flex items-center gap-3 mb-3 flex-wrap">
-              <h2 className="text-lg font-semibold text-white">{bdc.ticker} vintage performance vs industry</h2>
-              <span className="text-xs px-2 py-0.5 rounded border" style={{
-                color: "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)",
-              }}>
-                {vintageYears.length} vintage{vintageYears.length === 1 ? "" : "s"}
-              </span>
-            </div>
-            <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-              Cumulative <span className="text-white">cost-weighted % ever defaulted</span> (on-book non-accrual OR exited in distress)
-              at standard ages for each acquisition cohort, compared to the industry average. Cells tagged{" "}
-              <span className="px-1 py-0 rounded text-[10px]" style={{
-                background: "rgba(34,197,94,0.12)", color: "#22c55e",
-              }}>HC</span>{" "}
-              use HIGH+MED confidence-tier loans only (stable disclosed acq_date). Cells without the tag fall back to
-              all-loans because the HC subset was too thin (&lt;5 loans). Green = this BDC&apos;s vintage outperformed peers;
-              red = worse. Vintages predating our parser coverage are omitted.
-            </p>
-
-            <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
-                    <tr>
-                      <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Vintage</th>
-                      <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Cohort</th>
-                      {ageYears.map((y) => (
-                        <th key={y} className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Default at Y{y}</th>
-                      ))}
-                      <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }} title="HIGH+MED tier loans / total cohort loans">Hi-Conf</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vintageYears.map((vy, i) => {
-                      const cohort = bdcVintage.find((r) => r.vintage_year === vy);
-                      return (
-                        <tr key={vy} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
-                          <td className="px-3 py-2 font-semibold text-white">{vy}</td>
-                          <td className="px-3 py-2 text-xs" style={{ color: "#9ca3af" }}>
-                            {cohort ? `${cohort.n_loans_cohort} loans · $${cohort.cohort_entry_cost_b.toFixed(1)}B` : "—"}
-                          </td>
-                          {ageYears.map((yr) => {
-                            const bdcV = pickMetric(bdcVintage, vy, yr, "pct_ever_default");
-                            const indV = pickMetric(industryVintage, vy, yr, "pct_ever_default");
-                            return <td key={yr} className="p-0">{deltaCell(bdcV, indV)}</td>;
-                          })}
-                          <td className="px-3 py-2 text-xs" style={{ color: "#6b6b88" }} title="HIGH+MED-tier loans in this BDC's cohort (stable acq_date)">
-                            {cohort && cohort.n_loans_high_conf !== undefined
-                              ? `${cohort.n_loans_high_conf}/${cohort.n_loans_cohort}`
-                              : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="text-xs mt-3" style={{ color: "#6b6b88" }}>
-              See <Link href="/vintage" className="text-indigo-400 hover:underline">/vintage</Link> for the industry-wide curves and methodology.
-            </div>
-          </section>
-        );
-      })()}
+      <BDCVintageMix ticker={bdc.ticker} rows={vintageExposure.filter((r) => r.ticker === bdc.ticker)} />
 
       {(() => {
         const sectors = bdcSectorExposure
