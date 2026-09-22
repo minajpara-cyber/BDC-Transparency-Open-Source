@@ -3,9 +3,54 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import AlertBadge from "@/components/AlertBadge";
+import { bdcsHistory } from "@/data/bdcs_history";
 import { enrichedBDCs, BDCEnriched } from "@/lib/enrichBDC";
 
 type FilterType = "All" | "Traded" | "Non-Traded";
+
+const DeltaChip = ({
+  delta,
+  fmt,
+  invert = false,
+}: {
+  delta: number | null | undefined;
+  fmt: (v: number) => string;
+  invert?: boolean;   // for $FV growth where + is good
+}) => {
+  if (delta == null || !isFinite(delta)) return null;
+  const eps = 1e-4;
+  const isUp = delta > eps;
+  const isDown = delta < -eps;
+  const good = invert ? isUp : isDown;
+  const bad = invert ? isDown : isUp;
+  const color = good ? "#22c55e" : bad ? "#ef4444" : "#6b6b88";
+  const bg = good ? "rgba(34,197,94,0.10)" : bad ? "rgba(239,68,68,0.10)" : "rgba(107,107,136,0.10)";
+  return (
+    <span
+      title="QoQ change vs prior quarter"
+      className="px-1 py-0.5 rounded text-xs font-mono"
+      style={{ color, background: bg, border: `1px solid ${color}33` }}
+    >
+      {fmt(delta)}
+    </span>
+  );
+};
+
+const SortBtn = ({ k, label, sortKey, sortDir, onSort }: {
+  k: string;
+  label: string;
+  sortKey: string;
+  sortDir: "asc" | "desc";
+  onSort: (key: string) => void;
+}) => (
+  <button
+    className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider hover:text-white transition-colors whitespace-nowrap"
+    style={{ color: sortKey === k ? "#a5b4fc" : "#8b8ba8" }}
+    onClick={() => onSort(k)}
+  >
+    {label} {sortKey === k ? (sortDir === "desc" ? "↓" : "↑") : "↕"}
+  </button>
+);
 
 export default function BDCsPage() {
   const [search, setSearch] = useState("");
@@ -42,43 +87,6 @@ export default function BDCsPage() {
       return sortDir === "desc" ? String(bVal ?? "").localeCompare(String(aVal ?? "")) : String(aVal ?? "").localeCompare(String(bVal ?? ""));
     });
 
-  const DeltaChip = ({
-    delta,
-    fmt,
-    invert = false,
-  }: {
-    delta: number | null | undefined;
-    fmt: (v: number) => string;
-    invert?: boolean;   // for $FV growth where + is good
-  }) => {
-    if (delta == null || !isFinite(delta)) return null;
-    const eps = 1e-4;
-    const isUp = delta > eps;
-    const isDown = delta < -eps;
-    const good = invert ? isUp : isDown;
-    const bad = invert ? isDown : isUp;
-    const color = good ? "#22c55e" : bad ? "#ef4444" : "#6b6b88";
-    const bg = good ? "rgba(34,197,94,0.10)" : bad ? "rgba(239,68,68,0.10)" : "rgba(107,107,136,0.10)";
-    return (
-      <span
-        title="QoQ change vs prior quarter"
-        className="px-1 py-0.5 rounded text-xs font-mono"
-        style={{ color, background: bg, border: `1px solid ${color}33` }}
-      >
-        {fmt(delta)}
-      </span>
-    );
-  };
-
-  const SortBtn = ({ k, label }: { k: string; label: string }) => (
-    <button
-      className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider hover:text-white transition-colors whitespace-nowrap"
-      style={{ color: sortKey === k ? "#a5b4fc" : "#8b8ba8" }}
-      onClick={() => handleSort(k)}
-    >
-      {label} {sortKey === k ? (sortDir === "desc" ? "↓" : "↑") : "↕"}
-    </button>
-  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -130,12 +138,15 @@ export default function BDCsPage() {
         <div className="rounded-lg p-3 border text-center" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-lg font-bold text-white">
             {(() => {
-              const fv = filtered.reduce((s, b) => s + b.portfolioFairValue, 0);
-              const na = filtered.reduce((s, b) => s + b.nonAccrualRate * b.portfolioFairValue, 0);
-              return fv > 0 ? (na / fv).toFixed(2) : "0.00";
-            })()}%
+              const tickers = new Set(filtered.map((b) => b.ticker));
+              const rows = bdcsHistory.filter((r) => r.period_end === latestParsed &&
+                tickers.has(r.ticker) && r.na_pct_at_cost != null && r.na_eligible_cost_b > 0);
+              const cost = rows.reduce((sum, r) => sum + r.na_eligible_cost_b, 0);
+              const weighted = rows.reduce((sum, r) => sum + r.na_eligible_cost_b * r.na_pct_at_cost!, 0);
+              return cost > 0 ? `${(weighted / cost).toFixed(2)}%` : "Unknown";
+            })()}
           </div>
-          <div className="text-xs" style={{ color: "#8b8ba8" }}>FV-weighted non-accrual</div>
+          <div className="text-xs" style={{ color: "#8b8ba8" }}>Cost-weighted NA · eligible parsed coverage</div>
         </div>
         <div className="rounded-lg p-3 border text-center" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-lg font-bold text-white">
@@ -151,22 +162,22 @@ export default function BDCsPage() {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                <th className="px-4 py-3 text-left"><SortBtn k="ticker" label="Ticker" /></th>
-                <th className="px-4 py-3 text-left"><SortBtn k="name" label="BDC Name" /></th>
-                <th className="px-4 py-3 text-left"><SortBtn k="manager" label="Manager" /></th>
-                <th className="px-4 py-3 text-left"><SortBtn k="type" label="Type" /></th>
-                <th className="px-4 py-3 text-right"><SortBtn k="portfolioFairValue" label="FV ($B)" /></th>
-                <th className="px-4 py-3 text-right"><SortBtn k="nonAccrualRate" label="Non-Accrual" /></th>
-                <th className="px-4 py-3 text-right"><SortBtn k="pikRate" label="PIK Rate" /></th>
-                <th className="px-4 py-3 text-right"><SortBtn k="portfolioCompanies" label="Companies" /></th>
+                <th className="px-4 py-3 text-left"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="ticker" label="Ticker" /></th>
+                <th className="px-4 py-3 text-left"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="name" label="BDC Name" /></th>
+                <th className="px-4 py-3 text-left"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="manager" label="Manager" /></th>
+                <th className="px-4 py-3 text-left"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="type" label="Type" /></th>
+                <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="portfolioFairValue" label="FV ($B)" /></th>
+                <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="nonAccrualRate" label="Non-Accrual" /></th>
+                <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="pikRate" label="PIK Rate" /></th>
+                <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="portfolioCompanies" label="Companies" /></th>
                 <th className="px-4 py-3 text-right" style={{ color: "#8b8ba8", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>As of</th>
                 <th className="px-4 py-3 text-center" style={{ color: "#8b8ba8", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>Risk</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((bdc, i) => {
-                const risk = bdc.nonAccrualRate >= 4 ? "Critical" : bdc.nonAccrualRate >= 2 ? "High" : bdc.nonAccrualRate >= 1 ? "Medium" : "Low";
-                const naColor = bdc.nonAccrualRate >= 4 ? "#ef4444" : bdc.nonAccrualRate >= 2 ? "#f97316" : bdc.nonAccrualRate >= 1 ? "#eab308" : "#22c55e";
+                const risk = bdc.nonAccrualRate == null ? "Unknown" : bdc.nonAccrualRate >= 4 ? "Critical" : bdc.nonAccrualRate >= 2 ? "High" : bdc.nonAccrualRate >= 1 ? "Medium" : "Low";
+                const naColor = bdc.nonAccrualRate == null ? "#8b8ba8" : bdc.nonAccrualRate >= 4 ? "#ef4444" : bdc.nonAccrualRate >= 2 ? "#f97316" : bdc.nonAccrualRate >= 1 ? "#eab308" : "#22c55e";
                 const pikColor = bdc.pikRate >= 12 ? "#ef4444" : bdc.pikRate >= 9 ? "#f97316" : bdc.pikRate >= 6 ? "#eab308" : "#22c55e";
                 return (
                   <tr
@@ -205,7 +216,7 @@ export default function BDCsPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <span className="text-sm font-semibold" style={{ color: naColor }}>
-                          {bdc.nonAccrualRate.toFixed(2)}%
+                          {bdc.nonAccrualRate == null ? "Unknown" : `${bdc.nonAccrualRate.toFixed(2)}%`}
                         </span>
                         <DeltaChip delta={bdc.delta_na_pct} fmt={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}pp`} />
                       </div>
@@ -225,7 +236,7 @@ export default function BDCsPage() {
                       {bdc.asOf ?? <span style={{ color: "#6b6b88" }}>static</span>}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <AlertBadge severity={risk as "Critical" | "High" | "Medium" | "Low"} label />
+                      <AlertBadge severity={risk} label />
                     </td>
                   </tr>
                 );

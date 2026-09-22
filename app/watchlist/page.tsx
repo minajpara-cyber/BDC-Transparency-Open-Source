@@ -493,12 +493,12 @@ export default function WatchlistPage() {
         </div>
       </section>
 
-      {/* Where the watchlist is pointing: forward non-accrual rate */}
+      {/* Canonical current non-accrual snapshots, with issuer reporting dates */}
       <section className="mb-8">
         <NaForecastTable />
       </section>
 
-      {/* How the distribution of predicted stress has moved, universe-wide */}
+      {/* Legacy forecast output is withheld pending input validation */}
       <section className="mb-8">
         <NaQuartileTrend />
       </section>

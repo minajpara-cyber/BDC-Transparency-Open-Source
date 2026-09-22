@@ -7,6 +7,7 @@
 // denominator (total_cost_b) are billions of real USD, so cross-issuer
 // aggregation is exact.
 
+import { creditQuality } from "@/data/credit_quality";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
 import { reportedFvB } from "@/lib/quarterCoverage";
@@ -28,40 +29,18 @@ function periodLabel(period_end: string): string {
   return `${y}-Q${q}`;
 }
 
-type Field = "na_pct_at_cost" | "pik_pct_at_cost";
-
-function buildSeries(field: Field): MarketHistoryPoint[] {
-  const byPeriod = new Map<
-    string,
-    { sumCostTimesPct: number; sumCost: number; coverage: number }
-  >();
-  for (const r of bdcsHistory) {
-    if (!isReliable(r.ticker, r.period_end)) continue;
-    if (!r.total_cost_b) continue;
-    if (!byPeriod.has(r.period_end)) {
-      byPeriod.set(r.period_end, { sumCostTimesPct: 0, sumCost: 0, coverage: 0 });
-    }
-    const slot = byPeriod.get(r.period_end)!;
-    slot.sumCostTimesPct += r.total_cost_b * r[field];
-    slot.sumCost += r.total_cost_b;
-    slot.coverage += 1;
-  }
-  return Array.from(byPeriod.entries())
-    .map(([period_end, s]) => ({
-      period_end,
-      date: periodLabel(period_end),
-      value: s.sumCost ? s.sumCostTimesPct / s.sumCost : 0,
-      coverage: s.coverage,
-    }))
+export function industryNonAccrualHistory(): MarketHistoryPoint[] {
+  return creditQuality.filter((r) => r.ticker === "industry" && r.pct_non_accrual != null)
+    .map((r) => ({ period_end: r.period_end, date: periodLabel(r.period_end),
+      value: r.pct_non_accrual!, coverage: r.na_covered_bdcs }))
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
 
-export function industryNonAccrualHistory(): MarketHistoryPoint[] {
-  return buildSeries("na_pct_at_cost");
-}
-
 export function industryPikHistory(): MarketHistoryPoint[] {
-  return buildSeries("pik_pct_at_cost");
+  return creditQuality.filter((r) => r.ticker === "industry")
+    .map((r) => ({ period_end: r.period_end, date: periodLabel(r.period_end),
+      value: r.pct_pik_total, coverage: creditQuality.filter((b) => b.ticker !== "industry" && b.period_end === r.period_end).length }))
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
 
 // Aggregate fair value across the covered universe — useful for an "AUM

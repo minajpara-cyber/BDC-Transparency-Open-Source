@@ -1,12 +1,13 @@
 import { AlertTriangle, AlertCircle, Info, CheckCircle } from "lucide-react";
 
-type Severity = "Critical" | "High" | "Medium" | "Low";
+type Severity = "Critical" | "High" | "Medium" | "Low" | "Unknown";
 
 const config: Record<Severity, { color: string; bg: string; border: string; icon: typeof AlertTriangle }> = {
   Critical: { color: "#ef4444", bg: "#450a0a", border: "#7f1d1d", icon: AlertTriangle },
   High: { color: "#f97316", bg: "#431407", border: "#7c2d12", icon: AlertCircle },
   Medium: { color: "#eab308", bg: "#422006", border: "#713f12", icon: Info },
   Low: { color: "#22c55e", bg: "#052e16", border: "#14532d", icon: CheckCircle },
+  Unknown: { color: "#94a3b8", bg: "#1e293b", border: "#475569", icon: Info },
 };
 
 interface AlertBadgeProps {

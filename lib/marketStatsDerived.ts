@@ -17,7 +17,7 @@ export interface DerivedMarketStats {
   n_bdcs_latest: number;
   totalPortfolioFairValue_b: number; // sum of total_fv_b across covered BDCs, latest quarter
   totalCost_b: number;
-  averageNonAccrualRate: number;     // cost-weighted across covered BDCs
+  averageNonAccrualRate: number | null;     // cost-weighted across covered BDCs
   averagePikRate: number;            // cost-weighted across covered BDCs
   averageBelow95: number;            // cost-weighted from credit_quality (cost%-already)
   averageBelow90: number;
@@ -63,16 +63,13 @@ function priorPeriodFor(period: string): string | null {
 function aggregate(period: string) {
   let totalCost = 0;
   let totalFV = 0;
-  let naCostWeighted = 0;
-  let pikCostWeighted = 0;
+
   let n = 0;
   for (const r of bdcsHistory) {
     if (r.period_end !== period) continue;
     if (!isReliable(r.ticker, r.period_end)) continue;
     totalCost += r.total_cost_b;
     totalFV   += r.total_fv_b;
-    naCostWeighted  += r.total_cost_b * r.na_pct_at_cost;
-    pikCostWeighted += r.total_cost_b * r.pik_pct_at_cost;
     n += 1;
   }
   // below_95 / below_90 from credit_quality (cost-weighted by total cost from bdcsHistory)
@@ -95,8 +92,8 @@ function aggregate(period: string) {
     totalCost,
     totalFV,
     n,
-    naPct:  totalCost  ? naCostWeighted  / totalCost  : 0,
-    pikPct: totalCost  ? pikCostWeighted / totalCost  : 0,
+    naPct: creditQuality.find((r) => r.ticker === "industry" && r.period_end === period)?.pct_non_accrual ?? null,
+    pikPct: creditQuality.find((r) => r.ticker === "industry" && r.period_end === period)?.pct_pik_total ?? 0,
     pctBelow95: cqCost ? below95         / cqCost     : 0,
     pctBelow90: cqCost ? below90         / cqCost     : 0,
   };
@@ -118,7 +115,7 @@ export function computeDerivedMarketStats(): DerivedMarketStats {
     averageBelow95: cur.pctBelow95,
     averageBelow90: cur.pctBelow90,
     delta_fv_b:  prv ? cur.totalFV - prv.totalFV : null,
-    delta_na:    prv ? cur.naPct   - prv.naPct   : null,
+    delta_na: prv && cur.naPct != null && prv.naPct != null ? cur.naPct - prv.naPct : null,
     delta_pik:   prv ? cur.pikPct  - prv.pikPct  : null,
   };
 }

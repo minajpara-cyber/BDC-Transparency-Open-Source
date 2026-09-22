@@ -105,7 +105,7 @@ export default function MarketPage() {
           },
           {
             label: "Non-Accrual Rate",
-            value: `${derived.averageNonAccrualRate.toFixed(2)}%`,
+            value: derived.averageNonAccrualRate == null ? "Unknown" : `${derived.averageNonAccrualRate.toFixed(2)}%`,
             sub: derived.delta_na != null
               ? `${derived.delta_na >= 0 ? "+" : ""}${derived.delta_na.toFixed(2)}pp QoQ`
               : "cost-weighted",

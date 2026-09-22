@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Building2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import AlertBadge from "@/components/AlertBadge";
 import StatCard from "@/components/StatCard";
 import AssetCompositionChart from "@/components/AssetCompositionChart";
@@ -93,49 +93,17 @@ export default async function BDCDetailPage({ params }: PageProps) {
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 
   // -------- Industry comparison series ---------------------------------------
-  // Per-metric coverage caveats — match the structure on /credit so reliable
-  // pre-XBRL data (FSK mark back to 2013, OBDC mark + NA back to 2016, MFIC
-  // mark-based metrics) feeds into the industry comparison curves.
-  type MetricFamily = "mark" | "na" | "pik";
-  const ALL_FAMILIES: MetricFamily[] = ["mark", "na", "pik"];
-  const COVERAGE_CAVEATS: Array<{ ticker: string; until: string; metrics: MetricFamily[] }> = [
-    { ticker: "CCAP", until: "2022-02-28", metrics: ALL_FAMILIES },
-    { ticker: "OCSL", until: "2022-12-31", metrics: ALL_FAMILIES },
-    { ticker: "FSK",  until: "2021-09-30", metrics: ["na", "pik"] },
-    { ticker: "OBDC", until: "2022-03-31", metrics: ["pik"] },
-    { ticker: "MFIC", until: "2025-11-30", metrics: ["na", "pik"] },
-  ];
-  const isReliable = (t: string, p: string, family: MetricFamily) =>
-    !COVERAGE_CAVEATS.some(
-      (c) => c.ticker === t && p <= c.until && c.metrics.includes(family),
-    );
-
   type CQField =
     | "pct_non_accrual"
     | "pct_pik_total"
     | "pct_below_95"
     | "pct_below_90";
-  function familyOfCQ(f: CQField): MetricFamily {
-    if (f === "pct_non_accrual") return "na";
-    if (f === "pct_pik_total")   return "pik";
-    return "mark";
-  }
-  // Industry weighted-avg series for credit-quality metrics (position-weighted).
+  // Use the same dollar-weighted export as the credit and home pages.
   function buildIndustryCQ(field: CQField) {
-    const family = familyOfCQ(field);
-    const m = new Map<string, { sumW: number; sumWV: number }>();
-    for (const r of creditQuality) {
-      if (!isReliable(r.ticker, r.period_end, family)) continue;
-      const w = r.n_positions;
-      if (!w) continue;
-      const slot = m.get(r.period_end) ?? { sumW: 0, sumWV: 0 };
-      slot.sumW += w;
-      slot.sumWV += w * r[field];
-      m.set(r.period_end, slot);
-    }
-    return new Map(
-      Array.from(m.entries()).map(([k, s]) => [k, s.sumW ? s.sumWV / s.sumW : 0]),
-    );
+    return new Map(creditQuality
+      .filter((r) => r.ticker === "industry" && r[field] != null &&
+        (field !== "pct_non_accrual" || r.na_covered_bdcs >= 12))
+      .map((r) => [r.period_end, r[field] as number]));
   }
   // Industry spread: read the pre-computed COST-weighted industry row from
   // the export (ticker:"industry"), gated on coverage — hide quarters where
@@ -158,17 +126,8 @@ export default async function BDCDetailPage({ params }: PageProps) {
   }
   // Industry cash→PIK modification rate (cost-weighted).
   function buildIndustryModRate() {
-    const m = new Map<string, { num: number; den: number }>();
-    for (const r of modificationRate) {
-      if (!isReliable(r.ticker, r.period_end, "pik")) continue;
-      const slot = m.get(r.period_end) ?? { num: 0, den: 0 };
-      slot.num += r.new_mods_cost;
-      slot.den += r.total_cost;
-      m.set(r.period_end, slot);
-    }
-    return new Map(
-      Array.from(m.entries()).map(([k, s]) => [k, s.den ? (100 * s.num) / s.den : 0]),
-    );
+    return new Map(modificationRate.filter((r) => r.ticker === "industry")
+      .map((r) => [r.period_end, r.pct_new_cost]));
   }
 
   const naIndustry  = buildIndustryCQ("pct_non_accrual");
@@ -255,13 +214,14 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const sevSeries = modRows.slice(-12).map((r) => ({
     period_end: r.period_end,
     minimal: r.pct_new_minimal_cost,
+    unknown: r.pct_new_unknown_cost,
     moderate: r.pct_new_moderate_cost,
     severe: r.pct_new_severe_cost,
   }));
 
   // Helpers
-  const fmtDelta = (curr?: number, prev?: number, decimals = 2) => {
-    if (curr === undefined || prev === undefined || prev === null) return undefined;
+  const fmtDelta = (curr?: number | null, prev?: number | null, decimals = 2) => {
+    if (curr == null || prev == null) return undefined;
     const d = curr - prev;
     const sign = d >= 0 ? "+" : "";
     return `${sign}${d.toFixed(decimals)} pp Q/Q`;
@@ -322,6 +282,14 @@ export default async function BDCDetailPage({ params }: PageProps) {
         </div>
       </div>
 
+      {bdc.ticker === "FSK" && (
+        <p className="text-xs mb-6" style={{ color: "#8b8ba8" }}>
+          Reconciled FSK portfolio totals include the filing&apos;s unfunded-commitment adjustments.
+          PIK exposure percentages use gross position balances and cannot be multiplied by those net totals.
+          The non-accrual percentage remains unavailable while its funded-exposure scope is reconciled.
+        </p>
+      )}
+
       {/* Investment Strategy Details */}
       <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <h2 className="font-semibold text-white mb-4">Investment Profile</h2>
@@ -362,9 +330,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             <StatCard
               label="Non-accrual % (cost)"
-              value={`${cqLatest.pct_non_accrual.toFixed(2)}%`}
-              color={cqLatest.pct_non_accrual >= 3 ? "#ef4444" : cqLatest.pct_non_accrual >= 1 ? "#eab308" : "#22c55e"}
-              trend={cqPrior && cqLatest.pct_non_accrual > cqPrior.pct_non_accrual ? "up" : cqPrior && cqLatest.pct_non_accrual < cqPrior.pct_non_accrual ? "down" : undefined}
+              value={cqLatest.pct_non_accrual == null ? "Unknown" : `${cqLatest.pct_non_accrual.toFixed(2)}%`}
+              color={cqLatest.pct_non_accrual == null ? "#8b8ba8" : cqLatest.pct_non_accrual >= 3 ? "#ef4444" : cqLatest.pct_non_accrual >= 1 ? "#eab308" : "#22c55e"}
+              trend={cqLatest.pct_non_accrual == null || cqPrior?.pct_non_accrual == null ? undefined : cqLatest.pct_non_accrual > cqPrior.pct_non_accrual ? "up" : cqLatest.pct_non_accrual < cqPrior.pct_non_accrual ? "down" : undefined}
               trendLabel={cqPrior ? fmtDelta(cqLatest.pct_non_accrual, cqPrior.pct_non_accrual) : undefined}
             />
             <StatCard
@@ -536,8 +504,8 @@ export default async function BDCDetailPage({ params }: PageProps) {
                       >
                         <td className="px-4 py-2.5 font-mono text-xs text-white">{r.period_end}</td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: "#d1d5db" }}>{r.n_positions.toLocaleString()}</td>
-                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_non_accrual >= 3 ? "#ef4444" : r.pct_non_accrual >= 1 ? "#eab308" : "#9ca3af" }}>
-                          {r.pct_non_accrual.toFixed(2)}%
+                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_non_accrual == null ? "#8b8ba8" : r.pct_non_accrual >= 3 ? "#ef4444" : r.pct_non_accrual >= 1 ? "#eab308" : "#9ca3af" }}>
+                          {r.pct_non_accrual == null ? "Unknown" : `${r.pct_non_accrual.toFixed(2)}%`}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_pik_total >= 15 ? "#f97316" : r.pct_pik_total >= 5 ? "#eab308" : "#9ca3af" }}>
                           {r.pct_pik_total.toFixed(2)}%
@@ -840,9 +808,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
                           {markPct === null ? "—" : `${markPct.toFixed(2)}%`}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{
-                          color: r.na_pct_at_cost >= 3 ? "#ef4444" : r.na_pct_at_cost >= 1 ? "#eab308" : "#9ca3af",
+                          color: r.na_pct_at_cost == null ? "#8b8ba8" : r.na_pct_at_cost >= 3 ? "#ef4444" : r.na_pct_at_cost >= 1 ? "#eab308" : "#9ca3af",
                         }}>
-                          {r.na_pct_at_cost > 0 ? `${r.na_pct_at_cost.toFixed(2)}%` : "—"}
+                          {r.na_pct_at_cost == null ? "Unknown" : `${r.na_pct_at_cost.toFixed(2)}%`}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{
                           color: r.pik_pct_at_cost >= 15 ? "#f97316" : r.pik_pct_at_cost >= 5 ? "#eab308" : "#9ca3af",

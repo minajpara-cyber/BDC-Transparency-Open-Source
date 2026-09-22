@@ -38,6 +38,7 @@ function Section({
   );
 }
 
+const fmtPct = (v: number | null | undefined) => v == null ? "—" : `${v.toFixed(2)}%`;
 const fmtB = (v: number) => `$${v.toFixed(1)}B`;
 const fmtM = (v: number | null) =>
   v == null ? "—" : v >= 1000 ? `$${(v / 1000).toFixed(1)}B` : `$${v.toFixed(0)}M`;
@@ -67,23 +68,29 @@ export default function HomePage() {
     );
     // One borrower often flips several tranches at once — collapse to
     // (ticker, borrower) for the briefing table, summing FV.
-    const byKey = new Map<string, { ticker: string; company: string; fv: number }>();
+    const byKey = new Map<string, { key: string; ticker: string; company: string; fv: number | null }>();
     for (const f of newNAsRaw) {
       const key = `${f.ticker}|${f.company_norm}`;
-      const cur = byKey.get(key) ?? { ticker: f.ticker, company: f.company, fv: 0 };
-      cur.fv += f.prv_fv_m ?? f.cur_fv_m ?? 0;
+      const cur = byKey.get(key) ?? { key, ticker: f.ticker, company: f.company, fv: 0 };
+      cur.fv = cur.fv == null || f.cur_fv_m == null ? null : cur.fv + f.cur_fv_m;
       byKey.set(key, cur);
     }
-    const newNAs = [...byKey.values()].sort((a, b) => b.fv - a.fv);
+    const newNAs = [...byKey.values()].sort((a, b) => (b.fv ?? -Infinity) - (a.fv ?? -Infinity));
     const cured = nonAccrualFlow.filter(
       (f) => f.event === "cured" && f.period_end === latestPeriodOf(f.ticker),
     );
+    const unresolved = nonAccrualFlow.filter((f) => f.period_end === latestPeriodOf(f.ticker));
+    const firstObserved = unresolved.filter((f) => f.event === "first_observed_na").length;
+    const removedUnknown = unresolved.filter((f) => f.event === "removed_unknown").length;
+    const unknownStatus = unresolved.filter((f) => f.event === "unknown_status").length;
+    const newFV = newNAs.some((f) => f.fv == null) ? null : newNAs.reduce((sum, f) => sum + (f.fv ?? 0), 0);
     const hotWatch = ewsRows.filter((r) => r.score >= 5);
     const oosTop = ewsMeta.validation_buckets[ewsMeta.validation_buckets.length - 1];
-    return { totCost, naNow, naPrev, newNAs, nNewPositions: newNAsRaw.length, cured, hotWatch, oosTop };
+    return { totCost, naNow, naPrev, newNAs, nNewGroups: newNAsRaw.length, cured, firstObserved, removedUnknown, unknownStatus, newFV, hotWatch, oosTop };
   }, []);
 
-  const naDeltaBp = Math.round((stats.naNow.pct_non_accrual - stats.naPrev.pct_non_accrual) * 100);
+  const naDeltaBp = stats.naNow?.pct_non_accrual == null || stats.naPrev?.pct_non_accrual == null
+    ? null : Math.round((stats.naNow.pct_non_accrual - stats.naPrev.pct_non_accrual) * 100);
   const topNear = [...maturityComparison].sort((a, b) => b.pct_near24m - a.pct_near24m).slice(0, 4);
   const sponsorFlags = sponsors
     .filter((s) => s.n_exits >= 8)
@@ -110,13 +117,13 @@ export default function HomePage() {
           { label: "Tracked portfolio (cost)", value: fmtB(stats.totCost), note: `${siteMeta.n_bdcs} BDCs, latest reported` },
           {
             label: "Industry non-accrual",
-            value: `${stats.naNow.pct_non_accrual.toFixed(2)}%`,
-            note: `${naDeltaBp >= 0 ? "+" : ""}${naDeltaBp}bp vs prior qtr (at cost)`,
+            value: fmtPct(stats.naNow?.pct_non_accrual),
+            note: `${naDeltaBp == null ? "Change unavailable" : `${naDeltaBp >= 0 ? "+" : ""}${naDeltaBp}bp vs prior qtr`} · ${stats.naNow?.na_covered_bdcs ?? 0} BDCs with matched NA coverage`,
           },
           {
-            label: "New non-accrual borrowers this qtr",
+            label: "Borrowers with new NA groups",
             value: String(stats.newNAs.length),
-            note: `${stats.nNewPositions} positions · ${fmtM(stats.newNAs.reduce((s, f) => s + f.fv, 0))} prior-qtr FV · ${stats.cured.length} cured`,
+            note: `${stats.nNewGroups} borrower/instrument groups · ${fmtM(stats.newFV)} current FV · ${stats.cured.length} observed returns`,
           },
           {
             label: "High early-warning scores",
@@ -132,18 +139,24 @@ export default function HomePage() {
         ))}
       </div>
 
+      <p className="text-xs" style={{ color: "#8b8ba8" }}>
+        Industry NA uses {stats.naNow ? fmtB(stats.naNow.na_eligible_cost_b) : "—"} of matched, fully decoded cost.
+        MFIC&apos;s aggregate-only disclosure, unresolved FSK funded-exposure scope and incomplete position flags are excluded from this industry ratio.
+        Unknown rates display as —; supported zero rates display as 0.00%.
+      </p>
+
       {/* What changed */}
       <div className="grid lg:grid-cols-2 gap-6">
         <Section
           title="New non-accruals this quarter"
-          sub="Positions newly flagged NA in each BDC's latest reported quarter"
+          sub="Observed borrower/instrument changes in each BDC's latest quarter; current group FV"
           href="/non-accruals"
           linkLabel="All non-accrual events"
         >
           <table className="w-full text-sm">
             <tbody>
-              {stats.newNAs.slice(0, 8).map((f, i) => (
-                <tr key={i} className="border-t" style={{ borderColor: "#1e1e2e" }}>
+              {stats.newNAs.slice(0, 8).map((f) => (
+                <tr key={f.key} className="border-t" style={{ borderColor: "#1e1e2e" }}>
                   <td className="py-1.5 pr-2 font-mono text-xs text-indigo-300">{f.ticker}</td>
                   <td className="py-1.5 pr-2 text-gray-200">{f.company.slice(0, 44)}</td>
                   <td className="py-1.5 text-right text-gray-400">{fmtM(f.fv)}</td>
@@ -156,12 +169,16 @@ export default function HomePage() {
           </table>
           {stats.cured.length > 0 && (
             <p className="text-xs mt-2" style={{ color: "#6b7280" }}>
-              <span className="text-emerald-400">{stats.cured.length} cured</span>
+              <span className="text-emerald-400">{stats.cured.length} observed returns to accrual</span>
               {": "}
               {stats.cured.slice(0, 3).map((c) => c.company.split("(")[0].trim()).join("; ")}
               {stats.cured.length > 3 ? "…" : ""}
             </p>
           )}
+          <p className="text-xs mt-2" style={{ color: "#8b8ba8" }}>
+            Separately: {stats.firstObserved} first observed NA · {stats.removedUnknown} removed with outcome unknown · {stats.unknownStatus} unresolved status.
+            Groups can include several facilities; these are observed status changes. Missing positions do not establish cures.
+          </p>
         </Section>
 
         <Section

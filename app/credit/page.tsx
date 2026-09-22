@@ -125,41 +125,23 @@ function buildCreditCellMap(field: NumericKeys) {
       isReliable(r.ticker, r.period_end, family) &&
       r.n_positions >= MIN_POSITIONS_FOR_RELIABLE;
     m.set(`${r.ticker}|${r.period_end}`, {
-      value: r[field] as number,
+      value: r[field],
       reliable,
     });
   }
   return m;
 }
 
-/**
- * Build an industry-wide series for a credit-quality metric. The aggregate is a
- * COUNT-weighted average of per-BDC percentages, weighting each BDC by its
- * n_positions in that quarter (size-weighted view of the industry). We use
- * positions rather than dollar cost because cost units differ by BDC and unit
- * multipliers aren't carried into the export.
- */
+/** Read the dollar-weighted industry rows produced by the canonical exporter. */
 function buildIndustrySeries(field: NumericKeys): IndustryPoint[] {
-  const family = metricFamilyOf(field);
-  const byPeriod = new Map<string, { sumW: number; sumWV: number; coverage: number }>();
-  for (const r of creditQuality) {
-    if (!isQuarterEnd(r.period_end)) continue;
-    if (!isReliable(r.ticker, r.period_end, family)) continue;
-    if (r.ticker !== "industry" && r.n_positions < MIN_POSITIONS_FOR_RELIABLE) continue;
-    const w = r.n_positions;
-    if (!w) continue;
-    if (!byPeriod.has(r.period_end))
-      byPeriod.set(r.period_end, { sumW: 0, sumWV: 0, coverage: 0 });
-    const slot = byPeriod.get(r.period_end)!;
-    slot.sumW += w;
-    slot.sumWV += w * (r[field] as number);
-    slot.coverage += 1;
-  }
-  return Array.from(byPeriod.entries())
-    .map(([period_end, { sumW, sumWV, coverage }]) => ({
-      period_end,
-      value: sumW ? sumWV / sumW : 0,
-      coverage,
+  return creditQuality
+    .filter((r) => r.ticker === "industry" && isQuarterEnd(r.period_end) && r[field] != null)
+    .map((r) => ({
+      period_end: r.period_end,
+      value: r[field] as number,
+      coverage: field === "pct_non_accrual" ? r.na_covered_bdcs : creditQuality.filter(
+        (b) => b.ticker !== "industry" && b.period_end === r.period_end && b.n_positions >= MIN_POSITIONS_FOR_RELIABLE
+      ).length,
     }))
     .filter((p) => p.coverage >= MIN_BDCS_FOR_INDUSTRY)
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
@@ -190,26 +172,10 @@ function buildModCellMap() {
  *  par-haircuts and maturity extensions — see buildModCellMap above.
  */
 function buildModIndustrySeries(): IndustryPoint[] {
-  const byPeriod = new Map<
-    string,
-    { newCost: number; totalCost: number; coverage: number }
-  >();
-  for (const r of modificationRate) {
-    if (!isQuarterEnd(r.period_end)) continue;
-    if (!isReliable(r.ticker, r.period_end, "pik")) continue;
-    if (!byPeriod.has(r.period_end))
-      byPeriod.set(r.period_end, { newCost: 0, totalCost: 0, coverage: 0 });
-    const slot = byPeriod.get(r.period_end)!;
-    slot.newCost += r.new_mods_cost;
-    slot.totalCost += r.total_cost;
-    slot.coverage += 1;
-  }
-  return Array.from(byPeriod.entries())
-    .map(([period_end, s]) => ({
-      period_end,
-      value: s.totalCost ? (100 * s.newCost) / s.totalCost : 0,
-      coverage: s.coverage,
-    }))
+  return modificationRate.filter((r) => r.ticker === "industry" && isQuarterEnd(r.period_end))
+    .map((r) => ({ period_end: r.period_end, value: r.pct_new_cost,
+      coverage: modificationRate.filter((b) => b.ticker !== "industry" &&
+        b.period_end === r.period_end && b.industry_included).length }))
     .filter((p) => p.coverage >= MIN_BDCS_FOR_INDUSTRY)
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
@@ -464,30 +430,12 @@ export default function CreditPage() {
       };
     });
 
-  // Modifications-by-severity: industry-aggregated COST-weighted % per quarter.
-  // Numerator = sum(new_*_cost) across BDCs; denominator = sum(total_cost) across BDCs.
-  const sevByPeriod = new Map<string, {
-    minimalCost: number; moderateCost: number; severeCost: number; totalCost: number;
-  }>();
-  for (const r of pikModifications) {
-    if (!isQuarterEnd(r.period_end)) continue;
-    if (!isReliable(r.ticker, r.period_end, "pik")) continue;
-    if (!sevByPeriod.has(r.period_end))
-      sevByPeriod.set(r.period_end, { minimalCost: 0, moderateCost: 0, severeCost: 0, totalCost: 0 });
-    const s = sevByPeriod.get(r.period_end)!;
-    s.minimalCost  += r.new_minimal_cost;
-    s.moderateCost += r.new_moderate_cost;
-    s.severeCost   += r.new_severe_cost;
-    s.totalCost    += r.total_cost;
-  }
-  const severityIndustry = Array.from(sevByPeriod.entries())
-    .map(([period_end, s]) => ({
-      period_end,
-      minimal:  s.totalCost ? (100 * s.minimalCost)  / s.totalCost : 0,
-      moderate: s.totalCost ? (100 * s.moderateCost) / s.totalCost : 0,
-      severe:   s.totalCost ? (100 * s.severeCost)   / s.totalCost : 0,
-    }))
-    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+  // Headline, severity and named events share the export's eligible debt cohort.
+  const severityIndustry = pikModifications
+    .filter((r) => r.ticker === "industry" && isQuarterEnd(r.period_end))
+    .map((r) => ({ period_end: r.period_end, minimal: r.pct_new_minimal_cost,
+      moderate: r.pct_new_moderate_cost, severe: r.pct_new_severe_cost,
+      unknown: r.pct_new_unknown_cost }));
 
   // Per-(ticker, period) severity rows for the recent table (latest 8 quarters).
   const recentPeriods = Array.from(new Set(pikModifications.map((r) => r.period_end)))
@@ -664,8 +612,9 @@ export default function CreditPage() {
           because those parsers capture par / cost / fv cleanly even pre-XBRL. CCAP and OCSL
           pre-XBRL remain fully muted (parser was extracting summary rows / par missing). FSK&apos;s
           non-accrual is muted through Q3 2021 (FSKR-merger era — parser misreads merger-adjustment
-          footnotes as NA). MFIC&apos;s SOI doesn&apos;t carry per-position non-accrual or PIK
-          footnotes, so those two columns stay muted; mark-based metrics for MFIC are reliable.
+          footnotes as NA). MFIC&apos;s issuer-level NA rate comes from a separate filing disclosure;
+          it is excluded from the industry NA ratio because a matching position denominator is
+          unavailable. Its PIK observations are tracked separately.
           BDC-quarters with fewer than {MIN_POSITIONS_FOR_RELIABLE} parsed positions are also
           flagged. Only calendar quarter-ends shown.
         </div>
@@ -678,7 +627,7 @@ export default function CreditPage() {
         </h2>
         <CreditHeatmap
           title="% of cost on non-accrual"
-          description="Standard BDC credit metric. Cells colored 0% → 2% → 5% → ≥10%."
+          description="NA-flagged positive amortized cost divided by all positive-cost positions in the accepted schedule, where flag coverage is complete. This is not a debt-only denominator. MFIC uses its disclosed issuer rate; missing coverage stays unknown. Cells colored 0% → 2% → 5% → ≥10%."
           periods={periods}
           tickers={tickers}
           cellMap={naMap}
@@ -689,7 +638,7 @@ export default function CreditPage() {
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry non-accrual rate</div>
-          <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>Position-weighted average across reporting BDCs each quarter.</p>
+          <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>USD cost-weighted ratio across issuer quarters with fully decoded position NA flags. The denominator includes all positive-cost positions in those accepted schedules. MFIC aggregate-only disclosures and incomplete flag coverage are excluded; coverage can change by quarter.</p>
           <CreditLensChart
             data={naLine}
             yLabel="% non-accrual (industry)"
@@ -756,39 +705,41 @@ export default function CreditPage() {
       {/* Section 4 — Loan modifications */}
       <section id="mods" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
-          Loan modifications: cash → PIK <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· flow per quarter · payment-structure changes only</span>
+          Inferred loan changes: cash → PIK <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· flow per quarter · payment-structure changes only</span>
         </h2>
         <CreditHeatmap
-          title="% of cost flipped cash → PIK this quarter"
+          title="Material-rule cash → PIK signals (% of eligible cost)"
           description={
-            "Loans that switched from cash-pay to PIK (payment-in-kind) interest this quarter. " +
-            "STRICT cash/PIK structure changes only — excludes refinancings, partial sales, paydowns, and maturity extensions. " +
-            "Each cell = (amortized cost of loans flipped cash → PIK) / (amortized cost of eligible loans). " +
-            "Eligible = loans observed in a prior quarter. Cells colored 0% → 2% → 5% → ≥10%. " +
-            "Loans whose first observation is already PIK are excluded — we can't tell if they originated PIK or were modified earlier."
+            "Inferred material-rule PIK changes, not confirmed disclosed amendments. " +
+            "Numerator = current cost of identified debt meeting the shared cash-to-PIK event rule. " +
+            "Denominator = positive-cost debt with observed PIK flags at adjacent calendar quarter-ends. " +
+            "PIK events require two preceding cash quarters; persistence is provisional without the next quarter. " +
+            "Unknown instruments, unfunded commitments and gaps are excluded. Coverage is partial."
           }
           periods={periods}
           tickers={tickers}
           cellMap={modMap}
           thresholds={[2, 5, 10]}
           flagKey="f_pik"
-          metricLabel="Loans currently paying PIK"
+          metricLabel="PIK positions for context; not the modification event population"
           csvFilename="credit-mods-cash-to-pik"
         />
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
           <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
             <div className="text-sm font-semibold text-white mb-1">Industry rate of new cash → PIK flips (cost-weighted)</div>
             <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
-              Sum of newly-PIK cost across reporting BDCs divided by eligible-loan cost.
-              Tracks payment-structure changes only. Refis, paydowns, maturity extensions excluded.
+              Shared material-rule PIK event cost divided by eligible debt cost in USD.
+              Includes provisional persistence and zero-event issuer quarters. Issuer quarters with
+              PIK event cost of 30% or more are excluded as outliers; at least 10 issuers are required.
             </p>
             <CreditLensChart data={modPctLine} yLabel="% modified by cost" color="#f97316" />
           </div>
           <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-            <div className="text-sm font-semibold text-white mb-1">Industry new modifications by severity (% of cost)</div>
+            <div className="text-sm font-semibold text-white mb-1">Industry inferred PIK changes by severity (% of eligible cost)</div>
             <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
-              Stacked share of eligible-loan cost flipping cash → PIK each quarter, bucketed by PIK severity
-              (minimal &lt;20% / moderate 20–50% / severe ≥50% or all-PIK of total coupon).
+              The same event population and denominator as the headline. Severity is the PIK share
+              of total coupon: minimal &lt;20%, moderate 20–50%, severe ≥50% or all-PIK, or unknown.
+              Newest observations can still have provisional persistence.
             </p>
             <SeverityStackedBars data={severityIndustry} yLabel="% of eligible cost" unit="%" />
           </div>
@@ -800,17 +751,17 @@ export default function CreditPage() {
           style={{ background: "#111118", borderColor: "#1e1e2e" }}
         >
           <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <h3 className="font-semibold text-white text-sm">Recent modifications by severity (last 8 quarters)</h3>
+            <h3 className="font-semibold text-white text-sm">Recent inferred PIK changes by severity (last 8 quarters)</h3>
             <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              Per-BDC share of eligible-loan cost flipping cash → PIK this quarter, by severity bucket.
-              Rows sorted by quarter then severity.
+              Per-BDC share of eligible debt cost, including unknown severity. Provisional counts
+              are a subset of total signals. PIK → cash means an observed payment change, not a credit cure.
             </p>
           </div>
           <div className="overflow-x-auto" style={{ maxHeight: 380 }}>
             <table className="w-full text-sm">
               <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e", position: "sticky", top: 0, zIndex: 1 }}>
                 <tr>
-                  {["Quarter", "BDC", "% modified (cost)", "Severe %", "Moderate %", "Minimal %", "# mods", "# cured", "Net #"].map((h) => (
+                  {["Quarter", "BDC", "% PIK signals", "Severe %", "Moderate %", "Minimal %", "Unknown %", "# signals", "# provisional", "# PIK → cash", "Net #"].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap"
@@ -823,8 +774,8 @@ export default function CreditPage() {
               </thead>
               <tbody>
                 {severityTableRows.map((r, i) => {
-                  const totalPct = r.pct_new_minimal_cost + r.pct_new_moderate_cost + r.pct_new_severe_cost;
-                  const fmtPct = (v: number) => (v > 0 ? `${v.toFixed(2)}%` : "—");
+                  const totalPct = r.total_cost > 0 ? 100 * r.new_mods_cost / r.total_cost : 0;
+                  const fmtPct = (v: number) => `${v.toFixed(2)}%`;
                   return (
                   <tr
                     key={`${r.ticker}-${r.period_end}-${i}`}
@@ -850,11 +801,17 @@ export default function CreditPage() {
                     <td className="px-4 py-2.5 text-sm" style={{ color: r.pct_new_minimal_cost > 0 ? "#fde68a" : "#6b6b88" }}>
                       {fmtPct(r.pct_new_minimal_cost)}
                     </td>
+                    <td className="px-4 py-2.5 text-sm" style={{ color: r.pct_new_unknown_cost > 0 ? "#94a3b8" : "#6b6b88" }}>
+                      {fmtPct(r.pct_new_unknown_cost)}
+                    </td>
                     <td className="px-4 py-2.5 text-xs" style={{ color: r.new_mods > 0 ? "#d1d5db" : "#6b6b88" }}>
-                      {r.new_mods || "—"}
+                      {r.new_mods}
+                    </td>
+                    <td className="px-4 py-2.5 text-xs" style={{ color: r.new_provisional > 0 ? "#fbbf24" : "#6b6b88" }}>
+                      {r.new_provisional}
                     </td>
                     <td className="px-4 py-2.5 text-xs" style={{ color: r.cured > 0 ? "#22c55e" : "#6b6b88" }}>
-                      {r.cured || "—"}
+                      {r.cured}
                     </td>
                     <td className="px-4 py-2.5 text-xs font-semibold" style={{
                       color: r.net > 0 ? "#ef4444" : r.net < 0 ? "#22c55e" : "#9ca3af",
@@ -869,10 +826,11 @@ export default function CreditPage() {
           </div>
         </div>
         <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
-          Note on origination: we can only flag a loan as &quot;modified&quot; once we&apos;ve observed
-          it in cash-pay state in a prior quarter. Loans that entered our dataset already PIK are not
-          counted as modifications — they could either have originated PIK or been modified before we
-          had coverage. As back-book parsing improves, more of these will resolve into modifications.
+          A first observation already paying PIK is not a newly observed cash → PIK event.
+          Two consecutive prior cash quarters are required. Matching uses observed terms and
+          borrower identity; refinancing, sales and amendments can remain ambiguous. The named
+          table below includes additional inferred modification types, so its all-signal count
+          exceeds the PIK-only count above. Filter it to cash → PIK for the same event population.
         </p>
 
         <ModificationEventsTable events={modificationEvents} />

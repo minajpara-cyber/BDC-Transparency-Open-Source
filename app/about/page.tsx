@@ -152,9 +152,9 @@ export default function AboutPage() {
         <h2 className="font-semibold text-white mb-4">Methodology — Vintage & Modifications</h2>
         <p className="text-sm leading-relaxed mb-3" style={{ color: "#d1d5db" }}>
           The <Link href="/vintage" className="text-indigo-400 hover:underline">vintage analysis</Link>{" "}
-          and credit-modification metrics use distinct methodologies. Both are cost-weighted across our
-          19 covered BDCs, with MFIC excluded from non-accrual metrics (its SOI doesn&apos;t flag NA
-          per-position).
+          and quarterly credit-modification metrics use distinct methodologies and covered populations.
+          Quarterly flow rates use matched debt observations; vintage metrics track cumulative cohort
+          outcomes. MFIC&apos;s disclosed issuer NA rate is shown separately from the industry position-based ratio.
         </p>
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Cumulative default exposure (pct_ever_default)</h3>
@@ -166,21 +166,31 @@ export default function AboutPage() {
           that defaulted then exited via write-off, distressed sale, or debt-for-equity were invisible.
         </p>
 
-        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Multi-signal modifications (pct_ever_modified, pct_any_mod_cost)</h3>
+        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Quarterly inferred modifications</h3>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          Four signals comprise a &ldquo;modification event&rdquo; on a loan:
+          The quarterly headline, severity chart and named table share the same material PIK event
+          definition. These are inferred changes in observed terms, not confirmed disclosed amendments.
+          The broad event table includes five signals, which can overlap:
         </p>
         <ul className="text-xs leading-relaxed mb-3 pl-5 list-disc" style={{ color: "#9ca3af" }}>
-          <li><span className="text-white">Cash → PIK flip</span> — loan was previously cash-pay, now has PIK component</li>
-          <li><span className="text-white">Maturity extension</span> — maturity_date jumped &gt;180 days forward vs prior quarter</li>
-          <li><span className="text-white">Par haircut</span> — par dropped &gt;15% AND at least one other BDC holder saw a drop the same quarter (cross-BDC corroboration — excludes one-BDC partial sales which aren&apos;t borrower modifications)</li>
-          <li><span className="text-white">Spread/coupon cut</span> — cash_rate_bps dropped &gt;50bps vs prior quarter</li>
+          <li><span className="text-white">Cash → PIK</span> — a material-rule PIK observation after two consecutive cash quarters. Materiality uses the coupon share or all-PIK label; where the split is missing, the rule uses a PIK rate of at least 150bps, or retains the event with unknown severity if the rate is also missing. Persistence remains provisional unless PIK is observed in the next quarter.</li>
+          <li><span className="text-white">Maturity extension</span> — at least six indexed months of extension. Parsed maturity precision can be coarse.</li>
+          <li><span className="text-white">Stressed par reduction</span> — a par drop greater than 15% with a prior mark below 85¢, prior NA flag, or newly observed equity in the borrower. This does not prove a haircut or exclude a sale.</li>
+          <li><span className="text-white">Contractual spread cut</span> — spread over the reference index falls by more than 50bps. Cash coupon can move differently.</li>
+          <li><span className="text-white">Lien downgrade</span> — inferred from a change in the matched instrument&apos;s class.</li>
         </ul>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          Pre-2026-05-18 the dashboard only tracked PIK flips, capturing roughly 10% of true modifications.
-          The new multi-signal metric typically runs 3-5× higher and matches industry definitions of
-          &ldquo;modified loan&rdquo;. 2022 and 2023 vintages show ever-modified rates of 16% by age 12q
-          vs 2018&apos;s 2% — consistent with the rate-shock-driven restructuring wave.
+          The denominator is current USD cost of identified funded debt with observed PIK flags at
+          adjacent calendar quarter-ends. Unknown instrument classes, gaps and disclosed unfunded
+          commitments are excluded. Zero-event eligible issuer quarters remain in the denominator;
+          unknown severity remains in the total. Industry rollups require at least 10 issuers and
+          exclude issuer quarters with a material PIK event cost share of 30% or more. Coverage is partial.
+        </p>
+        <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
+          Named events include source-row comparison references and before/after evidence. Those
+          references identify observed comparisons, not permanent legal facilities. An observed
+          PIK → cash transition does not establish a credit cure. Cumulative vintage modification
+          metrics use a separate historical cohort definition and should not be read as quarterly flows.
         </p>
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Sector classification &amp; borrower profiles</h3>
@@ -206,7 +216,7 @@ export default function AboutPage() {
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Coverage caveats</h3>
         <ul className="text-xs leading-relaxed pl-5 list-disc" style={{ color: "#9ca3af" }}>
           <li>Vintage rollup excludes loans whose holder BDC&apos;s parser coverage started <em>after</em> their vintage_year (eliminates BCRED / ADS / ASIF / BBDC survivor bias from older vintages)</li>
-          <li>Modification cross-BDC corroboration only fires for loans held by 2+ BDCs (~6% of universe by count, ~40% by cost) — solo-held loans rely on the &gt;15% threshold alone</li>
+          <li>Modification matching can confuse an amendment, refinancing or changed instrument label. The signal rules do not establish legal amendment terms or measured recall of all modifications.</li>
           <li>BDC-disclosed acquisition_date is the latest amendment date in some filers (notably non-traded BDCs), not original origination. We correct this with MIN-across-observations, cross-BDC consensus favoring public filers, and a LIBOR→SOFR retag detector; the residual 2021-cohort inflation (~2.25× neighbors vs Raymond James&apos;s ~1.5×) is the floor achievable without external origination data</li>
           <li>Pre-2018 vintages are excluded; FSK/OBDC pre-2022 excluded due to parser limitations</li>
         </ul>

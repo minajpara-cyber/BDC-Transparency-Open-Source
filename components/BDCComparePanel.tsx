@@ -87,7 +87,7 @@ const METRIC_META: Record<
 export interface CompareRow {
   ticker: string;
   period_end: string;
-  pct_non_accrual: number;
+  pct_non_accrual: number | null;
   pct_below_95: number;
   pct_below_90: number;
   pct_pik_total: number;

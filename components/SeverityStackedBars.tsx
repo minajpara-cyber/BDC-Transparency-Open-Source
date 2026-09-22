@@ -16,6 +16,7 @@ export interface SeverityBarPoint {
   minimal: number;
   moderate: number;
   severe: number;
+  unknown: number;
 }
 
 interface Props {
@@ -25,7 +26,7 @@ interface Props {
   unit?: string;
 }
 
-export default function SeverityStackedBars({ data, yLabel = "# loans modified", unit = "" }: Props) {
+export default function SeverityStackedBars({ data, yLabel = "# inferred PIK changes", unit = "" }: Props) {
   const fmtTick = (v: number) =>
     unit === "%" ? `${v.toFixed(1)}%` : Number(v).toLocaleString();
   const fmtTooltip = (value: unknown) => {
@@ -64,6 +65,7 @@ export default function SeverityStackedBars({ data, yLabel = "# loans modified",
           <Bar dataKey="minimal"  name="Minimal (<20% PIK share)" stackId="a" fill="#fde68a" />
           <Bar dataKey="moderate" name="Moderate (20–50%)"        stackId="a" fill="#f97316" />
           <Bar dataKey="severe"   name="Severe (≥50% or all-PIK)"  stackId="a" fill="#dc2626" />
+          <Bar dataKey="unknown"  name="Severity unknown"          stackId="a" fill="#94a3b8" />
         </BarChart>
       </ResponsiveContainer>
     </div>

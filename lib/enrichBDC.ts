@@ -16,7 +16,8 @@ import { bdcsHistory, BDCQuarter } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
 import { hasReportedSize } from "@/lib/quarterCoverage";
 
-export interface BDCEnriched extends BDC {
+export interface BDCEnriched extends Omit<BDC, "nonAccrualRate"> {
+  nonAccrualRate: number | null;
   asOf?: string;                  // 'YYYY-MM-DD' from parsed data
   parsed?: boolean;               // true if overlay values came from our parser
   delta_fv_b?: number | null;     // QoQ change in total_fv_b
@@ -57,7 +58,8 @@ export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriche
     asOf: latest.period_end,
     parsed: true,
     delta_fv_b:   prior ? latest.total_fv_b      - prior.total_fv_b      : null,
-    delta_na_pct: prior ? latest.na_pct_at_cost  - prior.na_pct_at_cost  : null,
+    delta_na_pct: prior && latest.na_pct_at_cost != null && prior.na_pct_at_cost != null
+      ? latest.na_pct_at_cost - prior.na_pct_at_cost : null,
     delta_pik_pct: prior ? latest.pik_pct_at_cost - prior.pik_pct_at_cost : null,
   };
 }

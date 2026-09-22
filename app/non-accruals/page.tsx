@@ -6,13 +6,36 @@ import AlertBadge from "@/components/AlertBadge";
 import { portfolioCompanies } from "@/data/companies";
 import { recentAlerts } from "@/data/market";
 import { enrichedBDCs } from "@/lib/enrichBDC";
+import { creditQuality } from "@/data/credit_quality";
 import {
   currentNonAccruals,
   nonAccrualFlow,
   crossIssuerDisagreement,
 } from "@/data/non_accrual_events";
 
+const fmtPct = (v: number | null | undefined) => v == null ? "—" : `${v.toFixed(2)}%`;
+const fmtFV = (v: number | null) => v == null ? "—" : `$${v.toFixed(1)}M`;
+
 type SortKey = "ticker" | "company" | "fv_m" | "cost_m" | "par_m" | "mark_at_par";
+
+const SortBtn = ({ k, label, align = "left", sortKey, sortDir, onSort }: {
+  k: SortKey;
+  label: string;
+  align?: "left" | "right";
+  sortKey: SortKey;
+  sortDir: "asc" | "desc";
+  onSort: (key: SortKey) => void;
+}) => (
+  <button
+    className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wider hover:text-white transition-colors ${
+      align === "right" ? "justify-end ml-auto" : ""
+    }`}
+    style={{ color: sortKey === k ? "#a5b4fc" : "#8b8ba8" }}
+    onClick={() => onSort(k)}
+  >
+    {label} {sortKey === k ? (sortDir === "desc" ? "↓" : "↑") : "↕"}
+  </button>
+);
 
 export default function NonAccrualsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("fv_m");
@@ -25,7 +48,7 @@ export default function NonAccrualsPage() {
   };
 
   const tickers = useMemo(
-    () => Array.from(new Set(currentNonAccruals.map((r) => r.ticker))).sort(),
+    () => Array.from(new Set([...currentNonAccruals, ...nonAccrualFlow].map((r) => r.ticker))).sort(),
     [],
   );
 
@@ -47,13 +70,21 @@ export default function NonAccrualsPage() {
   const haircut   = totalCost - totalFV;
   const latestPeriod = currentNonAccruals.map((r) => r.period_end).sort().at(-1) ?? "—";
 
-  // Sort/group flow events by event type and period.
-  const newNAEvents = nonAccrualFlow
+  // Every flow table follows the selected issuer; each row is an aggregate.
+  const filteredFlow = nonAccrualFlow.filter((e) => tickerFilter === "All" || e.ticker === tickerFilter);
+  const newNAEvents = filteredFlow
     .filter((e) => e.event === "new_na")
     .sort((a, b) => (b.cur_fv_m ?? 0) - (a.cur_fv_m ?? 0));
-  const curedEvents = nonAccrualFlow
+  const curedEvents = filteredFlow
     .filter((e) => e.event === "cured")
     .sort((a, b) => (b.prv_fv_m ?? 0) - (a.prv_fv_m ?? 0));
+
+  const uncertainGroups = [
+    { event: "first_observed_na", title: "First observed non-accrual", detail: "NA is present, but the prior observation or component status does not establish when it began." },
+    { event: "removed_unknown", title: "Removed; outcome unknown", detail: "Previously flagged exposure is absent from the current snapshot. Sale, repayment, write-off and identity changes remain unresolved." },
+    { event: "unknown_status", title: "Status unresolved", detail: "Missing flags, mixed components, changed row counts or reporting gaps prevent a supported return-to-accrual conclusion." },
+  ].map((group) => ({ ...group, rows: filteredFlow.filter((e) => e.event === group.event) }));
+  const industryNA = creditQuality.filter((r) => r.ticker === "industry").sort((a, b) => b.period_end.localeCompare(a.period_end))[0];
 
   // Curated list (legacy 15-company filter)
   const curatedNonAccrualCompanies = portfolioCompanies.filter(
@@ -62,20 +93,9 @@ export default function NonAccrualsPage() {
 
   // BDC summary built from enriched data (real NA % at cost-weighted basis).
   const bdcSummary = enrichedBDCs()
-    .filter((b) => b.parsed && b.nonAccrualRate >= 1.0)
-    .sort((a, b) => b.nonAccrualRate - a.nonAccrualRate);
+    .filter((b) => b.parsed)
+    .sort((a, b) => (b.nonAccrualRate ?? -Infinity) - (a.nonAccrualRate ?? -Infinity));
 
-  const SortBtn = ({ k, label, align = "left" }: { k: SortKey; label: string; align?: "left" | "right" }) => (
-    <button
-      className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wider hover:text-white transition-colors ${
-        align === "right" ? "justify-end ml-auto" : ""
-      }`}
-      style={{ color: sortKey === k ? "#a5b4fc" : "#8b8ba8" }}
-      onClick={() => handleSort(k)}
-    >
-      {label} {sortKey === k ? (sortDir === "desc" ? "↓" : "↑") : "↕"}
-    </button>
-  );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -87,10 +107,9 @@ export default function NonAccrualsPage() {
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">Non-Accruals — Cross-BDC View</h1>
         <p className="text-sm" style={{ color: "#8b8ba8" }}>
-          Every individual non-accrual position parsed from the latest Schedule of Investments
-          for the {tickers.length} traded BDCs in our coverage universe, plus QoQ flow (new vs cured)
-          and cross-issuer disagreement. MFIC excluded — its SOI does not flag non-accrual per
-          position.
+          Observed non-accrual positions from each BDC&apos;s latest approved Schedule of Investments,
+          with changes grouped by BDC, borrower and instrument type. These groups can contain several
+          facilities. MFIC contributes its disclosed issuer rate below; borrower flags are unavailable.
         </p>
       </div>
 
@@ -100,7 +119,7 @@ export default function NonAccrualsPage() {
           <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>NA Positions</div>
           <div className="text-2xl font-bold" style={{ color: "#ef4444" }}>{filteredCurrent.length}</div>
           <div className="text-xs mt-1" style={{ color: "#6b6b88" }}>
-            {tickerFilter === "All" ? `across ${tickers.length} BDCs` : tickerFilter}
+            {tickerFilter === "All" ? `across ${new Set(filteredCurrent.map((r) => r.ticker)).size} BDCs` : tickerFilter}
           </div>
         </div>
         <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
@@ -122,9 +141,15 @@ export default function NonAccrualsPage() {
           <div className="text-2xl font-bold text-white">
             +{newNAEvents.length} / -{curedEvents.length}
           </div>
-          <div className="text-xs mt-1" style={{ color: "#6b6b88" }}>new NA / cured this quarter</div>
+          <div className="text-xs mt-1" style={{ color: "#6b6b88" }}>new NA groups / observed returns</div>
         </div>
       </div>
+
+      <p className="text-xs mb-5" style={{ color: "#8b8ba8" }}>
+        Status changes compare consecutive snapshots of borrower/instrument groups, not verified facility events.
+        Missing positions never establish a cure. Unknown rates display as —; a reported or fully decoded zero displays as 0.00%.
+        {industryNA && <> Industry NA coverage: {industryNA.na_covered_bdcs} BDCs, ${industryNA.na_eligible_cost_b.toFixed(1)}B matched cost as of {industryNA.period_end}; aggregate-only MFIC, unresolved FSK funded-exposure scope and incomplete flags are excluded from that weighted rate.</>}
+      </p>
 
       {/* Ticker filter */}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -159,14 +184,14 @@ export default function NonAccrualsPage() {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                <th className="px-4 py-3 text-left"><SortBtn k="ticker" label="BDC" /></th>
-                <th className="px-4 py-3 text-left"><SortBtn k="company" label="Borrower" /></th>
+                <th className="px-4 py-3 text-left"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="ticker" label="BDC" /></th>
+                <th className="px-4 py-3 text-left"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="company" label="Borrower" /></th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Industry</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>Type</th>
-                <th className="px-4 py-3 text-right"><SortBtn k="fv_m" label="FV ($M)" align="right" /></th>
-                <th className="px-4 py-3 text-right"><SortBtn k="cost_m" label="Cost ($M)" align="right" /></th>
-                <th className="px-4 py-3 text-right"><SortBtn k="par_m" label="Par ($M)" align="right" /></th>
-                <th className="px-4 py-3 text-right"><SortBtn k="mark_at_par" label="Mark" align="right" /></th>
+                <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="fv_m" label="FV ($M)" align="right" /></th>
+                <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="cost_m" label="Cost ($M)" align="right" /></th>
+                <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="par_m" label="Par ($M)" align="right" /></th>
+                <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="mark_at_par" label="Mark" align="right" /></th>
               </tr>
             </thead>
             <tbody>
@@ -217,15 +242,15 @@ export default function NonAccrualsPage() {
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#7f1d1d" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: "#7f1d1d", background: "#1a0505" }}>
             <h2 className="font-semibold" style={{ color: "#ef4444" }}>
-              New Non-Accruals This Quarter ({newNAEvents.length})
+              Newly Non-Accrual Groups ({newNAEvents.length})
             </h2>
             <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              Loans that flipped from accruing to non-accrual since the prior 10-Q / 10-K. Sorted by current fair value.
+              All observed components changed from accruing to non-accrual in consecutive quarters. Values cover the borrower/instrument group, sorted by current fair value.
             </p>
           </div>
           <div className="divide-y" style={{ borderColor: "#1a1a28" }}>
-            {newNAEvents.slice(0, 25).map((e, i) => (
-              <div key={i} className="px-5 py-3 flex items-center justify-between gap-3">
+            {newNAEvents.slice(0, 25).map((e) => (
+              <div key={e.event_id} className="px-5 py-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Link href={`/bdcs/${e.ticker.toLowerCase()}`}>
                     <span className="px-2 py-0.5 rounded text-xs font-mono font-bold" style={{ background: "rgba(239,68,68,0.12)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
@@ -235,13 +260,13 @@ export default function NonAccrualsPage() {
                   <div className="min-w-0">
                     <div className="text-sm text-white truncate">{e.company}</div>
                     <div className="text-xs" style={{ color: "#8b8ba8" }}>
-                      {e.investment_type ?? "—"} {e.maturity_date ? `· Due ${new Date(e.maturity_date).toLocaleDateString("en-US", { year: "numeric", month: "short" })}` : ""}
+                      {e.investment_type ?? "—"} {e.maturity_date ? `· Due ${e.maturity_date}` : ""}
                     </div>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <div className="text-sm font-semibold" style={{ color: "#ef4444" }}>
-                    ${(e.cur_fv_m ?? 0).toFixed(1)}M
+                    {fmtFV(e.cur_fv_m)}
                   </div>
                   <div className="text-xs" style={{ color: "#6b6b88" }}>FV</div>
                 </div>
@@ -257,15 +282,15 @@ export default function NonAccrualsPage() {
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#14532d" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: "#14532d", background: "#05140a" }}>
             <h2 className="font-semibold" style={{ color: "#22c55e" }}>
-              Cured or Removed ({curedEvents.length})
+              Observed Returns to Accrual ({curedEvents.length})
             </h2>
             <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              Loans that left non-accrual status — either restructured to performing, paid off, or written off entirely. Sorted by prior-quarter fair value.
+              All observed components changed from non-accrual to accruing, with the same row count in consecutive quarters. This is an aggregate observation; facility-level cures still require verification.
             </p>
           </div>
           <div className="divide-y" style={{ borderColor: "#1a1a28" }}>
-            {curedEvents.slice(0, 25).map((e, i) => (
-              <div key={i} className="px-5 py-3 flex items-center justify-between gap-3">
+            {curedEvents.slice(0, 25).map((e) => (
+              <div key={e.event_id} className="px-5 py-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Link href={`/bdcs/${e.ticker.toLowerCase()}`}>
                     <span className="px-2 py-0.5 rounded text-xs font-mono font-bold" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)" }}>
@@ -275,23 +300,41 @@ export default function NonAccrualsPage() {
                   <div className="min-w-0">
                     <div className="text-sm text-white truncate">{e.company}</div>
                     <div className="text-xs" style={{ color: "#8b8ba8" }}>
-                      {e.investment_type ?? "—"} {e.maturity_date ? `· Due ${new Date(e.maturity_date).toLocaleDateString("en-US", { year: "numeric", month: "short" })}` : ""}
+                      {e.investment_type ?? "—"} {e.maturity_date ? `· Due ${e.maturity_date}` : ""}
                     </div>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <div className="text-sm font-semibold" style={{ color: "#22c55e" }}>
-                    ${(e.prv_fv_m ?? 0).toFixed(1)}M
+                    {fmtFV(e.prv_fv_m)}
                   </div>
                   <div className="text-xs" style={{ color: "#6b6b88" }}>was FV</div>
                 </div>
               </div>
             ))}
             {curedEvents.length === 0 && (
-              <div className="px-5 py-6 text-sm text-center" style={{ color: "#8b8ba8" }}>No cures or removals this quarter.</div>
+              <div className="px-5 py-6 text-sm text-center" style={{ color: "#8b8ba8" }}>No supported aggregate returns to accrual this quarter.</div>
             )}
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {uncertainGroups.map((group) => (
+          <details key={group.event} className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#2d2d45" }}>
+            <summary className="text-sm font-semibold text-white cursor-pointer">{group.title} ({group.rows.length})</summary>
+            <p className="text-xs mt-2 mb-3" style={{ color: "#8b8ba8" }}>{group.detail}</p>
+            {group.rows.map((e) => (
+              <div key={e.event_id} className="border-t py-2 text-xs" style={{ borderColor: "#2d2d45" }}>
+                <Link href={`/bdcs/${e.ticker.toLowerCase()}`} className="font-mono text-indigo-300">{e.ticker}</Link>
+                <span className="text-gray-200"> · {e.company}</span>
+                <div className="text-gray-500">{e.investment_type ?? "Type unavailable"} · {e.prior_period_end} → {e.period_end}</div>
+                <div className="text-gray-400">Prior FV {fmtFV(e.prv_fv_m)} · current FV {fmtFV(e.cur_fv_m)}</div>
+              </div>
+            ))}
+            {group.rows.length === 0 && <p className="text-xs text-gray-500">No observations in this category.</p>}
+          </details>
+        ))}
       </div>
 
       {/* Cross-issuer disagreement */}
@@ -302,7 +345,7 @@ export default function NonAccrualsPage() {
           </h2>
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
             Borrowers held by 2+ covered BDCs where at least one BDC flags non-accrual on at least
-            one tranche and at least one does not. Names are normalized via the bdctransparency.io
+            one tranche and at least one has complete, explicitly accruing observations. Unknown holders are excluded. Names are normalized via the bdctransparency.io
             alias dictionary so divergent legal-entity strings roll up to a single operating company.
           </p>
         </div>
@@ -350,7 +393,7 @@ export default function NonAccrualsPage() {
           ))}
           {crossIssuerDisagreement.length === 0 && (
             <div className="px-5 py-6 text-sm text-center" style={{ color: "#8b8ba8" }}>
-              No cross-issuer disagreements at the latest broadly-covered quarter — every shared borrower is consistently flagged across its holders.
+              No cross-issuer disagreements were detected among holders with supported status at the latest broadly covered quarter.
             </div>
           )}
         </div>
@@ -359,7 +402,7 @@ export default function NonAccrualsPage() {
       {/* BDC summary (parsed) */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-          <h2 className="font-semibold text-white">BDCs by Non-Accrual % (cost-weighted, parsed)</h2>
+          <h2 className="font-semibold text-white">BDCs by Non-Accrual % at Cost</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -385,8 +428,8 @@ export default function NonAccrualsPage() {
                   </td>
                   <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{bdc.type}</td>
                   <td className="px-4 py-3">
-                    <span className="text-sm font-bold" style={{ color: bdc.nonAccrualRate >= 4 ? "#ef4444" : bdc.nonAccrualRate >= 2 ? "#f97316" : "#eab308" }}>
-                      {bdc.nonAccrualRate.toFixed(2)}%
+                    <span className="text-sm font-bold" style={{ color: bdc.nonAccrualRate == null ? "#8b8ba8" : bdc.nonAccrualRate >= 4 ? "#ef4444" : bdc.nonAccrualRate >= 2 ? "#f97316" : "#eab308" }}>
+                      {fmtPct(bdc.nonAccrualRate)}
                     </span>
                   </td>
                   <td className="px-4 py-3">

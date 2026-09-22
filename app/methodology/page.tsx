@@ -86,7 +86,8 @@ export default function MethodologyPage() {
             <li>Identifies the banner row (&quot;in thousands&quot;, &quot;in millions&quot;) and applies the right unit multiplier.</li>
             <li>Maps columns to canonical fields: <em>par_amount, amortized_cost, fair_value, coupon_rate, ref_rate_spread, maturity_date, acquisition_date</em>.</li>
             <li>Decodes per-position footnotes for non-accrual and PIK flags.</li>
-            <li>Joins to a previous-quarter snapshot via <em>(ticker, company, investment_type, maturity_date)</em> so the same loan tranche tracks across quarters.</li>
+            <li>Selects one approved filing schedule per issuer and reporting period, retaining rejected alternatives for diagnosis.</li>
+            <li>Links observed borrower/instrument positions using identity and terms. Quarterly modification flows require adjacent calendar observations.</li>
           </ol>
           <p className="text-xs" style={{ color: "#9ca3af" }}>
             Parser code lives in the <code className="px-1 rounded" style={{ background: "#0f0f16", color: "#a5b4fc" }}>bdc_inventory/scripts</code> repo
@@ -102,10 +103,11 @@ export default function MethodologyPage() {
         </h2>
         <div className="rounded-xl border p-5 text-sm space-y-3" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#d1d5db" }}>
           <p>
-            We assign each loan a stable <code className="px-1 rounded" style={{ background: "#0f0f16", color: "#a5b4fc" }}>loan_id</code> built from
-            (BDC ticker, borrower name, investment_type, maturity_date). This lets us follow the
-            same tranche across quarters even when BDCs amend the borrower name slightly or change
-            the column ordering.
+            We link positions using borrower identity, instrument class and observed terms, including
+            maturity, size, contractual spread and PIK status. These inferred links can preserve a
+            chain across label or maturity changes, but they are not permanent legal facility IDs.
+            Amendments, refinancing and splits can remain ambiguous. Named quarterly modification
+            events retain both source-row locations so the comparison can be reviewed.
           </p>
           <p>
             <span className="text-white">Vintage assignment:</span> when the SOI discloses an
@@ -138,15 +140,15 @@ export default function MethodologyPage() {
             </thead>
             <tbody className="text-xs" style={{ color: "#d1d5db" }}>
               {[
-                ["% non-accrual", "Amortized cost of loans flagged non-accrual / total amortized cost. Numerator and denominator both count debt positions only; equity and JV stakes excluded."],
+                ["% non-accrual", "NA-flagged positive amortized cost / all positive-cost positions in the approved schedule, when position-flag coverage is complete. This denominator is not debt-only. MFIC uses its separately disclosed issuer rate; that aggregate-only rate and incomplete flag coverage are excluded from the USD cost-weighted industry ratio. FSK rates are withheld until its non-accrual numerator can be matched to funded exposure after commitment adjustments. Missing coverage is unknown, not zero."],
                 ["% below 95¢ / 90¢ / 80¢ of par", "Cost of debt positions where fair value / par is below the threshold, divided by debt cost. Equity positions are excluded (par is meaningless for equity)."],
-                ["% PIK", "Cost of loans currently paying any portion of interest in-kind / total debt cost."],
-                ["Cash → PIK modification rate", "Cost of loans that flipped from cash-pay to PIK this quarter / eligible-loan cost. Strict payment-structure changes only — excludes refis, paydowns, maturity extensions."],
+                ["% PIK", "Positive cost of positions flagged as paying any portion of interest in kind / all positive-cost positions in the approved schedule. This stock measure differs from the debt-only quarterly modification flow."],
+                ["Inferred cash → PIK modification rate", "Current USD cost of material-rule PIK events / eligible debt cost. Eligibility requires funded, identified debt with observed PIK flags in adjacent calendar quarters; events require two prior cash quarters. Next-quarter persistence may be provisional. Zero-event issuers and unknown severity remain in totals. This does not confirm a disclosed amendment or rule out refinancing."],
                 ["Weighted-avg spread (bps)", "Parsed from the SOI's reference-rate text (e.g. 'SOFR + 5.75%' → 575 bps). Cost-weighted across positions. Floating-rate loans give a clean read; fixed-rate notes fall through to coupon as a proxy."],
                 ["Cumulative default exposure (vintage)", "Cost of loans ever flagged non-accrual OR exited in distress, as % of cohort entry cost. Directionally comparable to Raymond James's 'cumulative 1L default exposure' (our all-instrument series includes equity and junior debt; a 1L-only toggle gives the strictly comparable view)."],
                 ["Loss-given-default (LGD)", "Realized loss on distress exits as % of distress-exit cost. Realized loss uses last-observed FV − cost as proxy; not audited."],
                 ["Cohort survival", "% of vintage's entry cost still on a BDC's balance sheet at age T. Falls as loans refi, pay down, or exit."],
-                ["PIK cascade", "For every cash → PIK flip, outcome 4 quarters later: cured, still PIK at various mark levels, or exited."],
+                ["PIK cascade", "Historical cash → PIK event outcomes four quarters later: observed return to cash, still PIK at various mark levels, or absent from parsed data. This separate historical cohort is not the quarterly flow population; disappearance does not establish repayment or cure."],
                 ["Cross-BDC mark dispersion", "For borrowers held by ≥3 BDCs, the spread between max and min mark across holders in the same quarter."],
               ].map(([metric, desc]) => (
                 <tr key={metric} style={{ borderBottom: "1px solid #1a1a28" }}>
@@ -157,6 +159,15 @@ export default function MethodologyPage() {
             </tbody>
           </table>
         </div>
+        <p className="text-xs mt-3 leading-relaxed" style={{ color: "#9ca3af" }}>
+          Quarterly modifications use the shared definition <code>inferred_debt_modifications_v2</code>.
+          The narrow PIK rate and severity totals reconcile to named PIK events. The broad ledger
+          also includes maturity extensions of at least six indexed months, stressed par reductions
+          greater than 15%, contractual-spread cuts greater than 50bps and lien downgrades. Event
+          types can overlap. Industry rollups require at least 10 eligible issuers and exclude
+          issuer quarters with material PIK event cost of 30% or more. The data retains provisional
+          persistence and unknown severity; none of these rules establishes a disclosed amendment.
+        </p>
       </section>
 
       {/* 4b. Vintage dating */}
@@ -225,9 +236,16 @@ export default function MethodologyPage() {
               muted until XBRL kicks in.
             </li>
             <li>
-              <span className="text-white">MFIC non-accrual / PIK.</span>{" "}
-              MFIC&apos;s SOI doesn&apos;t carry per-position NA or PIK footnotes. Mark-based
-              metrics for MFIC are reliable; NA and PIK columns are muted.
+              <span className="text-white">MFIC non-accrual disclosure.</span>{" "}
+              The issuer NA rate comes from a separate filing disclosure; per-position NA identity
+              is unavailable. It is excluded from the industry cost-weighted denominator until
+              a matching disclosure scope is established. PIK observations are tracked separately.
+            </li>
+            <li>
+              <span className="text-white">FSK denominator scope.</span>{" "}
+              Portfolio totals include disclosed unfunded-commitment adjustments. PIK stock percentages
+              retain the gross-position basis and must not be applied to net portfolio totals. FSK
+              non-accrual percentages are withheld until the funded numerator is reconciled.
             </li>
             <li>
               <span className="text-white">DERA long-tail cleanup.</span>{" "}

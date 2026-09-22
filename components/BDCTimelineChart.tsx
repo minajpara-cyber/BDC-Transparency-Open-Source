@@ -29,8 +29,8 @@ interface Props {
 const fmtBn = (v: number) => `$${v.toFixed(1)}B`;
 const fmtPct = (v: number) => `${v.toFixed(2)}%`;
 
-const hasNonZero = (rows: { na: number; pik: number }[]) =>
-  rows.some((r) => r.na > 0 || r.pik > 0);
+const hasNonZero = (rows: { na: number | null; pik: number }[]) =>
+  rows.some((r) => (r.na != null && r.na > 0) || r.pik > 0);
 
 export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPanel }: Props) {
   // A quarter whose cost or fair value did not parse is exported as 0. Plotting
@@ -50,19 +50,19 @@ export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPane
   const modByPeriod = new Map(modRows.map((m) => [m.period_end, m]));
   const modData = rows.map((r) => {
     const m = modByPeriod.get(r.period_end);
-    const pctCured = m && m.total_cost
-      ? (100 * (m.cured_cost ?? 0)) / m.total_cost
-      : 0;
-    const pctNewTotal = (m?.pct_new_minimal_cost ?? 0)
-      + (m?.pct_new_moderate_cost ?? 0)
-      + (m?.pct_new_severe_cost ?? 0);
+    // Absence of an eligible matched cohort is unknown, not zero activity.
+    const eligible = m != null && m.total_cost > 0;
+    const pctCured = eligible ? (100 * m.cured_cost) / m.total_cost : null;
+    const pctNewTotal = eligible ? (100 * m.new_mods_cost) / m.total_cost : null;
     return {
       period_end: r.period_end,
-      new_minimal: m?.pct_new_minimal_cost ?? 0,
-      new_moderate: m?.pct_new_moderate_cost ?? 0,
-      new_severe:   m?.pct_new_severe_cost ?? 0,
-      cured: -pctCured,           // negative bar below zero line
-      net:   pctNewTotal - pctCured,
+      new_minimal: eligible ? m.pct_new_minimal_cost : null,
+      new_moderate: eligible ? m.pct_new_moderate_cost : null,
+      new_severe: eligible ? m.pct_new_severe_cost : null,
+      new_unknown: eligible ? m.pct_new_unknown_cost : null,
+      provisional: eligible ? m.pct_new_provisional_cost : null,
+      cured: pctCured == null ? null : -pctCured,
+      net: pctNewTotal == null || pctCured == null ? null : pctNewTotal - pctCured,
     };
   });
   const showModPanel = modRows.length > 0;
@@ -155,10 +155,12 @@ export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPane
         className="rounded-xl border p-5"
         style={{ background: "#111118", borderColor: "#1e1e2e" }}
       >
-        <h2 className="font-semibold text-white mb-1">{ticker} PIK modifications by quarter — % of cost</h2>
+        <h2 className="font-semibold text-white mb-1">{ticker} inferred PIK changes by quarter — % of eligible cost</h2>
         <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-          Cost of loans flipping cash-pay → PIK that quarter, as % of eligible-loan cost (stacked
-          above, by severity). Cured cost shown below as negative bar. Light line = net change.
+          Material-rule cash → PIK signals on identified funded debt observed in adjacent quarters,
+          weighted by current cost. Severity includes unknown. The dashed line shows the provisional
+          subset awaiting next-quarter persistence. Observed PIK → cash changes appear below zero;
+          they do not establish a credit cure. Gaps mean no eligible cohort.
         </p>
         <div style={{ width: "100%", height: 300 }}>
           <ResponsiveContainer>
@@ -184,18 +186,21 @@ export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPane
                 }}
                 labelStyle={{ color: "#d1d5db" }}
                 formatter={(value, name) => {
+                  if (value == null) return ["not observed", name as string];
                   const v = Number(value);
                   const n = name as string;
-                  return n === "Cured (PIK → cash)"
+                  return n === "Observed PIK → cash"
                     ? [`${Math.abs(v).toFixed(2)}%`, n]
                     : [`${v.toFixed(2)}%`, n];
                 }}
               />
               <Legend wrapperStyle={{ fontSize: 12, color: "#8b8ba8" }} />
-              <Bar dataKey="new_minimal"  name="New mod — minimal"  stackId="a" fill="#fde68a" />
-              <Bar dataKey="new_moderate" name="New mod — moderate" stackId="a" fill="#f97316" />
-              <Bar dataKey="new_severe"   name="New mod — severe"   stackId="a" fill="#dc2626" />
-              <Bar dataKey="cured"        name="Cured (PIK → cash)" stackId="a" fill="#22c55e" />
+              <Bar dataKey="new_minimal"  name="PIK signal — minimal"  stackId="a" fill="#fde68a" />
+              <Bar dataKey="new_moderate" name="PIK signal — moderate" stackId="a" fill="#f97316" />
+              <Bar dataKey="new_severe"   name="PIK signal — severe"   stackId="a" fill="#dc2626" />
+              <Bar dataKey="new_unknown" name="PIK signal — severity unknown" stackId="a" fill="#94a3b8" />
+              <Bar dataKey="cured" name="Observed PIK → cash" stackId="a" fill="#22c55e" />
+              <Line dataKey="provisional" name="Provisional subset" stroke="#fbbf24" strokeDasharray="5 4" dot={false} />
               <Line
                 type="monotone"
                 dataKey="net"

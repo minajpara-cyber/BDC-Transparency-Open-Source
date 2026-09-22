@@ -10,18 +10,18 @@ export interface BacktestRow {
   lift_bad: number | null; lift_na: number | null;
 }
 export const signalBacktest: BacktestRow[] = [
-  {"signal": "ALL (base rate)", "n": 105553, "rate_bad": 5.8, "rate_na": 2.5, "lift_bad": 1.0, "lift_na": 1.0},
-  {"signal": "mark < 90c", "n": 7535, "rate_bad": 42.2, "rate_na": 14.0, "lift_bad": 7.3, "lift_na": 5.7},
-  {"signal": "mark < 80c", "n": 2690, "rate_bad": 69.0, "rate_na": 22.0, "lift_bad": 12.0, "lift_na": 8.9},
-  {"signal": "mark falling ≥3pt QoQ", "n": 5535, "rate_bad": 29.5, "rate_na": 11.9, "lift_bad": 5.1, "lift_na": 4.8},
-  {"signal": "falling 2 quarters", "n": 906, "rate_bad": 56.7, "rate_na": 24.7, "lift_bad": 9.9, "lift_na": 10.0},
-  {"signal": "cash→PIK flip", "n": 1083, "rate_bad": 26.7, "rate_na": 15.7, "lift_bad": 4.6, "lift_na": 6.4},
+  {"signal": "ALL (base rate)", "n": 105549, "rate_bad": 5.7, "rate_na": 2.5, "lift_bad": 1.0, "lift_na": 1.0},
+  {"signal": "mark < 90c", "n": 7532, "rate_bad": 42.1, "rate_na": 14.0, "lift_bad": 7.3, "lift_na": 5.7},
+  {"signal": "mark < 80c", "n": 2688, "rate_bad": 68.9, "rate_na": 22.0, "lift_bad": 12.0, "lift_na": 8.9},
+  {"signal": "mark falling ≥3pt QoQ", "n": 5483, "rate_bad": 29.5, "rate_na": 11.8, "lift_bad": 5.1, "lift_na": 4.8},
+  {"signal": "falling 2 quarters", "n": 899, "rate_bad": 56.7, "rate_na": 24.5, "lift_bad": 9.9, "lift_na": 9.9},
+  {"signal": "cash→PIK flip", "n": 1077, "rate_bad": 26.8, "rate_na": 15.8, "lift_bad": 4.7, "lift_na": 6.4},
   {"signal": "PIK severe", "n": 3533, "rate_bad": 19.9, "rate_na": 14.7, "lift_bad": 3.5, "lift_na": 6.0},
-  {"signal": "amend-and-extend", "n": 5323, "rate_bad": 7.7, "rate_na": 4.3, "lift_bad": 1.3, "lift_na": 1.7},
-  {"signal": "spread cut", "n": 4134, "rate_bad": 6.2, "rate_na": 3.1, "lift_bad": 1.1, "lift_na": 1.2},
+  {"signal": "amend-and-extend", "n": 5222, "rate_bad": 7.7, "rate_na": 4.2, "lift_bad": 1.3, "lift_na": 1.7},
+  {"signal": "spread cut", "n": 4657, "rate_bad": 5.8, "rate_na": 2.7, "lift_bad": 1.0, "lift_na": 1.1},
   {"signal": "NA at another BDC", "n": 821, "rate_bad": 56.4, "rate_na": 54.4, "lift_bad": 9.8, "lift_na": 22.1},
   {"signal": "NA elsewhere + mark < 90c", "n": 133, "rate_bad": 85.0, "rate_na": 78.2, "lift_bad": 14.8, "lift_na": 31.8},
-  {"signal": "tier: Watch", "n": 7002, "rate_bad": 31.6, "rate_na": 10.9, "lift_bad": 5.5, "lift_na": 4.4},
-  {"signal": "tier: Elevated", "n": 1962, "rate_bad": 59.4, "rate_na": 27.2, "lift_bad": 10.3, "lift_na": 11.0},
-  {"signal": "tier: High", "n": 370, "rate_bad": 80.3, "rate_na": 51.9, "lift_bad": 13.9, "lift_na": 21.1}
+  {"signal": "tier: Watch", "n": 7001, "rate_bad": 31.6, "rate_na": 11.0, "lift_bad": 5.5, "lift_na": 4.5},
+  {"signal": "tier: Elevated", "n": 1952, "rate_bad": 59.3, "rate_na": 27.0, "lift_bad": 10.3, "lift_na": 11.0},
+  {"signal": "tier: High", "n": 370, "rate_bad": 80.3, "rate_na": 51.9, "lift_bad": 14.0, "lift_na": 21.1}
 ];
