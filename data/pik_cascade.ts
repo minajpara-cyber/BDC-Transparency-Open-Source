@@ -27,12 +27,12 @@ export interface PIKCascadeRow {
 }
 
 export const pikCascade: PIKCascadeRow[] = [
-  { year: "2019", flips: 27, cured: 4, pik_strong: 13, pik_weak: 0, pik_distress: 2, exited: 8, pct_cured: 14.81, pct_pik_strong: 48.15, pct_pik_weak: 0.00, pct_pik_distress: 7.41, pct_exited: 29.63 },
-  { year: "2020", flips: 115, cured: 32, pik_strong: 40, pik_weak: 7, pik_distress: 4, exited: 32, pct_cured: 27.83, pct_pik_strong: 34.78, pct_pik_weak: 6.09, pct_pik_distress: 3.48, pct_exited: 27.83 },
-  { year: "2021", flips: 40, cured: 6, pik_strong: 17, pik_weak: 2, pik_distress: 14, exited: 1, pct_cured: 15.00, pct_pik_strong: 42.50, pct_pik_weak: 5.00, pct_pik_distress: 35.00, pct_exited: 2.50 },
-  { year: "2022", flips: 57, cured: 10, pik_strong: 35, pik_weak: 4, pik_distress: 1, exited: 7, pct_cured: 17.54, pct_pik_strong: 61.40, pct_pik_weak: 7.02, pct_pik_distress: 1.75, pct_exited: 12.28 },
-  { year: "2023", flips: 176, cured: 35, pik_strong: 77, pik_weak: 20, pik_distress: 22, exited: 22, pct_cured: 19.89, pct_pik_strong: 43.75, pct_pik_weak: 11.36, pct_pik_distress: 12.50, pct_exited: 12.50 },
-  { year: "2024", flips: 271, cured: 53, pik_strong: 105, pik_weak: 22, pik_distress: 35, exited: 56, pct_cured: 19.56, pct_pik_strong: 38.75, pct_pik_weak: 8.12, pct_pik_distress: 12.92, pct_exited: 20.66 },
-  { year: "2025", flips: 212, cured: 21, pik_strong: 36, pik_weak: 10, pik_distress: 18, exited: 127, pct_cured: 9.91, pct_pik_strong: 16.98, pct_pik_weak: 4.72, pct_pik_distress: 8.49, pct_exited: 59.91 },
-  { year: "2026", flips: 167, cured: 0, pik_strong: 0, pik_weak: 0, pik_distress: 0, exited: 167, pct_cured: 0.00, pct_pik_strong: 0.00, pct_pik_weak: 0.00, pct_pik_distress: 0.00, pct_exited: 100.00 }
+  { year: "2019", flips: 20, cured: 0, pik_strong: 12, pik_weak: 0, pik_distress: 2, exited: 6, pct_cured: 0.00, pct_pik_strong: 60.00, pct_pik_weak: 0.00, pct_pik_distress: 10.00, pct_exited: 30.00 },
+  { year: "2020", flips: 108, cured: 33, pik_strong: 35, pik_weak: 6, pik_distress: 4, exited: 30, pct_cured: 30.56, pct_pik_strong: 32.41, pct_pik_weak: 5.56, pct_pik_distress: 3.70, pct_exited: 27.78 },
+  { year: "2021", flips: 37, cured: 5, pik_strong: 17, pik_weak: 1, pik_distress: 14, exited: 0, pct_cured: 13.51, pct_pik_strong: 45.95, pct_pik_weak: 2.70, pct_pik_distress: 37.84, pct_exited: 0.00 },
+  { year: "2022", flips: 53, cured: 10, pik_strong: 29, pik_weak: 3, pik_distress: 1, exited: 10, pct_cured: 18.87, pct_pik_strong: 54.72, pct_pik_weak: 5.66, pct_pik_distress: 1.89, pct_exited: 18.87 },
+  { year: "2023", flips: 144, cured: 32, pik_strong: 51, pik_weak: 20, pik_distress: 23, exited: 18, pct_cured: 22.22, pct_pik_strong: 35.42, pct_pik_weak: 13.89, pct_pik_distress: 15.97, pct_exited: 12.50 },
+  { year: "2024", flips: 262, cured: 47, pik_strong: 101, pik_weak: 22, pik_distress: 40, exited: 52, pct_cured: 17.94, pct_pik_strong: 38.55, pct_pik_weak: 8.40, pct_pik_distress: 15.27, pct_exited: 19.85 },
+  { year: "2025", flips: 202, cured: 20, pik_strong: 34, pik_weak: 10, pik_distress: 19, exited: 119, pct_cured: 9.90, pct_pik_strong: 16.83, pct_pik_weak: 4.95, pct_pik_distress: 9.41, pct_exited: 58.91 },
+  { year: "2026", flips: 168, cured: 0, pik_strong: 0, pik_weak: 0, pik_distress: 0, exited: 168, pct_cured: 0.00, pct_pik_strong: 0.00, pct_pik_weak: 0.00, pct_pik_distress: 0.00, pct_exited: 100.00 }
 ];
