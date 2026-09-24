@@ -35,9 +35,9 @@
     "OTF": "2026-06-30",
     "TSLX": "2026-06-30"
   },
-  "release_id": "bdc-f0a4a290f00838062060cce3",
+  "release_id": "bdc-0807fb52c5ea16189f096f3c",
   "generated_at": "2026-09-24",
-  "checked_at": "2026-09-24T21:50:27.919525+00:00",
+  "checked_at": "2026-09-24T23:38:14.018494+00:00",
   "validation_scope": "Automated data-contract checks; not independent facility or event certification",
   "data_sha256": {
     "data/asset_composition.ts": "939cba3833909b0b66d1eb0ae315f1d88a0181e048c81d178efbf033498dfdd4",
@@ -66,7 +66,7 @@
     "data/maturity.ts": "ed0c7d73dcd66cdfda98e550a7dfadfbc08bf8f1061ed9cce94b8d0100f0921c",
     "data/modification_events.ts": "26febeb64354fff405b59696f92b06c0fc0436d2411e92ffd24c3dddcc0ac20c",
     "data/modification_rate.ts": "4afa71d6d2ddce04fba685a89b2bc17b44d43d2644338eb00b82402d67f42030",
-    "data/na_forecast.ts": "e6a56a128b418f13dfaafc6871249e05d68cc7b6dfb518604b87837da9cc1ee7",
+    "data/na_forecast.ts": "f3547b038b968fc21246a99ff1bac2af7c18c35b328bd012f957ce86ba046b4a",
     "data/non_accrual_events.ts": "000b0f1540e934b7d8727e2a52c26086baf361350e8add197d2563447fb1ca9b",
     "data/pik_cascade.ts": "d4be27bb406123cdb1e9293c4fc49a94d0f05144b1e9ed0f5dd623f0cc3b4118",
     "data/pik_ledger.ts": "660556ae4b831d24d4b494bbb2ce4681013e2935eb3ac3be5ce434a897961090",

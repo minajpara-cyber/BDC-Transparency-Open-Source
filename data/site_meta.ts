@@ -35,8 +35,8 @@ export const siteMeta = {
     "OTF": "2026-06-30",
     "TSLX": "2026-06-30"
   },
-  "release_id": "bdc-f0a4a290f00838062060cce3",
+  "release_id": "bdc-0807fb52c5ea16189f096f3c",
   "generated_at": "2026-09-24",
-  "checked_at": "2026-09-24T21:50:27.919525+00:00",
+  "checked_at": "2026-09-24T23:38:14.018494+00:00",
   "validation_scope": "Automated data-contract checks; not independent facility or event certification"
 };
