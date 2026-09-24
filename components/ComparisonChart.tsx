@@ -27,6 +27,7 @@ interface Props {
   /** Label for the BDC's own series (e.g. "ARCC"). */
   bdcLabel: string;
   height?: number;
+  connectNulls?: boolean;
 }
 
 export default function ComparisonChart({
@@ -36,6 +37,7 @@ export default function ComparisonChart({
   bdcColor = "#6366f1",
   bdcLabel,
   height = 240,
+  connectNulls = true,
 }: Props) {
   const fmtTick = (v: number) => {
     if (unit === "%") return `${v.toFixed(0)}%`;
@@ -88,7 +90,7 @@ export default function ComparisonChart({
             stroke={bdcColor}
             strokeWidth={2.5}
             dot={{ r: 2.5 }}
-            connectNulls
+            connectNulls={connectNulls}
           />
           <Line
             type="monotone"
@@ -98,7 +100,7 @@ export default function ComparisonChart({
             strokeWidth={1.5}
             strokeDasharray="5 4"
             dot={false}
-            connectNulls
+            connectNulls={connectNulls}
           />
         </LineChart>
       </ResponsiveContainer>

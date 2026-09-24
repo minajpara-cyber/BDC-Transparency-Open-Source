@@ -10,6 +10,7 @@
 import { bdcsHistory } from "@/data/bdcs_history";
 import { creditQuality } from "@/data/credit_quality";
 import { isReliable } from "@/lib/reliability";
+import { creditPikPublication, exactPikDelta, type PikPublication } from "@/lib/pikPublication";
 
 export interface DerivedMarketStats {
   latest_period: string;             // 'YYYY-MM-DD'  most recent quarter w/ broad coverage
@@ -18,7 +19,10 @@ export interface DerivedMarketStats {
   totalPortfolioFairValue_b: number; // sum of total_fv_b across covered BDCs, latest quarter
   totalCost_b: number;
   averageNonAccrualRate: number | null;     // cost-weighted across covered BDCs
-  averagePikRate: number;            // cost-weighted across covered BDCs
+  averagePikRate: number | null;     // cost-weighted across covered BDCs
+  averagePikRateUpper: number | null;
+  pikObservationCoveragePct: number | null;
+  pikPublicationStatus: string;
   averageBelow95: number;            // cost-weighted from credit_quality (cost%-already)
   averageBelow90: number;
   delta_fv_b: number | null;         // QoQ
@@ -88,12 +92,17 @@ function aggregate(period: string) {
     below90 += w.total_cost_b * cq.pct_below_90;
     cqCost  += w.total_cost_b;
   }
+  const industry = creditQuality.find((r) => r.ticker === "industry" && r.period_end === period);
+  const pik: PikPublication = industry ? creditPikPublication(industry) : {
+    lower: null, upper: null, observationCoveragePct: null, status: "unavailable",
+    reason: "No industry PIK row is available for this quarter.", metricVersion: null,
+  };
   return {
     totalCost,
     totalFV,
     n,
     naPct: creditQuality.find((r) => r.ticker === "industry" && r.period_end === period)?.pct_non_accrual ?? null,
-    pikPct: creditQuality.find((r) => r.ticker === "industry" && r.period_end === period)?.pct_pik_total ?? 0,
+    pik,
     pctBelow95: cqCost ? below95         / cqCost     : 0,
     pctBelow90: cqCost ? below90         / cqCost     : 0,
   };
@@ -111,11 +120,14 @@ export function computeDerivedMarketStats(): DerivedMarketStats {
     totalPortfolioFairValue_b: cur.totalFV,
     totalCost_b: cur.totalCost,
     averageNonAccrualRate: cur.naPct,
-    averagePikRate: cur.pikPct,
+    averagePikRate: cur.pik.lower,
+    averagePikRateUpper: cur.pik.upper,
+    pikObservationCoveragePct: cur.pik.observationCoveragePct,
+    pikPublicationStatus: cur.pik.status,
     averageBelow95: cur.pctBelow95,
     averageBelow90: cur.pctBelow90,
     delta_fv_b:  prv ? cur.totalFV - prv.totalFV : null,
     delta_na: prv && cur.naPct != null && prv.naPct != null ? cur.naPct - prv.naPct : null,
-    delta_pik:   prv ? cur.pikPct  - prv.pikPct  : null,
+    delta_pik: prv ? exactPikDelta(cur.pik, prv.pik) : null,
   };
 }

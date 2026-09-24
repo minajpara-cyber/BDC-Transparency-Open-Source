@@ -15,6 +15,7 @@ import { bdcs, BDC } from "@/data/bdcs";
 import { bdcsHistory, BDCQuarter } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
 import { hasReportedSize } from "@/lib/quarterCoverage";
+import { exactPikDelta, historyPikPublication } from "@/lib/pikPublication";
 
 // Optional while older generated snapshots are still in use.
 export interface NonAccrualPublicationMetadata {
@@ -44,8 +45,15 @@ export function naPublicationDisplay(metadata: NonAccrualPublicationMetadata = {
   return { label: "Basis not specified", description: "This snapshot does not supply non-accrual basis metadata." };
 }
 
-export interface BDCEnriched extends Omit<BDC, "nonAccrualRate">, NonAccrualPublicationMetadata {
+export interface BDCEnriched extends Omit<BDC, "nonAccrualRate" | "pikRate">, NonAccrualPublicationMetadata {
   nonAccrualRate: number | null;
+  pikRate: number | null;
+  pikRateLower?: number | null;
+  pikRateUpper?: number | null;
+  pikObservationCoveragePct?: number | null;
+  pikPublicationStatus?: string;
+  pikPublicationReason?: string;
+  pikMetricVersion?: string | null;
   asOf?: string;                  // 'YYYY-MM-DD' from parsed data
   parsed?: boolean;               // true if overlay values came from our parser
   delta_fv_b?: number | null;     // QoQ change in total_fv_b
@@ -79,6 +87,8 @@ export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriche
   const latest = rows[rows.length - 1] as BDCQuarter & NonAccrualPublicationMetadata;
   const prior = rows.length >= 2 ? rows[rows.length - 2] as BDCQuarter & NonAccrualPublicationMetadata : null;
   const comparableNaBasis = latest.na_basis === prior?.na_basis;
+  const latestPik = historyPikPublication(latest);
+  const priorPik = prior ? historyPikPublication(prior) : null;
   return {
     ...bdc,
     portfolioFairValue: latest.total_fv_b,
@@ -86,13 +96,22 @@ export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriche
     na_basis: latest.na_basis,
     na_publication_status: latest.na_publication_status,
     na_publication_reason: latest.na_publication_reason,
-    pikRate: latest.pik_pct_at_cost,
+    // The sortable legacy field follows the published lower bound. An
+    // unavailable observation stays null instead of reverting to its numeric
+    // compatibility alias.
+    pikRate: latestPik.lower,
+    pikRateLower: latestPik.lower,
+    pikRateUpper: latestPik.upper,
+    pikObservationCoveragePct: latestPik.observationCoveragePct,
+    pikPublicationStatus: latestPik.status,
+    pikPublicationReason: latestPik.reason,
+    pikMetricVersion: latestPik.metricVersion,
     asOf: latest.period_end,
     parsed: true,
     delta_fv_b:   prior ? latest.total_fv_b      - prior.total_fv_b      : null,
     delta_na_pct: prior && comparableNaBasis && latest.na_pct_at_cost != null && prior.na_pct_at_cost != null
       ? latest.na_pct_at_cost - prior.na_pct_at_cost : null,
-    delta_pik_pct: prior ? latest.pik_pct_at_cost - prior.pik_pct_at_cost : null,
+    delta_pik_pct: priorPik ? exactPikDelta(latestPik, priorPik) : null,
   };
 }
 

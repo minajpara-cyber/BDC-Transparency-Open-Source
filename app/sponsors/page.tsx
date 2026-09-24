@@ -16,6 +16,50 @@ const fmtUSD = (v: number) => {
 type SortDir = "asc" | "desc";
 type SortKey = Exclude<keyof SponsorIndex, "pct_exits_distress" | "realized_loss_usd" | "n_exits" | "n_distress">;
 
+// These fields are optional here so the route can render both the current
+// generated artifacts and the observability-aware sponsor export.
+type SponsorPikFields = {
+  pct_pik_now?: number;
+  pct_pik_now_upper?: number;
+  n_positions_pik_applicable?: number;
+  n_positions_pik_observed?: number;
+  n_positions_pik_unknown?: number;
+  pik_observation_coverage_pct?: number | null;
+  pik_publication_status?: string;
+  pik_publication_reason?: string;
+  pik_metric_version?: string;
+};
+
+function sponsorPikPublication(row: SponsorPikFields) {
+  const unavailable = row.pik_publication_status === "unavailable";
+  const lower = !unavailable && Number.isFinite(row.pct_pik_now)
+    ? row.pct_pik_now as number
+    : null;
+  const upper = !unavailable && Number.isFinite(row.pct_pik_now_upper)
+    ? row.pct_pik_now_upper as number
+    : lower;
+  const coverage = Number.isFinite(row.pik_observation_coverage_pct)
+    ? row.pik_observation_coverage_pct as number
+    : null;
+  return {
+    lower,
+    upper,
+    coverage,
+    applicable: row.n_positions_pik_applicable,
+    status: row.pik_publication_status ?? "legacy_point_estimate",
+    reason: row.pik_publication_reason
+      ?? "This generated sponsor snapshot predates PIK observation bounds.",
+  };
+}
+
+function formatPikRange(pik: ReturnType<typeof sponsorPikPublication>) {
+  if (pik.lower == null || pik.upper == null) return "Unknown";
+  if (pik.status === "bounded" && Math.abs(pik.upper - pik.lower) > 0.05) {
+    return `${pik.lower.toFixed(1)}–${pik.upper.toFixed(1)}%`;
+  }
+  return `${pik.lower.toFixed(1)}%`;
+}
+
 // Higher values are WORSE for credit metrics; flip the color scale on these.
 const NEGATIVE_KEYS = new Set<SortKey>([
   "pct_below_95",
@@ -223,9 +267,9 @@ export default function SponsorsIndexPage() {
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.04)" }}
-                  title="% of debt positions currently paying any PIK"
+                  title="Known-positive lower bound through the upper bound that includes unknown applicable PIK fields"
                 >
-                  {renderSortButton({ k: "pct_pik_now", label: "PIK now", align: "right" })}
+                  {renderSortButton({ k: "pct_pik_now", label: "PIK range", align: "right" })}
                 </th>
                 <th
                   className="px-3 py-3 text-right"
@@ -256,6 +300,7 @@ export default function SponsorsIndexPage() {
                 const nameColor = thin ? "#8b8ba8" : "#ffffff";
                 const numColor  = thin ? "#6b6b88" : "#d1d5db";
                 const fvColor   = thin ? "#8b8ba8" : "#ffffff";
+                const pik = sponsorPikPublication(s as SponsorIndex & SponsorPikFields);
                 return (
                 <tr
                   key={s.sponsor_slug}
@@ -308,10 +353,16 @@ export default function SponsorsIndexPage() {
                     {s.pct_non_accrual.toFixed(1)}%
                   </td>
                   <td
-                    className="px-3 py-3 text-right text-sm font-mono"
+                    className="px-3 py-3 text-right font-mono"
                     style={{ color: pctColor(s.pct_pik_now, "pct_pik_now", thin) }}
+                    title={`${pik.reason}${pik.coverage == null ? "" : ` (${pik.coverage.toFixed(1)}% observation coverage${pik.applicable == null ? "" : ` across ${pik.applicable} applicable positions`})`}`}
                   >
-                    {s.pct_pik_now.toFixed(1)}%
+                    <div className="text-sm whitespace-nowrap">{formatPikRange(pik)}</div>
+                    <div className="text-[10px] whitespace-nowrap" style={{ color: thin ? "#55556e" : "#6b6b88" }}>
+                      {pik.coverage == null
+                        ? (pik.status === "legacy_point_estimate" ? "coverage pending" : "no applicable fields")
+                        : `${pik.coverage.toFixed(0)}% observed`}
+                    </div>
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono"
@@ -341,6 +392,9 @@ export default function SponsorsIndexPage() {
         excluded from all credit metrics. Non-accrual denominator excludes MFIC because its
         SOI lacks per-position non-accrual tagging. Modified = loan flipped cash-pay → PIK
         within our observation window (from <code>loan_history.pik_modified_from_cash</code>).
+        PIK uses the source-aware applicable-position denominator (observed + unknown), excluding
+        rows classified not applicable. It is shown as a known-positive lower bound through an
+        upper bound that treats every unknown applicable position as PIK.
       </p>
       <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
         <span style={{ color: "#8b8ba8" }}>*</span> Italicized / muted rows have fewer than {THIN_COVERAGE} attributed

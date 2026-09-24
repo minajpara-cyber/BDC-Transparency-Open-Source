@@ -16,6 +16,7 @@ import {
 import type { BDCQuarter } from "@/data/bdcs_history";
 import type { PIKModEvent } from "@/data/pik_modifications";
 import { reportedCostB, reportedFvB } from "@/lib/quarterCoverage";
+import { formatPikPublication, historyPikPublication } from "@/lib/pikPublication";
 
 interface Props {
   rows: BDCQuarter[];
@@ -29,21 +30,36 @@ interface Props {
 const fmtBn = (v: number) => `$${v.toFixed(1)}B`;
 const fmtPct = (v: number) => `${v.toFixed(2)}%`;
 
-const hasNonZero = (rows: { na: number | null; pik: number }[]) =>
-  rows.some((r) => (r.na != null && r.na > 0) || r.pik > 0);
+const hasCreditObservation = (rows: {
+  na: number | null;
+  pik: number | null;
+  pikUpper: number | null;
+  pikStatus: string;
+}[]) => rows.some((r) =>
+  (r.na != null && r.na > 0)
+  || (r.pik != null && r.pik > 0)
+  || (r.pikUpper != null && r.pikUpper > 0)
+  || r.pikStatus === "bounded",
+);
 
 export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPanel }: Props) {
   // A quarter whose cost or fair value did not parse is exported as 0. Plotting
   // it draws the portfolio to zero and back; null leaves a gap in the line,
   // which is what a quarter we could not size actually looks like.
-  const data = rows.map((r) => ({
-    period_end: r.period_end,
-    cost: reportedCostB(r),
-    fv: reportedFvB(r),
-    n: r.n_positions,
-    na: r.na_pct_at_cost,
-    pik: r.pik_pct_at_cost,
-  }));
+  const data = rows.map((r) => {
+    const pik = historyPikPublication(r);
+    return {
+      period_end: r.period_end,
+      cost: reportedCostB(r),
+      fv: reportedFvB(r),
+      n: r.n_positions,
+      na: r.na_pct_at_cost,
+      pik: pik.lower,
+      pikUpper: pik.upper,
+      pikStatus: pik.status,
+      pikDisplay: formatPikPublication(pik),
+    };
+  });
 
   // Build modification series aligned to the SAME quarter axis as `data`.
   // Each bucket is expressed as % of eligible-loan COST for the quarter (not loan count).
@@ -67,7 +83,7 @@ export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPane
   });
   const showModPanel = modRows.length > 0;
 
-  const showCreditPanel = !hideCreditPanel && hasNonZero(data);
+  const showCreditPanel = !hideCreditPanel && hasCreditObservation(data);
 
   return (
     <div className="space-y-6">
@@ -222,7 +238,7 @@ export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPane
       >
         <h2 className="font-semibold text-white mb-1">{ticker} credit quality over time</h2>
         <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-          Non-accrual % and PIK % at amortized cost, decoded from per-position SOI footnotes.
+          Non-accrual % and the known-PIK lower bound at amortized cost. Tooltips show the full PIK range when source fields are unknown.
         </p>
         <div style={{ width: "100%", height: 280 }}>
           <ResponsiveContainer>
@@ -246,7 +262,13 @@ export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPane
                   fontSize: 12,
                 }}
                 labelStyle={{ color: "#d1d5db" }}
-                formatter={(value) => fmtPct(Number(value))}
+                formatter={(value, name, entry) => {
+                  if (name === "PIK lower bound (cost)") {
+                    const payload = (entry as { payload?: { pikDisplay?: string } }).payload;
+                    return [payload?.pikDisplay ?? "Unknown", name];
+                  }
+                  return [fmtPct(Number(value)), name];
+                }}
               />
               <Legend wrapperStyle={{ fontSize: 12, color: "#8b8ba8" }} />
               <Line
@@ -260,7 +282,7 @@ export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPane
               <Line
                 type="monotone"
                 dataKey="pik"
-                name="PIK % (cost)"
+                name="PIK lower bound (cost)"
                 stroke="#f97316"
                 strokeWidth={2}
                 dot={{ r: 2 }}

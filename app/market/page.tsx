@@ -69,6 +69,7 @@ export default function MarketPage() {
   // Industry-aggregate quarterly series derived from our SOI parsing.
   const naSeries  = filterBroad(industryNonAccrualHistory(), 6);
   const pikSeries = filterBroad(industryPikHistory(), 6);
+  const pikObservedQuarters = pikSeries.filter((point) => point.value != null).length;
   const fvSeries  = filterBroad(industryFVHistory(), 6);
   const derived = computeDerivedMarketStats();
   const asOfLabel = derived.latest_period
@@ -96,11 +97,19 @@ export default function MarketPage() {
             color: "#f97316",
           },
           {
-            label: "Avg PIK Rate",
-            value: `${derived.averagePikRate.toFixed(2)}%`,
+            label: "Avg PIK at Cost",
+            value: derived.averagePikRate == null
+              ? "Unknown"
+              : derived.pikPublicationStatus === "bounded" && derived.averagePikRateUpper != null
+                ? `${derived.averagePikRate.toFixed(2)}–${derived.averagePikRateUpper.toFixed(2)}%`
+                : `${derived.averagePikRate.toFixed(2)}%`,
             sub: derived.delta_pik != null
               ? `${derived.delta_pik >= 0 ? "+" : ""}${derived.delta_pik.toFixed(2)}pp QoQ`
-              : "cost-weighted",
+              : derived.pikPublicationStatus === "bounded"
+                ? `${derived.pikObservationCoveragePct?.toFixed(1) ?? "?"}% observed · bounded`
+                : derived.pikPublicationStatus === "unavailable"
+                  ? "PIK coverage unavailable"
+                  : "cost-weighted",
             color: "#eab308",
           },
           {
@@ -196,11 +205,11 @@ export default function MarketPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* PIK Rate History */}
+        {/* PIK lower-bound history; tooltips carry the published range. */}
         <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <h2 className="font-semibold text-white mb-1">PIK Rate History</h2>
+          <h2 className="font-semibold text-white mb-1">PIK at Cost History</h2>
           <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-            Industry-weighted PIK loan cost share (%) · {pikSeries.length} quarters · derived from our SOI parsing
+            Industry-weighted known PIK lower bound; tooltips show lower–upper ranges where source fields are unknown · {pikObservedQuarters} observed quarters
           </p>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={pikSeries}>
@@ -216,8 +225,8 @@ export default function MarketPage() {
               <Tooltip
                 contentStyle={tooltipStyle}
                 formatter={((v: unknown, _n: unknown, item: unknown) => [
-                  `${Number(v).toFixed(2)}%  (n=${(item as { payload?: { coverage?: number } }).payload?.coverage ?? "?"})`,
-                  "PIK %",
+                  `${(item as { payload?: { displayValue?: string } }).payload?.displayValue ?? `${Number(v).toFixed(2)}%`}  (n=${(item as { payload?: { coverage?: number } }).payload?.coverage ?? "?"})`,
+                  "PIK at cost",
                 ]) as unknown as (v: unknown) => [string, string]}
               />
               <Area type="monotone" dataKey="value" stroke="#eab308" fill="url(#pikGrad)" strokeWidth={2} />

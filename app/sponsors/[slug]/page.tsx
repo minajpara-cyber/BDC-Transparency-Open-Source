@@ -12,6 +12,17 @@ import { borrowers } from "@/data/borrowers_index";
 // holding rather than a franchise-wide pattern.
 const THIN_COVERAGE = 5;
 
+type SponsorPikFields = {
+  pct_pik_now?: number;
+  pct_pik_now_upper?: number;
+  n_positions_pik_applicable?: number;
+  n_positions_pik_observed?: number;
+  n_positions_pik_unknown?: number;
+  pik_observation_coverage_pct?: number | null;
+  pik_publication_status?: string;
+  pik_publication_reason?: string;
+};
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
@@ -44,6 +55,22 @@ export default async function SponsorDetailPage({ params }: PageProps) {
   const totalFV = attributed.reduce((sum, b) => sum + b.total_fv, 0);
   const crossHeld = attributed.filter((b) => b.n_holders >= 2).length;
   const categories = Array.from(new Set(attributed.map((b) => b.category).filter(Boolean)));
+  const pikFields = s as typeof s & SponsorPikFields;
+  const pikUnavailable = pikFields.pik_publication_status === "unavailable";
+  const pikLower = !pikUnavailable && Number.isFinite(pikFields.pct_pik_now)
+    ? pikFields.pct_pik_now as number
+    : null;
+  const pikUpper = !pikUnavailable && Number.isFinite(pikFields.pct_pik_now_upper)
+    ? pikFields.pct_pik_now_upper as number
+    : pikLower;
+  const pikCoverage = Number.isFinite(pikFields.pik_observation_coverage_pct)
+    ? pikFields.pik_observation_coverage_pct as number
+    : null;
+  const pikLabel = pikLower == null || pikUpper == null
+    ? "Unknown"
+    : pikFields.pik_publication_status === "bounded" && Math.abs(pikUpper - pikLower) > 0.05
+      ? `${pikLower.toFixed(1)}–${pikUpper.toFixed(1)}%`
+      : `${pikLower.toFixed(1)}%`;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -92,7 +119,7 @@ export default async function SponsorDetailPage({ params }: PageProps) {
           <div className="text-xs leading-relaxed" style={{ color: "#d4b86a" }}>
             Only {s.n_companies} borrower{s.n_companies === 1 ? "" : "s"} in our parsed-BDC
             scope map to {s.sponsor}. Headline credit metrics for this sponsor (mark below
-            95¢, non-accrual %, PIK %) likely reflect one or two concentrated holdings rather
+            95¢, non-accrual %, PIK range) likely reflect one or two concentrated holdings rather
             than the sponsor&apos;s full franchise. Use as directional context, not as
             franchise-wide credit signal.
           </div>
@@ -104,6 +131,29 @@ export default async function SponsorDetailPage({ params }: PageProps) {
         <StatCard label="Cross-held (≥2 BDCs)" value={crossHeld.toString()} color="#a5b4fc" />
         <StatCard label="Aggregate FV" value={fmtUSD(totalFV)} />
         <StatCard label="Avg # holders" value={s.avg_holders.toFixed(1)} />
+      </div>
+
+      <div className="rounded-lg border p-3 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
+           style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+        <div>
+          <div className="text-xs mb-0.5" style={{ color: "#8b8ba8" }}>Current PIK position range</div>
+          <div className="text-lg font-semibold" style={{ color: pikUnavailable ? "#8b8ba8" : "#a5b4fc" }}>
+            {pikLabel}
+          </div>
+        </div>
+        <div className="text-xs sm:text-right" style={{ color: "#8b8ba8" }}
+             title={pikFields.pik_publication_reason}>
+          {pikCoverage == null
+            ? (pikFields.pik_publication_status
+                ? "No applicable PIK observation coverage"
+                : "Observation coverage pending artifact refresh")
+            : `${pikCoverage.toFixed(1)}% observed (${pikFields.n_positions_pik_observed ?? 0} observed, ${pikFields.n_positions_pik_unknown ?? 0} unknown; ${pikFields.n_positions_pik_applicable ?? "—"} applicable)`}
+          <div className="mt-0.5" style={{ color: "#6b6b88" }}>
+            {pikFields.pik_publication_status
+              ? "Position-count weighted over source-aware applicable positions; the upper bound includes unknowns."
+              : "Legacy point estimate; observation bounds will appear after the data artifact refresh."}
+          </div>
+        </div>
       </div>
 
       {categories.length > 0 && (
@@ -139,7 +189,8 @@ export default async function SponsorDetailPage({ params }: PageProps) {
             <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
               <h3 className="text-sm font-semibold text-white mb-1">Credit lens over time</h3>
               <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
-                Position-count weighted % marked &lt; 95¢ / on non-accrual / paying PIK.
+                Position-count weighted % marked &lt; 95¢ / on non-accrual / PIK lower and upper bounds;
+                the dotted line shows PIK observation coverage.
                 Sponsor-quarters with fewer than 3 positions are filtered out.
               </p>
               <SponsorHistoryChart rows={history} mode="credit" height={220} />

@@ -67,7 +67,7 @@ const METRIC_META: Record<
     family: "mark", group: "credit",
   },
   pct_pik_total: {
-    label: "% PIK (at cost)", short: "PIK",
+    label: "% PIK at cost (observed lower bound)", short: "PIK lower",
     family: "pik", group: "credit",
   },
   pct_wl_any: {
@@ -90,7 +90,11 @@ export interface CompareRow {
   pct_non_accrual: number | null;
   pct_below_95: number;
   pct_below_90: number;
-  pct_pik_total: number;
+  pct_pik_total: number | null;
+  pct_pik_total_upper: number | null;
+  pik_observation_coverage_pct: number | null;
+  pik_publication_status: string;
+  pik_publication_reason: string;
   /** Watchlist severity as a share of debt at amortized cost. Each field is
    *  "at this tier or worse" over disjoint tiers, so nothing double-counts.
    *  Null where the BDC has no watchlist history for the quarter. */
@@ -162,10 +166,19 @@ export default function BDCComparePanel({
       for (const m of selectedMetrics) {
         const relKey = ("rel_" + METRIC_META[m].family) as keyof CompareRow;
         if (!r[relKey]) continue;
+        if (m === "pct_pik_total" && r.pik_publication_status === "unavailable") continue;
         const v = r[m];
         if (v === null || v === undefined) continue;
         const slot = byPeriod.get(r.period_end) ?? { period_end: r.period_end };
         slot[`${r.ticker}|${m}`] = v as number;
+        if (m === "pct_pik_total") {
+          const upper = r.pct_pik_total_upper;
+          if (upper != null) slot[`${r.ticker}|${m}|upper`] = upper;
+          slot[`${r.ticker}|${m}|status`] = r.pik_publication_status;
+          slot[`${r.ticker}|${m}|reason`] = r.pik_publication_reason;
+          const coverage = r.pik_observation_coverage_pct;
+          if (coverage != null) slot[`${r.ticker}|${m}|coverage`] = coverage;
+        }
         byPeriod.set(r.period_end, slot);
       }
     }
@@ -377,8 +390,24 @@ export default function BDCComparePanel({
                 }}
                 labelStyle={{ color: "#d1d5db" }}
                 itemSorter={(item) => -(Number(item.value) || 0)}
-                formatter={(v, name) => {
+                formatter={(v, name, item) => {
                   if (v === undefined || v === null) return ["—", String(name)];
+                  const dataKey = String(item.dataKey ?? "");
+                  if (dataKey.endsWith("|pct_pik_total")) {
+                    const point = item.payload as Record<string, number | string | undefined>;
+                    const lower = Number(v);
+                    const upperValue = point[`${dataKey}|upper`];
+                    const upper = typeof upperValue === "number" ? upperValue : lower;
+                    const status = String(point[`${dataKey}|status`] ?? "legacy_point_estimate");
+                    const coverageValue = point[`${dataKey}|coverage`];
+                    const range = status === "bounded" && Math.abs(upper - lower) > 0.0005
+                      ? `${lower.toFixed(2)}–${upper.toFixed(2)}%`
+                      : `${lower.toFixed(2)}%`;
+                    const coverage = typeof coverageValue === "number"
+                      ? ` · ${coverageValue.toFixed(1)}% observed`
+                      : "";
+                    return [range, `${String(name)}${coverage}`];
+                  }
                   return [`${Number(v).toFixed(2)}%`, String(name)];
                 }}
               />
@@ -394,7 +423,7 @@ export default function BDCComparePanel({
                     strokeDasharray={METRIC_DASHES[mi % METRIC_DASHES.length] || undefined}
                     dot={false}
                     activeDot={{ r: 3 }}
-                    connectNulls
+                    connectNulls={m !== "pct_pik_total"}
                   />
                 )),
               )}

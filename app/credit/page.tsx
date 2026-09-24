@@ -24,6 +24,7 @@ import OutcomeEvidenceNotice from "@/components/OutcomeEvidenceNotice";
 import { sectorCredit } from "@/data/sector_credit";
 import { macroContext } from "@/data/macro_context";
 import { sponsors } from "@/data/sponsors_index";
+import { creditPikPublication } from "@/lib/pikPublication";
 
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
 // commonly capture mark-based fields (par / cost / fv) cleanly even when
@@ -408,7 +409,8 @@ export default function CreditPage() {
       // screens out stub filings doesn't apply to it.
       const enough = r.ticker === "industry" || r.n_positions >= MIN_POSITIONS_FOR_RELIABLE;
       const relMark = isReliable(r.ticker, r.period_end, "mark") && enough;
-      const relPik = isReliable(r.ticker, r.period_end, "pik") && enough;
+      const pik = creditPikPublication(r);
+      const relPik = isReliable(r.ticker, r.period_end, "pik") && enough && pik.lower != null;
       const wl = wlByKey.get(`${r.ticker}|${r.period_end}`);
       return {
         ticker: r.ticker,
@@ -416,7 +418,11 @@ export default function CreditPage() {
         pct_non_accrual: r.pct_non_accrual,
         pct_below_95: r.pct_below_95,
         pct_below_90: r.pct_below_90,
-        pct_pik_total: r.pct_pik_total,
+        pct_pik_total: pik.lower,
+        pct_pik_total_upper: pik.upper,
+        pik_observation_coverage_pct: pik.observationCoveragePct,
+        pik_publication_status: pik.status,
+        pik_publication_reason: pik.reason,
         pct_wl_high: wl?.high ?? null,
         pct_wl_elevated_plus: wl?.elevatedPlus ?? null,
         pct_wl_any: wl?.any ?? null,
@@ -1018,7 +1024,8 @@ export default function CreditPage() {
                 Mark-based metrics use the same debt-shape filter as the main heatmaps
                 (par ≈ cost). &quot;Unclassified&quot; is positions whose SOI didn&apos;t carry
                 an industry tag; &quot;Other&quot; is industry tags that didn&apos;t match any
-                canonical sector. See <Link href="/methodology" className="hover:text-white underline" style={{ color: "#a5b4fc" }}>methodology</Link> for the mapping.
+                canonical sector. PIK is the known-positive lower bound because this legacy
+                sector rollup does not yet publish an unknown-exposure upper bound. See <Link href="/methodology" className="hover:text-white underline" style={{ color: "#a5b4fc" }}>methodology</Link> for the mapping.
               </p>
               <CsvDownloadButton
                 filename={`credit-by-sector-${sectorCredit[0]?.period_end ?? "latest"}`}
@@ -1058,7 +1065,7 @@ export default function CreditPage() {
                 color: r.pct_below_90 >= 10 ? "#fca5a5" : r.pct_below_90 >= 5 ? "#fdba74" : "#9ca3af",
               }}>{r.pct_below_90.toFixed(2)}%</span>
             ) },
-            { key: "pct_pik", label: "% PIK", align: "right", render: (r) => (
+            { key: "pct_pik", label: "% PIK lower", align: "right", render: (r) => (
               <span className="font-mono" style={{
                 color: r.pct_pik >= 20 ? "#d8b4fe" : r.pct_pik >= 10 ? "#c4b5fd" : "#9ca3af",
               }}>{r.pct_pik.toFixed(2)}%</span>
@@ -1087,7 +1094,8 @@ export default function CreditPage() {
                 with fewer than 30 positions across the universe are excluded as too thin a sample.
                 Mark-based percentages are position-count weighted (not dollar-weighted) so a
                 single mega-deal doesn&apos;t dominate. Sponsor → company mapping comes from
-                bdctransparency.io.
+                bdctransparency.io. Current PIK is the known-positive lower bound; this legacy
+                sponsor rollup does not yet publish an unknown-exposure upper bound.
               </p>
               <CsvDownloadButton
                 filename="credit-by-sponsor"
@@ -1131,7 +1139,7 @@ export default function CreditPage() {
                 color: s.pct_below_90 >= 15 ? "#fca5a5" : s.pct_below_90 >= 8 ? "#fdba74" : "#9ca3af",
               }}>{s.pct_below_90.toFixed(2)}%</span>
             ) },
-            { key: "pct_pik_now", label: "% currently PIK", align: "right", render: (s) => (
+            { key: "pct_pik_now", label: "% PIK lower", align: "right", render: (s) => (
               <span className="font-mono" style={{
                 color: s.pct_pik_now >= 25 ? "#d8b4fe" : s.pct_pik_now >= 12 ? "#c4b5fd" : "#9ca3af",
               }}>{s.pct_pik_now.toFixed(2)}%</span>

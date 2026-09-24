@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import AlertBadge from "@/components/AlertBadge";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { enrichedBDCs, BDCEnriched } from "@/lib/enrichBDC";
+import { enrichedPikPublication, formatPikPublication, pikPublicationLabel } from "@/lib/pikPublication";
 
 type FilterType = "All" | "Traded" | "Non-Traded";
 
@@ -168,7 +169,7 @@ export default function BDCsPage() {
                 <th className="px-4 py-3 text-left"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="type" label="Type" /></th>
                 <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="portfolioFairValue" label="FV ($B)" /></th>
                 <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="nonAccrualRate" label="Non-Accrual" /></th>
-                <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="pikRate" label="PIK Rate" /></th>
+                <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="pikRate" label="PIK range" /></th>
                 <th className="px-4 py-3 text-right"><SortBtn sortKey={sortKey} sortDir={sortDir} onSort={handleSort} k="portfolioCompanies" label="Companies" /></th>
                 <th className="px-4 py-3 text-right" style={{ color: "#8b8ba8", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>As of</th>
                 <th className="px-4 py-3 text-center" style={{ color: "#8b8ba8", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>Risk</th>
@@ -178,7 +179,9 @@ export default function BDCsPage() {
               {filtered.map((bdc, i) => {
                 const risk = bdc.nonAccrualRate == null ? "Unknown" : bdc.nonAccrualRate >= 4 ? "Critical" : bdc.nonAccrualRate >= 2 ? "High" : bdc.nonAccrualRate >= 1 ? "Medium" : "Low";
                 const naColor = bdc.nonAccrualRate == null ? "#8b8ba8" : bdc.nonAccrualRate >= 4 ? "#ef4444" : bdc.nonAccrualRate >= 2 ? "#f97316" : bdc.nonAccrualRate >= 1 ? "#eab308" : "#22c55e";
-                const pikColor = bdc.pikRate >= 12 ? "#ef4444" : bdc.pikRate >= 9 ? "#f97316" : bdc.pikRate >= 6 ? "#eab308" : "#22c55e";
+                const pik = enrichedPikPublication(bdc);
+                const pikRisk = pik.upper ?? pik.lower ?? 0;
+                const pikColor = pikRisk >= 12 ? "#ef4444" : pikRisk >= 9 ? "#f97316" : pikRisk >= 6 ? "#eab308" : "#22c55e";
                 return (
                   <tr
                     key={bdc.ticker}
@@ -224,10 +227,14 @@ export default function BDCsPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <span className="text-sm font-semibold" style={{ color: pikColor }}>
-                          {bdc.pikRate.toFixed(2)}%
+                          {formatPikPublication(pik)}
                         </span>
                         <DeltaChip delta={bdc.delta_pik_pct} fmt={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}pp`} />
                       </div>
+                      <span className="block text-[10px] mt-1" style={{ color: "#8b8ba8" }}
+                        title={pik.reason} data-pik-publication-status={pik.status}>
+                        {pikPublicationLabel(pik)}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right text-sm" style={{ color: "#9ca3af" }}>
                       {bdc.portfolioCompanies.toLocaleString()}

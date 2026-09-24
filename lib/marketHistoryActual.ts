@@ -11,11 +11,15 @@ import { creditQuality } from "@/data/credit_quality";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
 import { reportedFvB } from "@/lib/quarterCoverage";
+import { creditPikPublication, formatPikPublication } from "@/lib/pikPublication";
 
 export interface MarketHistoryPoint {
   date: string;       // 'YYYY-Qq' for display
   period_end: string; // 'YYYY-MM-DD' (raw)
-  value: number;      // metric (0..100 for percentages)
+  value: number | null; // metric (0..100 for percentages); null leaves a chart gap
+  upper?: number | null;
+  displayValue?: string;
+  publicationStatus?: string;
   coverage: number;   // # BDCs contributing this quarter
 }
 
@@ -38,8 +42,13 @@ export function industryNonAccrualHistory(): MarketHistoryPoint[] {
 
 export function industryPikHistory(): MarketHistoryPoint[] {
   return creditQuality.filter((r) => r.ticker === "industry")
-    .map((r) => ({ period_end: r.period_end, date: periodLabel(r.period_end),
-      value: r.pct_pik_total, coverage: creditQuality.filter((b) => b.ticker !== "industry" && b.period_end === r.period_end).length }))
+    .map((r) => {
+      const pik = creditPikPublication(r);
+      return { period_end: r.period_end, date: periodLabel(r.period_end),
+        value: pik.lower, upper: pik.upper, displayValue: formatPikPublication(pik),
+        publicationStatus: pik.status,
+        coverage: creditQuality.filter((b) => b.ticker !== "industry" && b.period_end === r.period_end).length };
+    })
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
 

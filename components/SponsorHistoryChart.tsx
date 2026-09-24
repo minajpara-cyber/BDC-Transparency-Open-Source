@@ -14,21 +14,41 @@ import type { SponsorHistoryRow } from "@/data/sponsors_history";
 
 type Mode = "fv" | "credit";
 
+type SponsorHistoryPikFields = {
+  pct_pik_now_upper?: number;
+  pik_observation_coverage_pct?: number | null;
+  pik_publication_status?: string;
+};
+
 interface Props {
-  rows: SponsorHistoryRow[];   // filtered to one sponsor, sorted by period_end asc
+  // Optional fields keep older generated sponsor artifacts renderable.
+  rows: Array<SponsorHistoryRow & SponsorHistoryPikFields>;
   mode: Mode;
   height?: number;
 }
 
 export default function SponsorHistoryChart({ rows, mode, height = 240 }: Props) {
-  const data = rows.map((r) => ({
-    period_end: r.period_end,
-    total_fv_b: r.total_fv / 1e9,
-    pct_below_95: r.pct_below_95,
-    pct_non_accrual: r.pct_non_accrual,
-    pct_pik_now: r.pct_pik_now,
-    n_positions: r.n_positions,
-  }));
+  const data = rows.map((r) => {
+    const unavailable = r.pik_publication_status === "unavailable";
+    return {
+      period_end: r.period_end,
+      total_fv_b: r.total_fv / 1e9,
+      pct_below_95: r.pct_below_95,
+      pct_non_accrual: r.pct_non_accrual,
+      pct_pik_now: unavailable ? null : r.pct_pik_now,
+      pct_pik_now_upper: !unavailable
+        && r.pik_publication_status === "bounded"
+        && Number.isFinite(r.pct_pik_now_upper)
+        ? r.pct_pik_now_upper as number
+        : null,
+      pik_observation_coverage_pct: Number.isFinite(r.pik_observation_coverage_pct)
+        ? r.pik_observation_coverage_pct as number
+        : null,
+      n_positions: r.n_positions,
+    };
+  });
+  const hasPikUpperBound = data.some((r) => r.pct_pik_now_upper != null);
+  const hasPikCoverage = data.some((r) => r.pik_observation_coverage_pct != null);
 
   const isFV = mode === "fv";
   const fmtTick = (v: number) =>
@@ -58,6 +78,16 @@ export default function SponsorHistoryChart({ rows, mode, height = 240 }: Props)
               fontSize: 11,
             }}
           />
+          {!isFV && hasPikCoverage && (
+            <YAxis
+              yAxisId="coverage"
+              orientation="right"
+              domain={[0, 100]}
+              tick={{ fill: "#6b7280", fontSize: 10 }}
+              tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+              width={34}
+            />
+          )}
           <Tooltip
             contentStyle={{
               background: "#0f0f16",
@@ -102,12 +132,34 @@ export default function SponsorHistoryChart({ rows, mode, height = 240 }: Props)
               <Line
                 type="monotone"
                 dataKey="pct_pik_now"
-                name="PIK now"
+                name="PIK lower bound"
                 stroke="#a5b4fc"
                 strokeWidth={2}
                 dot={{ r: 2 }}
-                connectNulls
               />
+              {hasPikUpperBound && (
+                <Line
+                  type="monotone"
+                  dataKey="pct_pik_now_upper"
+                  name="PIK upper bound"
+                  stroke="#c4b5fd"
+                  strokeWidth={1.5}
+                  strokeDasharray="5 3"
+                  dot={{ r: 1.5 }}
+                />
+              )}
+              {hasPikCoverage && (
+                <Line
+                  type="monotone"
+                  dataKey="pik_observation_coverage_pct"
+                  name="PIK observation coverage"
+                  yAxisId="coverage"
+                  stroke="#6b7280"
+                  strokeWidth={1.5}
+                  strokeDasharray="2 4"
+                  dot={false}
+                />
+              )}
             </>
           )}
         </LineChart>

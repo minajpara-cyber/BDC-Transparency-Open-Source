@@ -6,6 +6,7 @@ import AlertBadge from "@/components/AlertBadge";
 import { portfolioCompanies } from "@/data/companies";
 import { recentAlerts } from "@/data/market";
 import { enrichedBDCs, naPublicationDisplay } from "@/lib/enrichBDC";
+import { enrichedPikPublication, formatPikPublication, pikPublicationLabel } from "@/lib/pikPublication";
 import { creditQuality } from "@/data/credit_quality";
 import {
   currentNonAccruals,
@@ -412,13 +413,16 @@ export default function NonAccrualsPage() {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                {["BDC", "Ticker", "Type", "Non-Accrual %", "PIK %", "As of", "Δ NA QoQ"].map((h) => (
+                {["BDC", "Ticker", "Type", "Non-Accrual %", "PIK % / range", "As of", "Δ NA QoQ"].map((h) => (
                   <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap" style={{ color: "#8b8ba8" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {bdcSummary.map((bdc, i) => (
+              {bdcSummary.map((bdc, i) => {
+                const pik = enrichedPikPublication(bdc);
+                const pikRisk = pik.upper ?? pik.lower ?? 0;
+                return (
                 <tr key={bdc.ticker} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
                   <td className="px-4 py-3">
                     <Link href={`/bdcs/${bdc.slug}`} className="font-medium text-white hover:text-indigo-400">
@@ -442,8 +446,12 @@ export default function NonAccrualsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-sm font-semibold" style={{ color: bdc.pikRate >= 12 ? "#f97316" : "#eab308" }}>
-                      {bdc.pikRate.toFixed(2)}%
+                    <span className="text-sm font-semibold" style={{ color: pikRisk >= 12 ? "#f97316" : "#eab308" }}>
+                      {formatPikPublication(pik)}
+                    </span>
+                    <span className="block text-[10px] mt-1" style={{ color: "#8b8ba8" }}
+                      title={pik.reason} data-pik-publication-status={pik.status}>
+                      {pikPublicationLabel(pik)}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs" style={{ color: "#a5b4fc" }}>{bdc.asOf ?? "—"}</td>
@@ -453,7 +461,8 @@ export default function NonAccrualsPage() {
                     {bdc.delta_na_pct == null ? "—" : `${bdc.delta_na_pct >= 0 ? "+" : ""}${bdc.delta_na_pct.toFixed(2)}pp`}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

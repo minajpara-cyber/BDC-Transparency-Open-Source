@@ -12,6 +12,7 @@ import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { hasReportedSize, reportedCostB, reportedFvB, reportedMarkPct } from "@/lib/quarterCoverage";
 import { naPublicationDisplay, type NonAccrualPublicationMetadata } from "@/lib/enrichBDC";
+import { creditPikPublication, exactPikDelta, formatPikPublication, historyPikPublication, pikPublicationLabel } from "@/lib/pikPublication";
 import OutcomeEvidenceNotice from "@/components/OutcomeEvidenceNotice";
 import { creditQuality } from "@/data/credit_quality";
 import { modificationRate } from "@/data/modification_rate";
@@ -74,6 +75,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const hasCredit = !!cqLatest;
   const cqNaMetadata = cqLatest as (typeof cqLatest & NonAccrualPublicationMetadata) | undefined;
   const comparableNaBasis = cqNaMetadata?.na_basis === (cqPrior as NonAccrualPublicationMetadata | undefined)?.na_basis;
+  const cqLatestPik = cqLatest ? creditPikPublication(cqLatest) : null;
+  const cqPriorPik = cqPrior ? creditPikPublication(cqPrior) : null;
+  const cqPikDelta = cqLatestPik && cqPriorPik ? exactPikDelta(cqLatestPik, cqPriorPik) : null;
 
   const acRows = assetComposition
     .filter((r) => r.ticker === bdc.ticker)
@@ -101,10 +105,16 @@ export default async function BDCDetailPage({ params }: PageProps) {
     | "pct_below_90";
   // Use the same dollar-weighted export as the credit and home pages.
   function buildIndustryCQ(field: CQField) {
-    return new Map(creditQuality
-      .filter((r) => r.ticker === "industry" && r[field] != null &&
-        (field !== "pct_non_accrual" || r.na_covered_bdcs >= 12))
-      .map((r) => [r.period_end, r[field] as number]));
+    const values = new Map<string, number>();
+    for (const r of creditQuality) {
+      if (r.ticker !== "industry") continue;
+      if (field === "pct_non_accrual" && r.na_covered_bdcs < 12) continue;
+      const value = field === "pct_pik_total"
+        ? creditPikPublication(r).lower
+        : r[field];
+      if (value != null) values.set(r.period_end, value);
+    }
+    return values;
   }
   // Industry spread: read the pre-computed COST-weighted industry row from
   // the export (ticker:"industry"), gated on coverage — hide quarters where
@@ -145,7 +155,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                     industry: Map<string, number>): ComparisonPoint[] =>
     cqRows.map((r) => ({
       period_end: r.period_end,
-      bdc: r[field],
+      bdc: field === "pct_pik_total" ? creditPikPublication(r).lower : r[field],
       industry: industry.get(r.period_end) ?? null,
     }));
   const cmpFromSpread = (field: "avg_spread_book_bps" | "avg_spread_new_bps" | "avg_spread_exit_bps",
@@ -347,10 +357,11 @@ export default async function BDCDetailPage({ params }: PageProps) {
             />
             <StatCard
               label="PIK % (cost)"
-              value={`${cqLatest.pct_pik_total.toFixed(2)}%`}
-              color={cqLatest.pct_pik_total >= 15 ? "#f97316" : cqLatest.pct_pik_total >= 5 ? "#eab308" : "#9ca3af"}
-              trend={cqPrior && cqLatest.pct_pik_total > cqPrior.pct_pik_total ? "up" : cqPrior && cqLatest.pct_pik_total < cqPrior.pct_pik_total ? "down" : undefined}
-              trendLabel={cqPrior ? fmtDelta(cqLatest.pct_pik_total, cqPrior.pct_pik_total) : undefined}
+              sub={cqLatestPik ? pikPublicationLabel(cqLatestPik) : undefined}
+              value={cqLatestPik ? formatPikPublication(cqLatestPik) : "Unknown"}
+              color={(cqLatestPik?.upper ?? cqLatestPik?.lower ?? 0) >= 15 ? "#f97316" : (cqLatestPik?.upper ?? cqLatestPik?.lower ?? 0) >= 5 ? "#eab308" : "#9ca3af"}
+              trend={cqPikDelta == null ? undefined : cqPikDelta > 0 ? "up" : cqPikDelta < 0 ? "down" : undefined}
+              trendLabel={cqPikDelta == null ? undefined : `${cqPikDelta >= 0 ? "+" : ""}${cqPikDelta.toFixed(2)}pp`}
             />
             <StatCard
               label="% below 95¢ of par"
@@ -397,8 +408,8 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <ComparisonChart data={naCmp} yLabel="% NA at cost" unit="%" bdcLabel={bdc.ticker} bdcColor="#ef4444" />
             </div>
             <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-              <div className="text-sm font-semibold text-white mb-1">PIK % vs industry</div>
-              <ComparisonChart data={pikCmp} yLabel="% PIK at cost" unit="%" bdcLabel={bdc.ticker} bdcColor="#f97316" />
+              <div className="text-sm font-semibold text-white mb-1">PIK lower bound vs industry</div>
+              <ComparisonChart data={pikCmp} yLabel="% known PIK at cost (lower bound)" unit="%" bdcLabel={bdc.ticker} bdcColor="#f97316" connectNulls={false} />
             </div>
             <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
               <div className="text-sm font-semibold text-white mb-1">Marks below 95¢ vs industry</div>
@@ -495,7 +506,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <table className="w-full text-sm">
                 <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
                   <tr>
-                    {["Quarter", "Positions", "NA %", "PIK %", "Below 95¢", "Below 90¢", "Book bps", "New bps", "Exit bps", "% 1st lien"].map((h) => (
+                    {["Quarter", "Positions", "NA %", "PIK % / range", "Below 95¢", "Below 90¢", "Book bps", "New bps", "Exit bps", "% 1st lien"].map((h) => (
                       <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap" style={{ color: "#8b8ba8" }}>
                         {h}
                       </th>
@@ -506,6 +517,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                   {[...cqRows].reverse().slice(0, 12).map((r, i) => {
                     const sp = spRows.find((x) => x.period_end === r.period_end);
                     const ac = acRows.find((x) => x.period_end === r.period_end);
+                    const pik = creditPikPublication(r);
                     return (
                       <tr
                         key={r.period_end}
@@ -517,8 +529,10 @@ export default async function BDCDetailPage({ params }: PageProps) {
                         <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_non_accrual == null ? "#8b8ba8" : r.pct_non_accrual >= 3 ? "#ef4444" : r.pct_non_accrual >= 1 ? "#eab308" : "#9ca3af" }}>
                           {r.pct_non_accrual == null ? "Unknown" : `${r.pct_non_accrual.toFixed(2)}%`}
                         </td>
-                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_pik_total >= 15 ? "#f97316" : r.pct_pik_total >= 5 ? "#eab308" : "#9ca3af" }}>
-                          {r.pct_pik_total.toFixed(2)}%
+                        <td className="px-4 py-2.5 text-xs" title={pik.reason}
+                          data-pik-publication-status={pik.status}
+                          style={{ color: (pik.upper ?? pik.lower ?? 0) >= 15 ? "#f97316" : (pik.upper ?? pik.lower ?? 0) >= 5 ? "#eab308" : "#9ca3af" }}>
+                          {formatPikPublication(pik)}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_below_95 >= 15 ? "#ef4444" : "#9ca3af" }}>
                           {r.pct_below_95.toFixed(1)}%
@@ -658,7 +672,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <table className="w-full text-sm">
                 <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
                   <tr>
-                    {["Period end", "Positions", "Cost ($B)", "Fair value ($B)", "FV / Cost", "NA % (cost)", "PIK % (cost)"].map((h) => (
+                    {["Period end", "Positions", "Cost ($B)", "Fair value ($B)", "FV / Cost", "NA % (cost)", "PIK % / range (cost)"].map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap"
@@ -677,6 +691,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                     const costB = reportedCostB(r);
                     const fvB = reportedFvB(r);
                     const markPct = reportedMarkPct(r);
+                    const pik = historyPikPublication(r);
                     const ratioColor = markPct === null
                       ? "#6b7280"
                       : markPct >= 100 ? "#22c55e" : markPct >= 97 ? "#eab308" : "#ef4444";
@@ -707,10 +722,11 @@ export default async function BDCDetailPage({ params }: PageProps) {
                         }}>
                           {r.na_pct_at_cost == null ? "Unknown" : `${r.na_pct_at_cost.toFixed(2)}%`}
                         </td>
-                        <td className="px-4 py-2.5 text-xs" style={{
-                          color: r.pik_pct_at_cost >= 15 ? "#f97316" : r.pik_pct_at_cost >= 5 ? "#eab308" : "#9ca3af",
+                        <td className="px-4 py-2.5 text-xs" title={pik.reason}
+                          data-pik-publication-status={pik.status} style={{
+                          color: (pik.upper ?? pik.lower ?? 0) >= 15 ? "#f97316" : (pik.upper ?? pik.lower ?? 0) >= 5 ? "#eab308" : "#9ca3af",
                         }}>
-                          {r.pik_pct_at_cost > 0 ? `${r.pik_pct_at_cost.toFixed(2)}%` : "—"}
+                          {formatPikPublication(pik)}
                         </td>
                       </tr>
                     );

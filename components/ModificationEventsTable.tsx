@@ -4,6 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { ModificationEvent } from "@/data/modification_events";
 
+type PublishedModificationEvent = ModificationEvent & {
+  rate_included?: boolean;
+  comparison_status?: "observed" | "unknown";
+  comparison_reason?: "all_required_inputs_observed" | "supported_positive_with_incomplete_inputs";
+};
+
 const TYPE_META: Record<string, { label: string; color: string }> = {
   maturity_extended: { label: "Maturity extension", color: "#fbbf24" },
   pik_flip:          { label: "Cash → PIK",     color: "#f97316" },
@@ -27,7 +33,7 @@ function borrowerSlug(companyNorm: string): string {
   return companyNorm.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 }
 
-export default function ModificationEventsTable({ events }: { events: ModificationEvent[] }) {
+export default function ModificationEventsTable({ events }: { events: PublishedModificationEvent[] }) {
   const periods = useMemo(
     () => Array.from(new Set(events.map((e) => e.period_end))).sort().reverse(),
     [events],
@@ -51,7 +57,7 @@ export default function ModificationEventsTable({ events }: { events: Modificati
     return c;
   }, [events, period]);
 
-  const detail = (e: ModificationEvent): string => {
+  const detail = (e: PublishedModificationEvent): string => {
     const parts: string[] = [];
     if (e.maturity_old && e.maturity_new) parts.push(`maturity ${e.maturity_old} → ${e.maturity_new}`);
     if (e.par_old_m != null && e.par_new_m != null)
@@ -74,6 +80,11 @@ export default function ModificationEventsTable({ events }: { events: Modificati
           (&gt; 15%) and lien downgrades. These signals infer a change; they do not confirm
           a disclosed amendment. PIK persistence is provisional until observed in the
           following quarter. Source locations are available for each comparison.
+        </p>
+        <p className="text-xs mt-2" style={{ color: "#8b8ba8" }}>
+          Supported positive signals remain in this table when an unrelated comparison
+          input is unavailable. Quarterly modification rates include only rows labeled
+          “Included in rate.”
         </p>
         <p className="text-xs mt-2" style={{ color: "#8b8ba8" }}>
           Historical PIK labels can change when the next filing arrives. These retrospective
@@ -126,7 +137,7 @@ export default function ModificationEventsTable({ events }: { events: Modificati
         <table className="w-full text-sm">
           <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e", position: "sticky", top: 0, zIndex: 1 }}>
             <tr>
-              {["BDC", "Borrower", "Signal", "Observed change", "Evidence", "Cost ($M)"].map((h) => (
+              {["BDC", "Borrower", "Signal", "Observed change", "Evidence and rate treatment", "Cost ($M)"].map((h) => (
                 <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap" style={{ color: "#8b8ba8" }}>
                   {h}
                 </th>
@@ -164,6 +175,15 @@ export default function ModificationEventsTable({ events }: { events: Modificati
                   <span style={{ color: e.evidence_status === "provisional" ? "#fbbf24" : "#a5b4fc" }}>
                     {e.evidence_status === "provisional" ? "Provisional inference" : "Inferred"}
                   </span>
+                  <p
+                    className="mt-1 font-semibold"
+                    style={{ color: e.rate_included === false ? "#fbbf24" : "#86efac" }}
+                    title={e.rate_included === false
+                      ? "The listed positive change is supported, but at least one unrelated input required to evaluate the full comparison was unavailable. It is excluded from quarterly modification rates."
+                      : "All inputs required to evaluate the combined modification comparison were observed. This event is included in quarterly modification rates."}
+                  >
+                    {e.rate_included === false ? "Excluded from rate · incomplete comparison" : "Included in rate"}
+                  </p>
                   {e.pik_persistence_status !== "not_applicable" && (
                     <p className="mt-1">
                       {e.pik_persistence_status === "observed_next_quarter"
@@ -184,7 +204,7 @@ export default function ModificationEventsTable({ events }: { events: Modificati
               </tr>
             ))}
             {shown.length === 0 && (
-              <tr><td colSpan={6} className="px-5 py-6 text-sm text-center" style={{ color: "#8b8ba8" }}>No observed signals matching this filter.</td></tr>
+              <tr><td colSpan={6} className="px-5 py-6 text-sm text-center" style={{ color: "#8b8ba8" }}>No supported signals matching this filter.</td></tr>
             )}
           </tbody>
         </table>
