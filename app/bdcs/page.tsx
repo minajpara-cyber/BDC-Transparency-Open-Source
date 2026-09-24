@@ -180,8 +180,8 @@ export default function BDCsPage() {
                 const risk = bdc.nonAccrualRate == null ? "Unknown" : bdc.nonAccrualRate >= 4 ? "Critical" : bdc.nonAccrualRate >= 2 ? "High" : bdc.nonAccrualRate >= 1 ? "Medium" : "Low";
                 const naColor = bdc.nonAccrualRate == null ? "#8b8ba8" : bdc.nonAccrualRate >= 4 ? "#ef4444" : bdc.nonAccrualRate >= 2 ? "#f97316" : bdc.nonAccrualRate >= 1 ? "#eab308" : "#22c55e";
                 const pik = enrichedPikPublication(bdc);
-                const pikRisk = pik.upper ?? pik.lower ?? 0;
-                const pikColor = pikRisk >= 12 ? "#ef4444" : pikRisk >= 9 ? "#f97316" : pikRisk >= 6 ? "#eab308" : "#22c55e";
+                const pikRisk = pik.upper ?? pik.lower;
+                const pikColor = pikRisk == null ? "#8b8ba8" : pikRisk >= 12 ? "#ef4444" : pikRisk >= 9 ? "#f97316" : pikRisk >= 6 ? "#eab308" : "#22c55e";
                 return (
                   <tr
                     key={bdc.ticker}

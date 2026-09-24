@@ -8,8 +8,8 @@
 // We also surface the as-of date and Δ vs prior quarter, so the table can
 // show "as of YYYY-MM-DD" + green/red Δ chips.
 //
-// The 20 BDCs we don't cover pass through unchanged. The shape of the
-// returned object is identical to the input BDC plus optional overlay fields.
+// BDCs without usable parsed history retain their static catalog metadata,
+// but unsupported PIK point estimates are withheld explicitly.
 
 import { bdcs, BDC } from "@/data/bdcs";
 import { bdcsHistory, BDCQuarter } from "@/data/bdcs_history";
@@ -75,15 +75,29 @@ function indexHistory(): Map<string, BDCQuarter[]> {
   return m;
 }
 
+function withoutObservedPik(bdc: BDC): BDCEnriched {
+  return {
+    ...bdc,
+    pikRate: null,
+    pikRateLower: null,
+    pikRateUpper: null,
+    pikObservationCoveragePct: null,
+    pikPublicationStatus: "unavailable",
+    pikPublicationReason: "No source-observed PIK coverage is available for this BDC in the current parsed dataset.",
+    pikMetricVersion: null,
+    parsed: false,
+  };
+}
+
 export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriched {
   const all = hist.get(bdc.ticker);
-  if (!all || all.length === 0) return bdc;
+  if (!all || all.length === 0) return withoutObservedPik(bdc);
   // Only quarters whose size parsed can stand in for the portfolio. An
   // unparsed quarter exports as 0, so taking it as "latest" would show the BDC
   // at $0.0B, and taking it as "prior" would make the QoQ change the whole
   // portfolio. ADS, MAIN, OCIC, OCSL, CCAP and BCRED each have such rows.
   const rows = all.filter(hasReportedSize);
-  if (rows.length === 0) return bdc;
+  if (rows.length === 0) return withoutObservedPik(bdc);
   const latest = rows[rows.length - 1] as BDCQuarter & NonAccrualPublicationMetadata;
   const prior = rows.length >= 2 ? rows[rows.length - 2] as BDCQuarter & NonAccrualPublicationMetadata : null;
   const comparableNaBasis = latest.na_basis === prior?.na_basis;
