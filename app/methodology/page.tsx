@@ -145,7 +145,7 @@ export default function MethodologyPage() {
                 ["Weighted-avg spread (bps)", "Parsed from the SOI's reference-rate text (e.g. 'SOFR + 5.75%' → 575 bps). Cost-weighted across positions. Floating-rate loans give a clean read; fixed-rate notes fall through to coupon as a proxy."],
                 ["Holding-cohort NA bounds", "Fixed initial-cost share of holding groups with any observed quarter-end non-accrual (lower), plus groups with unresolved past status (upper). Baseline positives are included. These are not default rates or statistical confidence intervals."],
                 ["Cohort valuation snapshot", "Observed current cost with fair value below 90% of cost / current cost with an observed cost-based mark. Missing snapshots remain unknown. Exposure can grow or shrink and is not a survival probability."],
-                ["PIK cascade", "Historical cash → PIK event outcomes four quarters later: observed return to cash, still PIK at various mark levels, or absent from parsed data. This separate historical cohort is not the quarterly flow population; disappearance does not establish repayment or cure."],
+                ["PIK follow-up outcomes", "Withheld pending validation of calendar-quarter follow-up, seasoning and unknown observations. Disappearance does not establish repayment or cure, and an unavailable mark does not establish a healthy exposure."],
                 ["Cross-BDC mark dispersion", "For borrowers held by ≥3 BDCs, the spread between max and min mark across holders in the same quarter."],
               ].map(([metric, desc]) => (
                 <tr key={metric} style={{ borderBottom: "1px solid #1a1a28" }}>

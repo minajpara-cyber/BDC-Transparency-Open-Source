@@ -5,7 +5,7 @@ import Link from "next/link";
 import AlertBadge from "@/components/AlertBadge";
 import { portfolioCompanies } from "@/data/companies";
 import { recentAlerts } from "@/data/market";
-import { enrichedBDCs } from "@/lib/enrichBDC";
+import { enrichedBDCs, naPublicationDisplay } from "@/lib/enrichBDC";
 import { creditQuality } from "@/data/credit_quality";
 import {
   currentNonAccruals,
@@ -91,7 +91,7 @@ export default function NonAccrualsPage() {
     (c) => c.holders.some((h) => h.status === "Non-Accrual"),
   );
 
-  // BDC summary built from enriched data (real NA % at cost-weighted basis).
+  // Issuer summary preserves disclosed vs panel-derived basis and unavailable reasons.
   const bdcSummary = enrichedBDCs()
     .filter((b) => b.parsed)
     .sort((a, b) => (b.nonAccrualRate ?? -Infinity) - (a.nonAccrualRate ?? -Infinity));
@@ -148,7 +148,7 @@ export default function NonAccrualsPage() {
       <p className="text-xs mb-5" style={{ color: "#8b8ba8" }}>
         Status changes compare consecutive snapshots of borrower/instrument groups, not verified facility events.
         Missing positions never establish a cure. Unknown rates display as —; a reported or fully decoded zero displays as 0.00%.
-        {industryNA && <> Industry NA coverage: {industryNA.na_covered_bdcs} BDCs, ${industryNA.na_eligible_cost_b.toFixed(1)}B matched cost as of {industryNA.period_end}; aggregate-only MFIC, unresolved FSK funded-exposure scope and incomplete flags are excluded from that weighted rate.</>}
+        {industryNA && <> Industry NA coverage: {industryNA.na_covered_bdcs} BDCs, ${industryNA.na_eligible_cost_b.toFixed(1)}B matched cost as of {industryNA.period_end}; aggregate-only disclosures, incomplete flags and reviewed reconciliation exclusions (including unresolved funded-exposure scope) are excluded from that weighted rate.</>}
       </p>
 
       {/* Ticker filter */}
@@ -403,6 +403,10 @@ export default function NonAccrualsPage() {
       <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
           <h2 className="font-semibold text-white">BDCs by Non-Accrual % at Cost</h2>
+          <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
+            Basis labels distinguish issuer disclosures from rates derived from parsed positions. Hover a label for scope
+            or the reason a ratio is unavailable. Position evidence remains listed above when an issuer ratio is withheld.
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -430,6 +434,11 @@ export default function NonAccrualsPage() {
                   <td className="px-4 py-3">
                     <span className="text-sm font-bold" style={{ color: bdc.nonAccrualRate == null ? "#8b8ba8" : bdc.nonAccrualRate >= 4 ? "#ef4444" : bdc.nonAccrualRate >= 2 ? "#f97316" : "#eab308" }}>
                       {fmtPct(bdc.nonAccrualRate)}
+                    </span>
+                    <span className="block text-[10px] mt-1" style={{ color: "#8b8ba8" }}
+                      title={naPublicationDisplay(bdc).description}
+                      data-na-publication-status={bdc.na_publication_status ?? "unspecified"}>
+                      {naPublicationDisplay(bdc).label}
                     </span>
                   </td>
                   <td className="px-4 py-3">

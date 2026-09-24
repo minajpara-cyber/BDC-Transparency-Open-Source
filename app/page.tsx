@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { ArrowRight, AlertTriangle, TrendingDown, Clock, Users } from "lucide-react";
 import { siteMeta } from "@/data/site_meta";
+import { dataReleaseId, longTailReportingDate } from "@/lib/dataRelease";
+import { sameNaCoverage } from "@/lib/naCoverage";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { creditQuality } from "@/data/credit_quality";
 import { nonAccrualFlow } from "@/data/non_accrual_events";
-import { ewsRows, ewsMeta } from "@/data/early_warning_scores";
 import { maturityComparison } from "@/data/maturity";
-import { sponsors } from "@/data/sponsors_index";
+import OutcomeEvidenceNotice from "@/components/OutcomeEvidenceNotice";
 
 const card: React.CSSProperties = {
   background: "#12121c",
@@ -84,18 +85,13 @@ export default function HomePage() {
     const removedUnknown = unresolved.filter((f) => f.event === "removed_unknown").length;
     const unknownStatus = unresolved.filter((f) => f.event === "unknown_status").length;
     const newFV = newNAs.some((f) => f.fv == null) ? null : newNAs.reduce((sum, f) => sum + (f.fv ?? 0), 0);
-    const hotWatch = ewsRows.filter((r) => r.score >= 5);
-    const oosTop = ewsMeta.validation_buckets[ewsMeta.validation_buckets.length - 1];
-    return { totCost, naNow, naPrev, newNAs, nNewGroups: newNAsRaw.length, cured, firstObserved, removedUnknown, unknownStatus, newFV, hotWatch, oosTop };
+    const comparableNaCoverage = sameNaCoverage(creditQuality, naNow?.period_end, naPrev?.period_end);
+    return { totCost, naNow, naPrev, comparableNaCoverage, newNAs, nNewGroups: newNAsRaw.length, cured, firstObserved, removedUnknown, unknownStatus, newFV };
   }, []);
 
-  const naDeltaBp = stats.naNow?.pct_non_accrual == null || stats.naPrev?.pct_non_accrual == null
+  const naDeltaBp = !stats.comparableNaCoverage || stats.naNow?.pct_non_accrual == null || stats.naPrev?.pct_non_accrual == null
     ? null : Math.round((stats.naNow.pct_non_accrual - stats.naPrev.pct_non_accrual) * 100);
   const topNear = [...maturityComparison].sort((a, b) => b.pct_near24m - a.pct_near24m).slice(0, 4);
-  const sponsorFlags = sponsors
-    .filter((s) => s.n_exits >= 8)
-    .sort((a, b) => b.pct_exits_distress - a.pct_exits_distress)
-    .slice(0, 4);
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -105,10 +101,14 @@ export default function HomePage() {
           BDC credit, straight from the filings — {siteMeta.latest_quarter}
         </h1>
         <p className="text-sm mt-1" style={{ color: "#8b8ba8" }}>
-          Position-level data parsed from {siteMeta.n_filings} SEC filings across{" "}
-          {siteMeta.n_bdcs} BDCs · latest quarter ends {siteMeta.latest_period} · refreshed{" "}
+          Position-level data from {siteMeta.n_filings} selected SEC filings across{" "}
+          {siteMeta.n_bdcs} BDCs · latest accepted quarter ends {siteMeta.latest_period} · data release{" "}
           {siteMeta.generated_at}
         </p>
+        {dataReleaseId && <p className="text-xs mt-2 text-gray-500">
+          Extended borrower coverage has a separate reporting cutoff{longTailReportingDate ? `: ${longTailReportingDate}` : " that is currently unknown"}.
+          {" "}<a href="/data-release.json" className="underline">Release details and data versions</a>
+        </p>}
       </div>
 
       {/* Headline stats */}
@@ -118,7 +118,7 @@ export default function HomePage() {
           {
             label: "Industry non-accrual",
             value: fmtPct(stats.naNow?.pct_non_accrual),
-            note: `${naDeltaBp == null ? "Change unavailable" : `${naDeltaBp >= 0 ? "+" : ""}${naDeltaBp}bp vs prior qtr`} · ${stats.naNow?.na_covered_bdcs ?? 0} BDCs with matched NA coverage`,
+            note: `${!stats.comparableNaCoverage ? "Coverage changed; change not estimated" : naDeltaBp == null ? "Change unavailable" : `${naDeltaBp >= 0 ? "+" : ""}${naDeltaBp}bp vs prior covered period`} · ${stats.naNow?.na_covered_bdcs ?? 0} BDCs with matched NA coverage`,
           },
           {
             label: "Borrowers with new NA groups",
@@ -126,9 +126,9 @@ export default function HomePage() {
             note: `${stats.nNewGroups} borrower/instrument groups · ${fmtM(stats.newFV)} current FV · ${stats.cured.length} observed returns`,
           },
           {
-            label: "High early-warning scores",
-            value: String(stats.hotWatch.length),
-            note: `score ≥5 · ${stats.oosTop.hit_rate_pct.toFixed(1)}% went NA within 2q out-of-sample`,
+            label: "Unresolved status groups",
+            value: String(stats.unknownStatus),
+            note: "Latest observed transitions; missing status remains unknown",
           },
         ].map((s) => (
           <div key={s.label} style={card} className="p-4">
@@ -141,7 +141,7 @@ export default function HomePage() {
 
       <p className="text-xs" style={{ color: "#8b8ba8" }}>
         Industry NA uses {stats.naNow ? fmtB(stats.naNow.na_eligible_cost_b) : "—"} of matched, fully decoded cost.
-        MFIC&apos;s aggregate-only disclosure, unresolved FSK funded-exposure scope and incomplete position flags are excluded from this industry ratio.
+        Aggregate-only disclosures, unresolved portfolio-scope reconciliations and incomplete position flags are excluded from this industry ratio.
         Unknown rates display as —; supported zero rates display as 0.00%.
       </p>
 
@@ -181,31 +181,10 @@ export default function HomePage() {
           </p>
         </Section>
 
-        <Section
-          title="Early-warning leaders"
-          sub="Out-of-sample validated 2-quarter score — signals fitted on pre-2024 data only"
-          href="/watchlist"
-          linkLabel="Full watchlist"
-        >
-          <table className="w-full text-sm">
-            <tbody>
-              {ewsRows.slice(0, 8).map((r, i) => (
-                <tr key={i} className="border-t" style={{ borderColor: "#1e1e2e" }}>
-                  <td className="py-1.5 pr-2 font-mono text-xs text-indigo-300">{r.ticker}</td>
-                  <td className="py-1.5 pr-2 text-gray-200">{r.borrower.slice(0, 36)}</td>
-                  <td className="py-1.5 pr-2 text-right">
-                    <span className="px-1.5 py-0.5 rounded text-xs font-semibold"
-                      style={{ background: r.score >= 8 ? "rgba(239,68,68,.15)" : "rgba(245,158,11,.15)", color: r.score >= 8 ? "#f87171" : "#fbbf24" }}>
-                      {r.score}
-                    </span>
-                  </td>
-                  <td className="py-1.5 pr-2 text-right text-gray-400">{fmtM(r.fv_m)}</td>
-                  <td className="py-1.5 text-right text-gray-500 text-xs">{r.mark != null ? `${Math.round(r.mark * 100)}¢` : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Section>
+        <OutcomeEvidenceNotice title="Forecast validation in progress">
+          Predicted non-accrual rates and fitted early-warning rankings are withheld while their event labels and historical observation coverage are reviewed.
+          {" "}<Link href="/watchlist" className="text-indigo-400 underline">Review observed credit signals</Link>.
+        </OutcomeEvidenceNotice>
 
         <Section
           title="Nearest maturity walls"
@@ -230,26 +209,10 @@ export default function HomePage() {
           </table>
         </Section>
 
-        <Section
-          title="Sponsor distress league"
-          sub="% of completed exits ending in distress (≥8 exits in our panel)"
-          href="/sponsors"
-          linkLabel="All sponsors"
-        >
-          <table className="w-full text-sm">
-            <tbody>
-              {sponsorFlags.map((s) => (
-                <tr key={s.sponsor} className="border-t" style={{ borderColor: "#1e1e2e" }}>
-                  <td className="py-1.5 pr-2 text-gray-200">
-                    <Link href={`/sponsors/${s.sponsor_slug}`} className="hover:text-indigo-300">{s.sponsor}</Link>
-                  </td>
-                  <td className="py-1.5 pr-2 text-right text-red-400 font-medium">{s.pct_exits_distress.toFixed(0)}%</td>
-                  <td className="py-1.5 text-right text-gray-500 text-xs">{s.n_distress}/{s.n_exits} exits</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Section>
+        <OutcomeEvidenceNotice title="Sponsor outcomes pending source review">
+          Distress-exit rankings require verified exits and recoveries. A missing holding or its last reported mark does not establish a realized loss.
+          {" "}<Link href="/sponsors" className="text-indigo-400 underline">Explore sponsor exposure</Link>.
+        </OutcomeEvidenceNotice>
       </div>
 
       {/* Deep-dive directory */}

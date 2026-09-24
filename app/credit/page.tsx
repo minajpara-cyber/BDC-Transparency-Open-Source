@@ -13,7 +13,6 @@ import { creditQuality, CreditQuality } from "@/data/credit_quality";
 import { modificationRate, ModificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
 import { modificationEvents } from "@/data/modification_events";
-import { ewsByBdc, ewsMeta } from "@/data/early_warning_scores";
 import { watchlistByTicker } from "@/data/early_warning_history";
 import ModificationEventsTable from "@/components/ModificationEventsTable";
 import { assetComposition } from "@/data/asset_composition";
@@ -21,7 +20,7 @@ import { spreadAnalysis } from "@/data/spread_analysis";
 import { stressedPositions } from "@/data/stressed_positions";
 import { borrowers } from "@/data/borrowers_index";
 import { borrowerHistory } from "@/data/borrowers_history";
-import { pikCascade } from "@/data/pik_cascade";
+import OutcomeEvidenceNotice from "@/components/OutcomeEvidenceNotice";
 import { sectorCredit } from "@/data/sector_credit";
 import { macroContext } from "@/data/macro_context";
 import { sponsors } from "@/data/sponsors_index";
@@ -518,20 +517,6 @@ export default function CreditPage() {
     .sort((a, b) => b.spread - a.spread)
     .slice(0, 15);
 
-  // ---------- PIK cascade (C.6) ----------
-  // Loan-tranche-level cascade from data/pik_cascade.ts. The Python exporter
-  // walks loan_history.loan_id and buckets each cash→PIK flip by its outcome
-  // 4 quarters later (cured / still PIK at various mark levels / exited).
-  // Flag the most recent year as "follow-up incomplete" — flips from then
-  // haven't had time for the full T+4 lookforward.
-  const cascadeMaxYear = pikCascade.length
-    ? pikCascade[pikCascade.length - 1].year
-    : "";
-  const cascadeRows = pikCascade.map((r) => ({
-    ...r,
-    incomplete: r.year === cascadeMaxYear && r.pct_exited > 80,
-  }));
-
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <CreditNav />
@@ -585,7 +570,7 @@ export default function CreditPage() {
           ["#compare", "Compare BDCs"],
           ["#concentration", "Concentration"],
           ["#dispersion", "Mark dispersion"],
-          ["#pik-cascade", "PIK cascade"],
+          ["#pik-cascade", "PIK follow-up"],
         ].map(([href, label]) => (
           <a
             key={href}
@@ -614,7 +599,7 @@ export default function CreditPage() {
           non-accrual is muted through Q3 2021 (FSKR-merger era — parser misreads merger-adjustment
           footnotes as NA). MFIC&apos;s issuer-level NA rate comes from a separate filing disclosure;
           it is excluded from the industry NA ratio because a matching position denominator is
-          unavailable. Its PIK observations are tracked separately.
+          unavailable. Unresolved funded-exposure scope, incomplete flags and reviewed reconciliation exceptions also withhold issuer ratios and exclude those issuer quarters from industry NA. PIK observations are tracked separately.
           BDC-quarters with fewer than {MIN_POSITIONS_FOR_RELIABLE} parsed positions are also
           flagged. Only calendar quarter-ends shown.
         </div>
@@ -627,7 +612,7 @@ export default function CreditPage() {
         </h2>
         <CreditHeatmap
           title="% of cost on non-accrual"
-          description="NA-flagged positive amortized cost divided by all positive-cost positions in the accepted schedule, where flag coverage is complete. This is not a debt-only denominator. MFIC uses its disclosed issuer rate; missing coverage stays unknown. Cells colored 0% → 2% → 5% → ≥10%."
+          description="NA-flagged positive amortized cost divided by all positive-cost positions in the accepted schedule, where flag coverage is complete. This is not a debt-only denominator. MFIC uses its disclosed issuer rate; missing coverage and unresolved reconciliation stay unknown. Cells colored 0% → 2% → 5% → ≥10%."
           periods={periods}
           tickers={tickers}
           cellMap={naMap}
@@ -638,7 +623,7 @@ export default function CreditPage() {
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry non-accrual rate</div>
-          <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>USD cost-weighted ratio across issuer quarters with fully decoded position NA flags. The denominator includes all positive-cost positions in those accepted schedules. MFIC aggregate-only disclosures and incomplete flag coverage are excluded; coverage can change by quarter.</p>
+          <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>USD cost-weighted ratio across issuer quarters with fully decoded position NA flags. The denominator includes all positive-cost positions in those accepted schedules. Aggregate-only disclosures, incomplete flag coverage and reviewed reconciliation exclusions are omitted from both the NA numerator and denominator; coverage can change by quarter.</p>
           <CreditLensChart
             data={naLine}
             yLabel="% non-accrual (industry)"
@@ -836,74 +821,13 @@ export default function CreditPage() {
         <ModificationEventsTable events={modificationEvents} />
       </section>
 
-      {/* Section 4b — Forward queue: per-BDC implied NA formation.
-          Companion to the cash→PIK table above: mods are the stress ACTIONS
-          managers took this quarter; this is the validated FORWARD view. */}
       <section id="forward-queue" className="mb-12 scroll-mt-6">
-        <h2 className="text-lg font-semibold text-white mb-3">
-          Forward queue: implied non-accrual formation{" "}
-          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            next 2 quarters, as of {ewsMeta.as_of}
-          </span>
-        </h2>
-        <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <p className="text-xs mb-4 max-w-4xl" style={{ color: "#9ca3af" }}>
-            The modification tables above show the stress <span className="text-white">actions</span>{" "}
-            managers took this quarter; this is the validated <span className="text-white">forward</span>{" "}
-            view. Every pre-non-accrual loan is scored on out-of-sample-tested signals (mark level,
-            mark velocity, cash→PIK flips, cross-holder NA divergence), then converted to expected
-            non-accrual formation using the measured hit rate of each score bucket
-            ({ewsMeta.validation_buckets.map((b) => `${b.bucket}: ${b.hit_rate_pct}%`).join(" · ")} went
-            NA within 2 quarters on 2024–25 data the fit never saw). Per-loan queue and full method on
-            the <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Watchlist</Link>.
-          </p>
-          <div className="space-y-1.5">
-            {(() => {
-              const rows = ewsByBdc.filter((r) => r.ticker !== "industry");
-              const ind = ewsByBdc.find((r) => r.ticker === "industry");
-              const maxPct = Math.max(...rows.map((r) => r.implied_na_2q_pct));
-              return (
-                <>
-                  {rows.map((r) => (
-                    <div key={r.ticker} className="flex items-center gap-3 text-sm">
-                      <Link href={`/bdcs/${r.ticker.toLowerCase()}`}
-                        className="w-14 font-mono text-xs text-indigo-300 hover:text-indigo-200">
-                        {r.ticker}
-                      </Link>
-                      <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
-                        <div className="h-full rounded-full" style={{
-                          width: `${(100 * r.implied_na_2q_pct) / maxPct}%`,
-                          background: r.implied_na_2q_pct >= (ind?.implied_na_2q_pct ?? 0) * 1.25
-                            ? "#ef4444" : r.implied_na_2q_pct >= (ind?.implied_na_2q_pct ?? 0)
-                            ? "#f59e0b" : "#6366f1",
-                        }} />
-                      </div>
-                      <span className="w-14 text-right tabular-nums font-semibold text-white">
-                        {r.implied_na_2q_pct.toFixed(2)}%
-                      </span>
-                      <span className="w-24 text-right tabular-nums text-xs" style={{ color: "#9ca3af" }}>
-                        ${r.implied_na_2q_m.toFixed(0)}M impl.
-                      </span>
-                      <span className="hidden sm:inline w-44 text-right tabular-nums text-xs whitespace-nowrap" style={{ color: "#6b7280" }}>
-                        {r.n_hi} hi-score · {r.pct_book_hi.toFixed(1)}% of book
-                      </span>
-                    </div>
-                  ))}
-                  {ind && (
-                    <p className="text-xs pt-2" style={{ color: "#6b6b88" }}>
-                      Industry reference: {ind.implied_na_2q_pct.toFixed(2)}% of the eligible
-                      (pre-non-accrual) book, ${(ind.implied_na_2q_m / 1000).toFixed(1)}B implied across{" "}
-                      {ind.n_scored.toLocaleString()}{" "}
-                      positions. Bars are % of each BDC&apos;s own eligible
-                      debt book — red ≥1.25× industry, amber ≥industry. MFIC&apos;s SOI lacks per-position
-                      NA flags, so its score uses mark/PIK signals only.
-                    </p>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        </div>
+        <OutcomeEvidenceNotice title="Non-accrual formation forecasts pending validation">
+          Implied formation rates and historical model hit rates are withheld while the corrected sources,
+          identities and unknown outcomes are incorporated into fresh time-based validation. The
+          <Link href="/watchlist" className="text-indigo-300 underline"> watchlist</Link> remains a review screen
+          of reported marks and observed signals, without a validated probability of future non-accrual.
+        </OutcomeEvidenceNotice>
       </section>
 
       {/* Section 5 — Asset composition (moved below modifications) */}
@@ -1359,69 +1283,12 @@ export default function CreditPage() {
         />
       </section>
 
-      {/* Section 10 — PIK cascade (loan-tranche level) */}
       <section id="pik-cascade" className="mb-12 scroll-mt-6">
-        <h2 className="text-lg font-semibold text-white mb-3">
-          PIK cascade <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            · what happens to a loan 4 quarters after it flips cash → PIK
-          </span>
-        </h2>
-        <SortableTable
-          data={cascadeRows}
-          rowKey={(r) => r.year}
-          dense
-          initialSort={{ key: "year", dir: "desc" }}
-          emptyMessage="Insufficient longitudinal cash → PIK observations yet (need more quarters of consecutive loan-tranche data)."
-          headerSlot={
-            <div className="px-5 py-4 flex items-start justify-between gap-3">
-              <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
-                For every loan-tranche we observed switching from cash-pay to PIK, where was it
-                4 quarters later? Tracked at the <b>loan_id</b> level so a borrower with multiple
-                tranches gets attributed to each tranche&apos;s separate fate.{" "}
-                <b>Still PIK · distress</b> (mark &lt; 80¢) is the worst outcome; <b>cured</b> means
-                the loan went back to cash-pay; <b>exited</b> means it left our parsed data (refi,
-                write-off, sale, or paydown — we can&apos;t distinguish without realized-loss
-                tracking). Cohorts with fewer than 10 flips omitted. Rows where the flip is too
-                recent to have full T+4 follow-up are dimmed.
-              </p>
-              <CsvDownloadButton
-                filename="credit-pik-cascade-by-year"
-                columns={["flip_year", "n_tranches", "pct_cured", "pct_pik_strong", "pct_pik_weak", "pct_pik_distress", "pct_exited", "follow_up_incomplete"]}
-                rows={cascadeRows.map((r) => [
-                  r.year, r.flips, r.pct_cured, r.pct_pik_strong,
-                  r.pct_pik_weak, r.pct_pik_distress, r.pct_exited,
-                  r.incomplete ? 1 : 0,
-                ])}
-              />
-            </div>
-          }
-          columns={[
-            { key: "year", label: "Flip year", render: (r) => (
-              <span style={{ opacity: r.incomplete ? 0.55 : 1 }}>
-                <span className="font-mono" style={{ color: "#d1d5db" }}>{r.year}</span>
-                {r.incomplete && <span className="ml-1 text-[10px]" style={{ color: "#fdba74" }}>(follow-up incomplete)</span>}
-              </span>
-            ) },
-            { key: "flips", label: "# tranches", align: "right", render: (r) => (
-              <span className="font-mono" style={{ color: "#fafafa", opacity: r.incomplete ? 0.55 : 1 }}>{r.flips}</span>
-            ) },
-            { key: "pct_cured", label: "% cured", align: "right", render: (r) => (
-              <span className="font-mono" style={{ color: "#86efac", opacity: r.incomplete ? 0.55 : 1 }}>{r.pct_cured.toFixed(1)}%</span>
-            ) },
-            { key: "pct_pik_strong", label: "% PIK · steady (≥90¢)", align: "right", render: (r) => (
-              <span className="font-mono" style={{ color: "#fde68a", opacity: r.incomplete ? 0.55 : 1 }}>{r.pct_pik_strong.toFixed(1)}%</span>
-            ) },
-            { key: "pct_pik_weak", label: "% PIK · weak (80–90¢)", align: "right", render: (r) => (
-              <span className="font-mono" style={{ color: "#fdba74", opacity: r.incomplete ? 0.55 : 1 }}>{r.pct_pik_weak.toFixed(1)}%</span>
-            ) },
-            { key: "pct_pik_distress", label: "% PIK · distress (<80¢)", align: "right", render: (r) => (
-              <span className="font-mono font-semibold" style={{ color: "#fca5a5", opacity: r.incomplete ? 0.55 : 1 }}>{r.pct_pik_distress.toFixed(1)}%</span>
-            ) },
-            { key: "pct_exited", label: "% exited", align: "right", render: (r) => (
-              <span className="font-mono" style={{ color: "#9ca3af", opacity: r.incomplete ? 0.55 : 1 }}>{r.pct_exited.toFixed(1)}%</span>
-            ) },
-          ] as Column<typeof cascadeRows[number]>[]}
-        />
+        <OutcomeEvidenceNotice title="PIK follow-up outcomes pending validation">
+          Four-quarter outcome percentages are withheld until cohorts have a complete calendar follow-up window
+          and missing observations and marks are kept unknown. A missing loan does not establish an exit or cure;
+          a missing mark does not establish a healthy exposure. Current PIK exposures and observed changes remain above.
+        </OutcomeEvidenceNotice>
       </section>
 
       <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>

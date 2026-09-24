@@ -14,7 +14,7 @@ const fmtUSD = (v: number) => {
 };
 
 type SortDir = "asc" | "desc";
-type SortKey = keyof SponsorIndex;
+type SortKey = Exclude<keyof SponsorIndex, "pct_exits_distress" | "realized_loss_usd" | "n_exits" | "n_distress">;
 
 // Higher values are WORSE for credit metrics; flip the color scale on these.
 const NEGATIVE_KEYS = new Set<SortKey>([
@@ -23,7 +23,6 @@ const NEGATIVE_KEYS = new Set<SortKey>([
   "pct_non_accrual",
   "pct_pik_now",
   "pct_modified",
-  "pct_exits_distress",
 ]);
 
 // Sponsors with fewer than this many attributed borrowers get a muted /
@@ -76,7 +75,7 @@ export default function SponsorsIndexPage() {
   const totalCompanies = rows.reduce((s, r) => s + r.n_companies, 0);
   const indexedWithSponsor = borrowers.filter((b) => b.sponsors).length;
 
-  const SortBtn = ({
+  const renderSortButton = ({
     k,
     label,
     align = "left",
@@ -177,7 +176,8 @@ export default function SponsorsIndexPage() {
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
             Click any column header to sort. Credit metrics are debt-only and weighted
             by position count across the latest snapshot per (BDC, borrower, loan).
-            Higher = more stress on the credit columns.
+            Higher = more stress on the credit columns. Exit outcomes and realized losses are withheld:
+            disappearance from a schedule and the last reported mark do not establish disposition proceeds.
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -185,68 +185,68 @@ export default function SponsorsIndexPage() {
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
                 <th className="px-4 py-3 text-left">
-                  <SortBtn k="sponsor" label="Sponsor" />
+                  {renderSortButton({ k: "sponsor", label: "Sponsor" })}
                 </th>
                 <th className="px-3 py-3 text-right">
-                  <SortBtn k="n_companies" label="Cos" align="right" />
+                  {renderSortButton({ k: "n_companies", label: "Cos", align: "right" })}
                 </th>
                 <th className="px-3 py-3 text-right">
-                  <SortBtn k="n_positions" label="Positions" align="right" />
+                  {renderSortButton({ k: "n_positions", label: "Positions", align: "right" })}
                 </th>
                 <th className="px-3 py-3 text-right">
-                  <SortBtn k="avg_holders" label="Avg holders" align="right" />
+                  {renderSortButton({ k: "avg_holders", label: "Avg holders", align: "right" })}
                 </th>
                 <th className="px-3 py-3 text-right">
-                  <SortBtn k="total_fv" label="Agg FV" align="right" />
+                  {renderSortButton({ k: "total_fv", label: "Agg FV", align: "right" })}
                 </th>
                 <th
                   className="px-3 py-3 text-right border-l"
                   style={{ borderColor: "#1e1e2e", background: "rgba(239,68,68,0.04)" }}
                   title="% of debt positions marked below 95¢ on the dollar"
                 >
-                  <SortBtn k="pct_below_95" label="< 95¢" align="right" />
+                  {renderSortButton({ k: "pct_below_95", label: "< 95¢", align: "right" })}
                 </th>
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.04)" }}
                   title="% of debt positions marked below 90¢ on the dollar"
                 >
-                  <SortBtn k="pct_below_90" label="< 90¢" align="right" />
+                  {renderSortButton({ k: "pct_below_90", label: "< 90¢", align: "right" })}
                 </th>
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.04)" }}
                   title="% of debt positions tagged non-accrual at the position level (MFIC excluded — aggregate-only NA reporting)"
                 >
-                  <SortBtn k="pct_non_accrual" label="Non-accrual" align="right" />
+                  {renderSortButton({ k: "pct_non_accrual", label: "Non-accrual", align: "right" })}
                 </th>
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.04)" }}
                   title="% of debt positions currently paying any PIK"
                 >
-                  <SortBtn k="pct_pik_now" label="PIK now" align="right" />
+                  {renderSortButton({ k: "pct_pik_now", label: "PIK now", align: "right" })}
                 </th>
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.04)" }}
                   title="% of debt positions whose loan flipped from cash-pay to PIK during our observation window"
                 >
-                  <SortBtn k="pct_modified" label="Modified" align="right" />
+                  {renderSortButton({ k: "pct_modified", label: "Modified", align: "right" })}
                 </th>
                 <th
                   className="px-3 py-3 text-right border-l"
                   style={{ borderColor: "#1a1a28", background: "rgba(239,68,68,0.06)" }}
-                  title="Lifetime league table: of this sponsor's COMPLETED exits across our BDC panel, the share that ended in distress (ever non-accrual, exited below 85¢, or write-off pattern)"
+                  title="Withheld pending evidence of disposition and outcome"
                 >
-                  <SortBtn k="pct_exits_distress" label="Distress exits" align="right" />
+                  <span className="text-xs text-gray-400">Exit outcomes</span>
                 </th>
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.06)" }}
-                  title="Realized-loss proxy summed over the sponsor's distress exits (last fair value minus cost at exit), USD"
+                  title="Withheld: last reported fair value is not realized proceeds"
                 >
-                  <SortBtn k="realized_loss_usd" label="Realized loss" align="right" />
+                  <span className="text-xs text-gray-400">Realized loss</span>
                 </th>
               </tr>
             </thead>
@@ -322,16 +322,11 @@ export default function SponsorsIndexPage() {
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono border-l"
-                    style={{ borderColor: "#1a1a28",
-                             color: s.n_exits < 3 ? "#6b6b88" : pctColor(s.pct_exits_distress, "pct_exits_distress", thin) }}
-                    title={`${s.n_distress ?? 0} distress of ${s.n_exits} completed exits${s.n_exits < 3 ? " — too few exits to read" : ""}`}
-                  >
-                    {s.n_exits === 0 ? "—" : `${s.pct_exits_distress.toFixed(0)}%`}
-                    <span className="ml-1 text-xs" style={{ color: "#6b6b88" }}>({s.n_exits})</span>
-                  </td>
-                  <td className="px-3 py-3 text-right text-sm font-mono" style={{ color: numColor }}>
-                    {s.realized_loss_usd > 0 ? fmtUSD(s.realized_loss_usd) : "—"}
-                  </td>
+                    style={{ borderColor: "#1a1a28", color: "#6b6b88" }}
+                    title="Outcome evidence pending validation"
+                  >—</td>
+                  <td className="px-3 py-3 text-right text-sm font-mono" style={{ color: "#6b6b88" }}
+                    title="Realized proceeds have not been established">—</td>
                 </tr>
                 );
               })}

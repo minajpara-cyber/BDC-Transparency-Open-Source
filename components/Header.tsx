@@ -5,6 +5,7 @@ import { TrendingUp, Menu, X, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import SiteSearch from "@/components/SiteSearch";
 import { siteMeta } from "@/data/site_meta";
+import { dataReleaseId } from "@/lib/dataRelease";
 
 type NavLeaf = { href: string; label: string };
 type NavNode = NavLeaf & { children?: NavLeaf[] };
@@ -117,7 +118,8 @@ export default function Header() {
           <div className="hidden md:flex items-center gap-3">
             <SiteSearch />
             <div className="flex items-center gap-1.5 text-xs whitespace-nowrap" style={{ color: "#8b8ba8" }}
-              title={`Latest quarter ends ${siteMeta.latest_period} · data regenerated ${siteMeta.generated_at} · ${siteMeta.n_filings} filings parsed`}>
+              title={`Latest accepted quarter ends ${siteMeta.latest_period} · data release ${siteMeta.generated_at} · ${siteMeta.n_filings} selected filings`}
+              data-release-id={dataReleaseId}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-slow" />
               {siteMeta.latest_quarter}
             </div>
@@ -148,7 +150,8 @@ export default function Header() {
               </Link>
             ))}
             <div className="px-4 py-2 text-xs" style={{ color: "#6b7280" }}>
-              Data through {siteMeta.latest_quarter} · refreshed {siteMeta.generated_at}
+              Data through {siteMeta.latest_quarter} · data release {siteMeta.generated_at}
+              {dataReleaseId && <a href="/data-release.json" className="ml-2 underline">Release details</a>}
             </div>
           </div>
         )}

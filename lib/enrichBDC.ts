@@ -16,7 +16,35 @@ import { bdcsHistory, BDCQuarter } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
 import { hasReportedSize } from "@/lib/quarterCoverage";
 
-export interface BDCEnriched extends Omit<BDC, "nonAccrualRate"> {
+// Optional while older generated snapshots are still in use.
+export interface NonAccrualPublicationMetadata {
+  na_basis?: string;
+  na_publication_status?: string;
+  na_publication_reason?: string;
+}
+
+export function naPublicationDisplay(metadata: NonAccrualPublicationMetadata = {}) {
+  const status = metadata.na_publication_status;
+  if (status === "withheld_reconciliation") return {
+    label: "Reconciliation pending",
+    description: metadata.na_publication_reason ?? "The non-accrual ratio is withheld while its numerator and denominator are reconciled.",
+  };
+  if (status === "disclosed_aggregate" || metadata.na_basis === "issuer_reported_total_investments") return {
+    label: status === "unavailable_coverage" ? "Disclosure unavailable" : metadata.na_basis === "issuer_reported_investments_excluding_cash" ? "Issuer disclosure · excludes cash" : "Issuer disclosure",
+    description: metadata.na_publication_reason ?? "Issuer-disclosed non-accrual share of total investments; no position-level status is inferred.",
+  };
+  if (status === "derived_panel") return {
+    label: "Parsed positions",
+    description: metadata.na_publication_reason ?? "Decoded non-accrual cost divided by positive-cost parsed investments across investment classes; issuer disclosures may use a different scope.",
+  };
+  if (status === "unavailable_coverage") return {
+    label: "Coverage incomplete",
+    description: metadata.na_publication_reason ?? "Missing position status or denominator prevents a supported ratio.",
+  };
+  return { label: "Basis not specified", description: "This snapshot does not supply non-accrual basis metadata." };
+}
+
+export interface BDCEnriched extends Omit<BDC, "nonAccrualRate">, NonAccrualPublicationMetadata {
   nonAccrualRate: number | null;
   asOf?: string;                  // 'YYYY-MM-DD' from parsed data
   parsed?: boolean;               // true if overlay values came from our parser
@@ -48,17 +76,21 @@ export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriche
   // portfolio. ADS, MAIN, OCIC, OCSL, CCAP and BCRED each have such rows.
   const rows = all.filter(hasReportedSize);
   if (rows.length === 0) return bdc;
-  const latest = rows[rows.length - 1];
-  const prior = rows.length >= 2 ? rows[rows.length - 2] : null;
+  const latest = rows[rows.length - 1] as BDCQuarter & NonAccrualPublicationMetadata;
+  const prior = rows.length >= 2 ? rows[rows.length - 2] as BDCQuarter & NonAccrualPublicationMetadata : null;
+  const comparableNaBasis = latest.na_basis === prior?.na_basis;
   return {
     ...bdc,
     portfolioFairValue: latest.total_fv_b,
     nonAccrualRate: latest.na_pct_at_cost,
+    na_basis: latest.na_basis,
+    na_publication_status: latest.na_publication_status,
+    na_publication_reason: latest.na_publication_reason,
     pikRate: latest.pik_pct_at_cost,
     asOf: latest.period_end,
     parsed: true,
     delta_fv_b:   prior ? latest.total_fv_b      - prior.total_fv_b      : null,
-    delta_na_pct: prior && latest.na_pct_at_cost != null && prior.na_pct_at_cost != null
+    delta_na_pct: prior && comparableNaBasis && latest.na_pct_at_cost != null && prior.na_pct_at_cost != null
       ? latest.na_pct_at_cost - prior.na_pct_at_cost : null,
     delta_pik_pct: prior ? latest.pik_pct_at_cost - prior.pik_pct_at_cost : null,
   };

@@ -9,6 +9,7 @@
 // off its CASH-FLOW statement — the non-cash adjustments every BDC must print to
 // reconcile net increase in net assets to operating cash.
 import { useMemo, useState } from "react";
+import OutcomeEvidenceNotice from "@/components/OutcomeEvidenceNotice";
 import CreditNav from "@/components/CreditNav";
 import StatCard from "@/components/StatCard";
 import CreditHeatmap from "@/components/CreditHeatmap";
@@ -16,29 +17,17 @@ import IncomeTrendChart from "@/components/IncomeTrendChart";
 import DividendCoverageTable from "@/components/DividendCoverageTable";
 import IncomeMixChart from "@/components/IncomeMixChart";
 import { incomeTtm, incomeQuarterly, incomeUniverse, incomeMeta } from "@/data/income_coverage";
-import DefaultRateChart from "@/components/DefaultRateChart";
-import DefaultRateTable from "@/components/DefaultRateTable";
 import DividendSupportTable from "@/components/DividendSupportTable";
 import NavPerShareChart from "@/components/NavPerShareChart";
-import { defaultRates, defaultRateUniverse } from "@/data/default_rate";
 import { dividendSupport, navPerShare } from "@/data/dividend_support";
-import PikLedgerTable from "@/components/PikLedgerTable";
-import PikLedgerYearChart from "@/components/PikLedgerYearChart";
-import PikStockChart from "@/components/PikStockChart";
-import { pikLedger, pikLedgerByYear, pikLedgerQuarterly, pikLedgerMeta } from "@/data/pik_ledger";
 
-type HeatMetric = "pik_pct_nii" | "net_pik_pct_nii" | "pik_pct_tii" | "noncash_pct_nii" | "gap";
+type HeatMetric = "pik_pct_nii" | "pik_pct_tii" | "noncash_pct_nii" | "gap";
 
 const HEAT: Record<HeatMetric, { label: string; desc: string; thresholds: [number, number, number] }> = {
   pik_pct_nii: {
     label: "PIK % of NII",
     desc: "PIK income as a share of net investment income, trailing four quarters. Colored 10% → 25% → 40%+.",
     thresholds: [10, 25, 40],
-  },
-  net_pik_pct_nii: {
-    label: "PIK net of recapture, % of NII",
-    desc: "PIK income less the PIK collected in cash within the same four quarters, as a share of NII. Recapture is reported by ARCC and ASIF; elsewhere it is estimated from loans that left the book or were refinanced at par — a floor, so these values are ceilings. Estimates start at end-2019. Colored 5% → 12% → 20%+.",
-    thresholds: [5, 12, 20],
   },
   pik_pct_tii: {
     label: "PIK % of total income",
@@ -98,30 +87,6 @@ export default function IncomePage() {
   const worstCash = [...latest].sort((a, b) => (a.cov_ex_pik ?? 9) - (b.cov_ex_pik ?? 9)).slice(0, 3);
 
   const arcc = latest.find((r) => r.ticker === "ARCC");
-  const drLatest = useMemo(() => {
-    const m = new Map<string, (typeof defaultRates)[number]>();
-    for (const r of defaultRates) {
-      const cur = m.get(r.ticker);
-      if (!cur || r.period_end > cur.period_end) m.set(r.ticker, r);
-    }
-    return [...m.values()];
-  }, []);
-  const drU = defaultRateUniverse[defaultRateUniverse.length - 1];
-  const drU1y = defaultRateUniverse.find((u) => u.period_end === shiftYears(drU.period_end, -1));
-  const drPoolN = defaultRateUniverse.filter((u) => u.period_end >= "2019-12-31").map((u) => u.n_bdcs);
-  const drPool = { min: Math.min(...drPoolN), last: drU.n_bdcs };
-  // PIK ledger: the BDCs with the most uncollected PIK relative to their book
-  // open the stock chart; the seasoned-year sentence uses the year six years
-  // before the latest one, old enough for most of its PIK to have resolved.
-  const stockDefault = [...pikLedger]
-    .sort((a, b) => (b.unresolved_pct_book ?? 0) - (a.unresolved_pct_book ?? 0))
-    .slice(0, 4).map((r) => r.ticker);
-  const arccLedger = pikLedger.find((r) => r.ticker === "ARCC");
-  const ledgerYear = pikLedgerMeta.latest_period.slice(0, 4);
-  const seasonedYear = String(Number(ledgerYear) - 6);
-  const seasoned = pikLedgerByYear.find((r) => r.year === seasonedYear);
-  const inBookPct = (pikLedgerMeta.pooled_in_book_performing_pct ?? 0) + (pikLedgerMeta.pooled_in_book_impaired_pct ?? 0);
-  const windowYear = pikLedgerMeta.window_start.slice(0, 4);
   const navDefault = [...dividendSupport].sort((a, b) => (a.nav_chg_3y ?? 0) - (b.nav_chg_3y ?? 0))
     .slice(0, 3).map((r) => r.ticker).concat(["MAIN", "HTGC"]);
   const trendDefault = tickers.slice(0, 5);
@@ -132,7 +97,7 @@ export default function IncomePage() {
       <CreditNav />
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2 flex-wrap">
-          <h1 className="text-2xl font-bold text-white">PIK income, defaults &amp; dividend coverage</h1>
+          <h1 className="text-2xl font-bold text-white">PIK income &amp; dividend coverage</h1>
           <span className="px-2 py-1 rounded text-xs font-medium"
             style={{ background: "#1a1a28", color: "#a5b4fc", border: "1px solid #2d2d50" }}>
             trailing four quarters to {incomeMeta.latest_period}
@@ -194,63 +159,22 @@ export default function IncomePage() {
           <IncomeTrendChart
             rows={incomeTtm}
             universe={incomeUniverse}
-            metric={metric === "net_pik_pct_nii" ? "net_pik_pct_nii" : "pik_pct_nii"}
-            from={metric === "net_pik_pct_nii" ? "2019-12-31" : undefined}
+            metric="pik_pct_nii"
             defaultTickers={trendDefault}
-            title={metric === "net_pik_pct_nii" ? "PIK net of recapture as % of NII over time" : "PIK as % of NII over time"}
-            subtitle={metric === "net_pik_pct_nii"
-              ? "PIK income less the PIK that came back as cash in the same four quarters. ARCC and ASIF report their collections; the rest are estimated from exits and refinancings at par, a floor. The five most PIK-dependent BDCs today against the median BDC."
-              : "The five most PIK-dependent BDCs today against the median BDC. Toggle any BDC on or off."}
+            title="PIK as % of NII over time"
+            subtitle="The five most PIK-dependent BDCs today against the median BDC. Toggle any BDC on or off."
           />
         </div>
       </section>
 
       <section id="defaults" className="mb-12 scroll-mt-6">
-        <h2 className="text-lg font-semibold text-white mb-3">
-          Default rate{" "}
-          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· including the defaults that do not look like defaults</span>
-        </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          <StatCard label="Shadow default rate — last 12 months" value={`${drU.default_rate.toFixed(1)}%`}
-            sub={drU1y ? `${drU1y.default_rate.toFixed(1)}% a year earlier · all BDCs pooled, by $` : "all BDCs pooled, by $"}
-            color="#f97316" highlight />
-          <StatCard label="Hard default rate" value={`${drU.hard_rate.toFixed(1)}%`}
-            sub="new non-accruals + distressed exits only" color="#ef4444" />
-          <StatCard label="Shadow rate by borrower count" value={`${drU.count_rate.toFixed(1)}%`}
-            sub={`hard rate by count ${drU.count_rate_hard.toFixed(1)}%`} color="#fde68a" />
-          <StatCard label="Non-accrual stock today" value={`${drU.na_stock_pct.toFixed(1)}%`}
-            sub="point in time, % of cost — not a rate" color="#6b7280" />
-        </div>
-        <DefaultRateChart data={defaultRateUniverse} />
-        <div className="mt-4">
-          <DefaultRateTable rows={drLatest} />
-        </div>
-        <div className="rounded-xl border p-5 mt-4 text-xs leading-relaxed" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#8b8ba8" }}>
-          <div className="text-sm font-semibold text-white mb-2">Why published default rates disagree</div>
-          <p className="mb-2">
-            The same loan book can honestly produce a &quot;default rate&quot; anywhere from{" "}
-            {Math.min(drU.na_stock_pct, drU.hard_rate, drU.count_rate_hard).toFixed(1)}% to{" "}
-            {Math.max(drU.default_rate, drU.count_rate).toFixed(1)}%, depending on five choices. <span className="text-white">Stock or flow:</span>{" "}the share of the book
-            on non-accrual today ({drU.na_stock_pct.toFixed(1)}%) is not a default rate; the share of performing
-            loans that defaulted over a year is. <span className="text-white">What counts:</span>{" "}hard defaults
-            ({drU.hard_rate.toFixed(1)}%) versus a &quot;shadow&quot; rate that adds lenders&apos; workarounds —
-            switching a struggling borrower to PIK, extending its maturity at a distressed mark, cutting principal,
-            swapping debt for equity ({drU.default_rate.toFixed(1)}%). <span className="text-white">Dollars or
-            borrowers:</span>{" "}a count-based rate ({drU.count_rate.toFixed(1)}%) weights a $5m loan like a $500m
-            one. <span className="text-white">Whose book:</span>{" "}BDCs, private credit funds and broadly syndicated
-            loans have different borrowers. <span className="text-white">Timing:</span>{" "}lenders place loans on
-            non-accrual at different points in a borrower&apos;s decline.
-          </p>
-          <p>
-            <span className="text-white">How this one is built.</span> Every borrower that was performing twelve months
-            earlier is followed through the year at the same BDC; it counts once, under its first event. A PIK
-            amendment counts only when PIK becomes at least a fifth of the coupon after at least two cash-pay quarters,
-            and a modification only when it touches at least a quarter of the borrower&apos;s debt at that BDC. MFIC
-            reports non-accruals only in aggregate, so its rate is partial. The chart starts at the end of 2019; the
-            pool holds as few as {drPool.min} BDCs in the early years and {drPool.last} today, so early points rest
-            on fewer books. The 2020 peak is the COVID wave of PIK amendments.
-          </p>
-        </div>
+        <OutcomeEvidenceNotice title="Default rates pending outcome validation">
+          Disappearance from a filing and a low last reported mark do not establish a default or a realized loss.
+          The former hard and shadow default estimates are withheld while event evidence and observation coverage
+          are reviewed. <a className="text-indigo-300 underline" href="/non-accruals">Reported non-accruals</a> and
+          <a className="text-indigo-300 underline" href="/vintage"> observed cohort bounds</a> remain available with
+          their coverage limits.
+        </OutcomeEvidenceNotice>
       </section>
 
       <section id="coverage" className="mb-12 scroll-mt-6">
@@ -273,65 +197,17 @@ export default function IncomePage() {
       </section>
 
       <section id="pik-ledger" className="mb-12 scroll-mt-6">
-        <h2 className="text-lg font-semibold text-white mb-3">
-          Where did the PIK go?{" "}
-          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· the PIK booked since {windowYear}, followed loan by loan</span>
-        </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-          <StatCard label={`PIK booked since ${windowYear}`} value={`$${(pikLedgerMeta.pooled_accrued_bn ?? 0).toFixed(1)}bn`}
-            sub={`${pikLedgerMeta.n_bdcs} BDCs, from the cash-flow statements`} color="#a5b4fc" highlight />
-          <StatCard label="Collected" value={`${(pikLedgerMeta.pooled_collected_pct ?? 0).toFixed(0)}%`}
-            sub="repaid on exit or refinanced at par — a floor" color="#86efac" />
-          <StatCard label="Still in the book" value={`${inBookPct.toFixed(0)}%`}
-            sub={`${(pikLedgerMeta.pooled_in_book_impaired_pct ?? 0).toFixed(0)} points of it in impaired loans`} color="#fcd34d" />
-          <StatCard label="Lost" value={`${(pikLedgerMeta.pooled_lost_pct ?? 0).toFixed(0)}%`}
-            sub="unrecovered on exits below par" color="#fca5a5" />
-        </div>
-        <PikLedgerYearChart rows={pikLedgerByYear} latestYear={ledgerYear} />
-        <div className="mt-4">
-          <PikLedgerTable rows={pikLedger} />
-        </div>
-        <div className="mt-4">
-          <PikStockChart points={pikLedgerQuarterly} defaultTickers={stockDefault} />
-        </div>
-        <div className="rounded-xl border p-5 mt-4 text-xs leading-relaxed" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#8b8ba8" }}>
-          <div className="text-sm font-semibold text-white mb-2">How this is measured — and why it is a floor</div>
-          <p className="mb-2">
-            A BDC that books a third of its NII as PIK for years is only fine if that PIK keeps turning into cash later:
-            the loan is repaid or refinanced and the capitalized PIK comes back as principal. The cash-flow statement gives
-            the PIK booked each quarter; the schedule of investments gives every loan&apos;s PIK rate. Rate × principal
-            reproduces the statement figure closely for most BDCs
-            {arccLedger?.loan_coverage_of_statement != null ? ` (ARCC: ${(100 * arccLedger.loan_coverage_of_statement).toFixed(0)}% of it)` : ""},
-            so each quarter&apos;s statement PIK is allocated to the loans it accrued on, and each loan is followed to its
-            outcome.
-          </p>
-          <p className="mb-2">
-            <span className="text-white">Collected is measured on exits and refinancings.</span>{" "}A loan that
-            left the book at a mark of 97¢ or better repaid its capitalized PIK as principal — including loans
-            refinanced at par at the same BDC, where the old loan is repaid from the new facility. PIK paid in cash
-            while a loan stays on the book — partial paydowns, PIK toggles switching to cash — is invisible in the
-            schedule, so the collected share is a floor, but a close one
-            {arccLedger?.reported_collected_last4q_m != null
-              ? `: ARCC reports $${arccLedger.reported_collected_last4q_m.toFixed(0)}m of PIK collected over the last four quarters, and exits plus refinancings account for $${arccLedger.collected_last4q_m.toFixed(0)}m of it`
-              : ""}. Over 2019–25, exits alone explained 60% of ARCC&apos;s reported collections; with refinancings, 94%.
-          </p>
-          <p>
-            <span className="text-white">Reading the maturation curve.</span>{" "}
-            {seasoned
-              ? `Of the PIK booked in ${seasonedYear}, ${(seasoned.collected_pct ?? 0).toFixed(0)}% has been collected, ${(seasoned.lost_pct ?? 0).toFixed(0)}% lost and ${((seasoned.in_book_performing_pct ?? 0) + (seasoned.in_book_impaired_pct ?? 0)).toFixed(0)}% is still in the book six years later. `
-              : ""}
-            The newest PIK is almost all still in the book, which is expected; the question is whether the older years
-            keep converting. PIK booked before {windowYear} is not tracked, so the uncollected stock is a floor in each
-            BDC&apos;s early years. NMFC (†) prints only a broader non-cash income line, so its loan-level dollars are
-            used unscaled; OCSL&apos;s statement PIK is net of cash collected, a floor.
-          </p>
-        </div>
+        <OutcomeEvidenceNotice title="PIK collection and loss allocation pending validation">
+          PIK income is reported above. Allocations to collected, lost, or still outstanding are withheld:
+          a loan leaving the schedule, even near par, does not establish cash proceeds or how much PIK was recovered.
+          Separately reported PIK collections remain available where the issuer discloses them.
+        </OutcomeEvidenceNotice>
       </section>
 
       <section id="dividend-support" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           Dividend support{" "}
-          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· cushions, NAV trend and warning signs</span>
+          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· coverage, cushions and NAV trend</span>
         </h2>
         <DividendSupportTable rows={dividendSupport} />
         <div className="mt-4">
@@ -350,24 +226,13 @@ export default function IncomePage() {
         <div className="rounded-xl border p-5 text-xs leading-relaxed" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#8b8ba8" }}>
           <div className="text-sm font-semibold text-white mb-2">How to read it — and what it does not say</div>
           <p className="mb-2">
-            <span className="text-white">PIK is not lost income.</span>{" "}Most PIK is eventually paid when the
-            loan is refinanced or repaid, and a few filers show those collections separately
+            <span className="text-white">PIK income is not a realized outcome.</span>{" "}Booking PIK does not
+            establish a loss or a later cash collection. Some filers disclose PIK collections separately
             {arcc && arcc.pik_collected_m != null
-              ? ` (ARCC collected $${arcc.pik_collected_m.toFixed(0)}m of PIK in cash against $${arcc.pik_m.toFixed(0)}m accrued over the last four quarters)`
-              : ""}. The &quot;Where did the PIK go?&quot; section above follows every PIK loan since {windowYear} to
-            see how much actually came back. Cash coverage below 1.0x means
-            the dividend currently relies on income that will arrive later — or not at all if the borrower
-            fails. That is the risk this tab sizes; the stress slider and the severe-PIK column put numbers
-            on it. Severe PIK is PIK making up more than half a loan&apos;s coupon, or all of it — the
-            borrowers least likely to be paying for choice.
-          </p>
-          <p className="mb-2">
-            <span className="text-white">PIK net of recapture.</span>{" "}A mature book recycles PIK: loans with
-            capitalized PIK get repaid or refinanced and the PIK comes back as cash. The &quot;net of recapture&quot;
-            measures take that year&apos;s collections out first — ARCC&apos;s reported line where it exists, otherwise
-            the PIK on loans that left the book or were refinanced at par in the same four quarters. The estimate is
-            a floor (exits plus refinancings explain 94% of ARCC&apos;s reported collections over 2019–25), so the
-            net PIK share is a ceiling for the BDCs that do not report it.
+              ? ` (ARCC reported $${arcc.pik_collected_m.toFixed(0)}m collected against $${arcc.pik_m.toFixed(0)}m accrued over the last four quarters)`
+              : ""}. These are period flows and need not relate to the same loans or accrual years.
+            Cash coverage below 1.0x means NII excluding PIK is below declared distributions; it does not predict
+            repayment, default, or a dividend cut. Estimated recapture from disappearances and refinancings is withheld.
           </p>
           <p className="mb-2">
             <span className="text-white">Accretion is shown but not in the headline.</span>{" "}Net accretion of

@@ -22,7 +22,7 @@ export interface SectorCredit {
 export const sectorCredit: SectorCredit[] = [
   { sector: "Software & IT", period_end: "2026-06-30", n_positions: 2407, total_cost_b: 68.879, debt_cost_b: 60.411, pct_below_95: 22.04, pct_below_90: 15.00, pct_non_accrual: 2.97, pct_pik: 19.14 },
   { sector: "Healthcare", period_end: "2026-06-30", n_positions: 2001, total_cost_b: 50.112, debt_cost_b: 43.542, pct_below_95: 17.41, pct_below_90: 11.76, pct_non_accrual: 2.47, pct_pik: 21.21 },
-  { sector: "Professional Services", period_end: "2026-06-30", n_positions: 2019, total_cost_b: 44.140, debt_cost_b: 41.403, pct_below_95: 12.65, pct_below_90: 5.11, pct_non_accrual: 0.69, pct_pik: 9.85 },
+  { sector: "Professional Services", period_end: "2026-06-30", n_positions: 2017, total_cost_b: 44.078, debt_cost_b: 41.342, pct_below_95: 12.52, pct_below_90: 5.10, pct_non_accrual: 0.69, pct_pik: 9.87 },
   { sector: "Industrial", period_end: "2026-06-30", n_positions: 1282, total_cost_b: 26.182, debt_cost_b: 24.108, pct_below_95: 11.68, pct_below_90: 9.48, pct_non_accrual: 3.11, pct_pik: 10.36 },
   { sector: "Other", period_end: "2026-06-30", n_positions: 1121, total_cost_b: 24.181, debt_cost_b: 17.626, pct_below_95: 17.81, pct_below_90: 13.98, pct_non_accrual: 0.49, pct_pik: 11.19 },
   { sector: "Insurance", period_end: "2026-06-30", n_positions: 534, total_cost_b: 15.997, debt_cost_b: 13.228, pct_below_95: 10.22, pct_below_90: 1.49, pct_non_accrual: 0.57, pct_pik: 14.64 },
