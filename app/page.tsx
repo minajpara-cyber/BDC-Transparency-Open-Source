@@ -181,9 +181,12 @@ export default function HomePage() {
           </p>
         </Section>
 
-        <OutcomeEvidenceNotice title="Forecast validation in progress">
-          Predicted non-accrual rates and fitted early-warning rankings are withheld while their event labels and historical observation coverage are reviewed.
-          {" "}<Link href="/watchlist" className="text-indigo-400 underline">Review observed credit signals</Link>.
+        <OutcomeEvidenceNotice title="Non-accrual estimates are coverage-gated">
+          Current four-quarter formation estimates publish for BDCs meeting the 66.67% observed-feature floor;
+          other rows are explicitly withheld or unavailable. See the{" "}
+          <Link href="/watchlist#gated-na-projections" className="text-indigo-400 underline">gated projection table</Link>.
+          Fitted early-warning rankings and position-level outcome probabilities remain withheld while their
+          historical evidence is reviewed.
         </OutcomeEvidenceNotice>
 
         <Section

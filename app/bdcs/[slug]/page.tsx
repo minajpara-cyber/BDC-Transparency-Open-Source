@@ -563,11 +563,11 @@ export default async function BDCDetailPage({ params }: PageProps) {
       )}
 
       <section className="mb-8">
-        <OutcomeEvidenceNotice title="Non-accrual formation forecasts pending validation">
-          Implied formation rates, forecast rankings and historical model accuracy are withheld while corrected
-          sources and observation coverage are validated. Reported credit measures remain above; the
-          <Link href="/watchlist" className="text-indigo-300 underline"> watchlist</Link> offers descriptive
-          signals for review without an asserted probability of future non-accrual.
+        <OutcomeEvidenceNotice title="Non-accrual estimates are coverage-gated">
+          Current four-quarter formation estimates publish only for BDCs meeting the 66.67% observed-feature floor.
+          See this issuer in the{" "}
+          <Link href="/watchlist#gated-na-projections" className="text-indigo-300 underline">gated projection table</Link>.
+          Historical forecast rankings, model-accuracy claims and position-level outcome probabilities remain withheld.
         </OutcomeEvidenceNotice>
       </section>
 

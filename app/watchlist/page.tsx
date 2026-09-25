@@ -294,15 +294,17 @@ export default function WatchlistPage() {
           sub={`+ ${nElevated} elevated`} />
         <StatCard label="New this quarter" value={String(nNew)} color="#6366f1"
           sub={`${fmtM(newFV)} entered the watchlist`} />
-        <StatCard label="Outcome probabilities" value="Withheld" color="#9ca3af"
+        <StatCard label="Position probabilities" value="Withheld" color="#9ca3af"
           sub="Pending source and follow-up validation" />
       </div>
 
       <section className="mb-8">
-        <OutcomeEvidenceNotice title="Watchlist model performance pending validation">
+        <OutcomeEvidenceNotice title="Watchlist score performance pending validation">
           Historical hit rates, predictive lifts and fitted outcome scores are withheld until source labels,
           consecutive follow-up and unresolved observations are reviewed. The screen below preserves reported
-          exposures and observed signals for investigation; it does not establish a future credit outcome.
+          exposures and observed signals for investigation; it does not establish a future credit outcome. Current
+          BDC-level four-quarter estimates that meet the separate coverage gate appear in the{" "}
+          <Link href="#gated-na-projections" className="text-indigo-300 underline">gated projection table</Link>.
         </OutcomeEvidenceNotice>
       </section>
 
@@ -364,12 +366,12 @@ export default function WatchlistPage() {
         </div>
       </section>
 
-      {/* Canonical current non-accrual snapshots, with issuer reporting dates */}
+      {/* Current non-accrual snapshots plus the publication-gated 4Q formation estimate */}
       <section className="mb-8">
         <NaForecastTable />
       </section>
 
-      {/* Legacy forecast output is withheld pending input validation */}
+      {/* Historical quartile comparisons remain withheld pending equivalent review */}
       <section className="mb-8">
         <NaQuartileTrend />
       </section>

@@ -828,11 +828,12 @@ export default function CreditPage() {
       </section>
 
       <section id="forward-queue" className="mb-12 scroll-mt-6">
-        <OutcomeEvidenceNotice title="Non-accrual formation forecasts pending validation">
-          Implied formation rates and historical model hit rates are withheld while the corrected sources,
-          identities and unknown outcomes are incorporated into fresh time-based validation. The
-          <Link href="/watchlist" className="text-indigo-300 underline"> watchlist</Link> remains a review screen
-          of reported marks and observed signals, without a validated probability of future non-accrual.
+        <OutcomeEvidenceNotice title="Non-accrual estimates are coverage-gated">
+          Current four-quarter formation estimates publish for BDCs meeting the 66.67% observed-feature floor;
+          all other rows are explicitly withheld or unavailable. See the{" "}
+          <Link href="/watchlist#gated-na-projections" className="text-indigo-300 underline">gated projection table</Link>.
+          Historical model hit-rate claims and position-level outcome probabilities remain withheld while their
+          time-series evidence is reviewed.
         </OutcomeEvidenceNotice>
       </section>
 
