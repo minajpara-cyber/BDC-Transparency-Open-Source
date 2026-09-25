@@ -14,6 +14,7 @@ import { modificationRate, ModificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
 import { modificationEvents } from "@/data/modification_events";
 import { ewsByBdc, ewsMeta } from "@/data/early_warning_scores";
+import { ewsLabelText, scoringSignals } from "@/lib/earlyWarningDisplay";
 import { watchlistByTicker } from "@/data/early_warning_history";
 import ModificationEventsTable from "@/components/ModificationEventsTable";
 import { assetComposition } from "@/data/asset_composition";
@@ -56,7 +57,7 @@ const COVERAGE_CAVEATS: Array<{
   // FSK mark-based metrics parse cleanly back to 2013. Its non-accrual rate is
   // on the funded basis (unfunded commitments out of both sides); filings before
   // 2022-06-30 don't tag unfunded commitments, so those rates are approximate and
-  // join the industry line only when within 1pp of FSK's own disclosed rate.
+  // never join the industry line (switching FSK in and out bent the series).
   { ticker: "FSK",  until: "2022-05-31", metrics: ["na"],
     reason: "Approximate: FSK filings before 2022-06-30 do not tag unfunded commitments, so the parsed book can include them" },
   // PIK footnotes misread during the FSKR merger era (Q4 2019 – Q3 2021).
@@ -65,11 +66,9 @@ const COVERAGE_CAVEATS: Array<{
   // OBDC pre-XBRL: mark + NA parse cleanly, but PIK footnotes don't decode.
   { ticker: "OBDC", until: "2022-03-31", metrics: ["pik"],
     reason: "Pre-XBRL OBDC parser doesn't decode PIK footnotes" },
-  // MFIC SOI doesn't carry per-position non-accrual footnotes, but the 10-Q
-  // narrative discloses aggregate NA% at amortized cost — scraped back to
-  // 2015 by scripts/76_scrape_mfic_na_aggregates.py and overlaid in the
-  // credit_quality export. PIK works at the position level (3-7% across
-  // recent quarters, matching MFIC's middle-market profile). No caveat
+  // MFIC marks non-accrual loans "(14) Non-accrual status" in its SOI; the
+  // decoded rate matches its disclosed rate every quarter from 2022-03. Its
+  // stub-parse quarters use the disclosed aggregate (scripts/76). No caveat
   // needed for MFIC.
   // (Historical) OTF parser column-mapping bug fixed in two passes via
   // scripts/74_fix_otf_pik_columns.py (51-col layout 2023-Q3 → 2024-Q4)
@@ -964,14 +963,14 @@ export default function CreditPage() {
           <p className="text-xs mb-4 max-w-4xl" style={{ color: "#9ca3af" }}>
             The modification tables above show the stress <span className="text-white">actions</span>{" "}
             managers took this quarter; this is a <span className="text-white">forward</span>{" "}view. Every loan
-            not yet on non-accrual gets a score from a few warning signals — a mark below 90¢, a mark drop, a switch
-            from cash interest to PIK, a modification, another BDC already carrying the same borrower on
-            non-accrual. The score was fitted on data through {ewsMeta.trained_through} and then tested on{" "}
+            not yet on non-accrual gets a score from the warning signals that carry points in the current fit
+            ({joinList(scoringSignals())}). The score was fitted on data through {ewsMeta.trained_through} and then tested on{" "}
             {ewsMeta.validated.replace("..", " to ")}, which it had not seen: of the loans in each score bucket,{" "}
             {ewsMeta.validation_buckets.map((b) => `${b.hit_rate_pct}% (score ${b.bucket.replace("-+", "+")})`).join(", ")}{" "}
-            went on non-accrual within two quarters, against {ewsMeta.validation_base_rate_pct}% overall. Those test
-            labels treat an unknown future status as no non-accrual, so the hit rates are lower bounds. Each BDC&apos;s
-            implied figure applies those hit rates to its own scored loans. Per-loan queue on the{" "}
+            went on non-accrual within two quarters, against {ewsMeta.validation_base_rate_pct}% overall.{" "}
+            {ewsLabelText} Each BDC&apos;s implied figure applies those hit rates to its own scored loans; where a
+            warning signal can&apos;t be observed it counts as not firing, so a BDC with signal coverage below 100% has
+            a lower-bound figure. Per-loan queue on the{" "}
             <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Watchlist</Link>; the separate
             BDC-level projection table is at{" "}
             <Link href="/watchlist#gated-na-projections" className="text-indigo-400 hover:text-indigo-300">Watchlist → projections</Link>.

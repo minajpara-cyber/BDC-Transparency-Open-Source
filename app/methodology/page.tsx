@@ -148,7 +148,7 @@ export default function MethodologyPage() {
                 ["PIK cascade", "For every loan tranche that switched from cash interest to PIK, where it was a year later: back to cash-pay, still PIK (split by mark: 90¢ or more, 80–90¢, under 80¢, or mark unknown), or gone from the book while the BDC was still filing. 'Left the book' does not say whether the loan was repaid, refinanced, sold or written off. Follow-ups that have not happened yet are 'not yet seasoned', and a switch whose later filing is missing or unreadable is 'status unknown' rather than any outcome, so each year adds to 100%."],
                 ["Default rate (hard / shadow)", "Of the debt that was performing twelve months earlier, the share whose borrower defaulted during the year, counted once at its first event. Hard = new non-accrual (observed) or a distressed exit (inferred from the exit mark: left below 85¢, or after a mark below 80¢, without going non-accrual). Shadow adds restructurings and PIK amendments inferred from term changes. Published only for BDC windows where every loan's non-accrual status is known at the start and in every quarter; others are listed as withheld with the reason."],
                 ["Where did the PIK go (PIK ledger)", "The PIK booked since the window start, allocated to loans by their disclosed PIK rates and followed to today; the loan-level dollars are scaled to the cash-flow statement's PIK in quarters where at least 97% of the book's cost has a known PIK status and rate. Still in the book (performing, relabelled to another equity line at the same borrower, impaired, or PIK status unknown) is observed. Collected (loans that left at 97¢ or better or were refinanced at par) is an estimate, compared with the BDCs that report their PIK collections. Lost is estimated from the last mark before exit, not from sale proceeds."],
-                ["Forward queue (implied non-accrual formation)", "Each loan not yet on non-accrual is scored on warning signals (mark below 90¢, mark drop, cash → PIK switch, modification, another holder already on non-accrual). The score was fitted on older data and tested on later quarters it had not seen; each score bucket's hit rate there (share going non-accrual within two quarters) is applied to the BDC's scored book. Test labels count an unknown future status as no non-accrual, so hit rates are lower bounds; a signal that cannot be checked counts as absent, so a BDC's figure is a lower bound where its signal coverage is below 100%."],
+                ["Forward queue (implied non-accrual formation)", "Each loan not yet on non-accrual is scored on warning signals (mark below 90¢, mark drop, cash → PIK switch, modification, junior ranking, another holder already on non-accrual); a signal gets points in proportion to how much more often loans carrying it went non-accrual, and none if too few loans carried it to measure. The score was fitted on older data and tested on later quarters it had not seen; each score bucket's hit rate there (share going non-accrual within two quarters) is applied to the BDC's scored book. Loans whose status is unknown at the start or at either later quarter are left out of the test rather than counted as performing, and so are loans whose borrower was already on non-accrual at the same BDC; a signal that cannot be checked counts as absent, so a BDC's figure is a lower bound where its signal coverage is below 100%."],
                 ["Cross-BDC mark dispersion", "For borrowers held by ≥3 BDCs, the spread between max and min mark across holders in the same quarter."],
               ].map(([metric, desc]) => (
                 <tr key={metric} style={{ borderBottom: "1px solid #1a1a28" }}>
@@ -241,9 +241,10 @@ export default function MethodologyPage() {
             <li>
               <span className="text-white">FSK non-accrual before mid-2022.</span>{" "}
               FSK&apos;s filings before 2022-06-30 don&apos;t mark which positions are unfunded commitments,
-              so its non-accrual rate for those quarters is approximate and shown muted. A quarter joins the
-              industry line only when it is within 1pp of the rate FSK itself disclosed. Mark-based metrics
-              from the same filings are reliable.
+              so its non-accrual rate for those quarters is approximate and shown muted, and none of those
+              quarters joins the industry line (letting some in and not others bent the line whenever FSK left
+              or re-entered). Where the parsed rate is far from the fair-value rate FSK itself disclosed, the
+              disclosed figure is shown instead. Mark-based metrics from the same filings are reliable.
             </li>
             <li>
               <span className="text-white">CCAP / OCSL pre-XBRL.</span>{" "}
@@ -252,11 +253,14 @@ export default function MethodologyPage() {
               muted until XBRL kicks in.
             </li>
             <li>
-              <span className="text-white">MFIC non-accrual disclosure.</span>{" "}
-              The issuer NA rate comes from a separate filing disclosure; per-position NA identity
-              is unavailable, so loan-level measures (default rates, non-accrual events) leave MFIC
-              out. Whether MFIC is in the industry non-accrual line in a given quarter is shown under
-              that chart. PIK observations are tracked separately.
+              <span className="text-white">Cross-check against each BDC&apos;s own figure.</span>{" "}
+              A quarter&apos;s loan-by-loan non-accrual flags are held to the BDC&apos;s own non-accrual
+              percentage for that date (a dated sentence, or a performing/non-accrual table). If nothing is
+              flagged and the filing doesn&apos;t say nothing was on non-accrual, or the flags are more than
+              1pp (or two-fold) away from the BDC&apos;s figure on the same basis, the flags are set aside: the
+              BDC&apos;s own figure is shown for that quarter and loan-level measures treat its loans as unknown.
+              MFIC marks each non-accrual loan in its schedule, and its decoded rate matches its disclosed rate
+              in every quarter we hold a full book (for example 4.61% at cost against 4.6% at 2026-06-30).
             </li>
             <li>
               <span className="text-white">FSK denominator scope.</span>{" "}

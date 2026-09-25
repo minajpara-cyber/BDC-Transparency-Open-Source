@@ -8,6 +8,7 @@ import { recentAlerts } from "@/data/market";
 import { enrichedBDCs, naPublicationDisplay } from "@/lib/enrichBDC";
 import { enrichedPikPublication, formatPikPublication, pikPublicationLabel } from "@/lib/pikPublication";
 import { creditQuality } from "@/data/credit_quality";
+import { industryNaPool, naPoolExclusionText } from "@/lib/naCoverage";
 import {
   currentNonAccruals,
   nonAccrualFlow,
@@ -110,8 +111,8 @@ export default function NonAccrualsPage() {
         <p className="text-sm" style={{ color: "#8b8ba8" }}>
           Every loan flagged non-accrual in each BDC&apos;s latest Schedule of Investments, what changed since
           the prior quarter, and where lenders disagree. Changes are grouped by BDC, borrower and loan type, so
-          one row can cover several loans. MFIC reports non-accruals only as a total, so it appears in the BDC
-          table below but not in the loan lists.
+          one row can cover several loans. A BDC whose loan-by-loan status can&apos;t be decoded for a quarter
+          appears in the BDC table with its own disclosed rate but not in that quarter&apos;s loan lists.
         </p>
       </div>
 
@@ -150,7 +151,7 @@ export default function NonAccrualsPage() {
       <p className="text-xs mb-5" style={{ color: "#8b8ba8" }}>
         Changes compare this quarter&apos;s filing with the last one; a loan that simply disappears is not counted
         as cured. &ldquo;—&rdquo; means unknown; 0.00% means a confirmed zero.
-        {industryNA && <> The industry non-accrual rate covers {industryNA.na_covered_bdcs} BDCs (${industryNA.na_eligible_cost_b.toFixed(1)}B of cost, as of {industryNA.period_end}); BDCs that report only a total, use a different basis, or whose figures are still being reconciled are left out of it.</>}
+        {industryNA && <> The industry non-accrual rate covers {industryNA.na_covered_bdcs} BDCs (${industryNA.na_eligible_cost_b.toFixed(1)}B of cost, as of {industryNA.period_end}); {naPoolExclusionText(industryNaPool(creditQuality))}.</>}
       </p>
 
       {/* Ticker filter */}

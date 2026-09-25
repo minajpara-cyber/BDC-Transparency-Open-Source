@@ -7,7 +7,8 @@
 //   estimated  — PIK on loans that left the book or were refinanced at par in
 //                the same four quarters: shown, but marked "estimate". An
 //                estimate larger than the PIK booked in those quarters is not
-//                credible and is not shown.
+//                credible and is not shown, and neither is one whose loan data
+//                misses a quarter of the window (a gap is unknown, not $0).
 
 export interface RecaptureFields {
   pik_m: number | null;
@@ -19,6 +20,8 @@ export interface RecaptureFields {
   cov_ex_net_pik?: number | null;
   /** Optional explicit flag from newer exports; true marks the recapture as an estimate. */
   estimate?: boolean | null;
+  /** Why an estimate is not shown (scripts/91). */
+  recapture_suppressed?: string | null;
 }
 
 export interface RecaptureDisplay {
@@ -44,6 +47,9 @@ export function recaptureDisplay(r: RecaptureFields): RecaptureDisplay {
       recapturePct: null, estimate: false, note: "this BDC prints PIK already net of cash collected" };
   }
   if (src === "estimated") {
+    if (r.recapture_suppressed === "ledger_quarter_missing") {
+      return { ...EMPTY, note: "loan data is missing for part of this four-quarter window, so no estimate is shown" };
+    }
     const recaptured = r.pik_recaptured_m ?? r.pik_recaptured_est_m ?? null;
     const net = r.net_pik_pct_nii ?? null;
     if (recaptured == null || r.pik_m == null || net == null) return { ...EMPTY, note: "no recapture estimate for this quarter" };

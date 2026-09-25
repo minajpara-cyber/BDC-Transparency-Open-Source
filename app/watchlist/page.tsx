@@ -24,8 +24,8 @@ import NaQuartileTrend from "@/components/NaQuartileTrend";
 import { signalBacktest } from "@/data/signal_backtest";
 import { ewsRows } from "@/data/early_warning_scores";
 import {
-  backtestBase, backtestCrossHolder, backtestCrossHolderStacked, backtestHigh, bucketLabel,
-  ewsIndustry, ewsInfo, scoreText, signalLabel, validationWindow, weakSignals,
+  backtestBase, backtestCrossHolder, backtestCrossHolderStacked, backtestHigh, backtestLabelText, bucketLabel,
+  ewsIndustry, ewsInfo, ewsLabelText, scoreText, signalLabel, unmeasuredSignals, validationWindow, weakSignals,
 } from "@/lib/earlyWarningDisplay";
 
 const TIER_COLOR: Record<string, string> = {
@@ -299,7 +299,9 @@ export default function WatchlistPage() {
           Loans that are <span className="text-white">showing stress but are not yet on non-accrual</span> — the
           leading edge of credit problems. Each loan gets a screen score from its mark and how fast it is falling,
           a switch from cash to PIK interest, heavy PIK, amend-and-extends and non-accrual at another BDC, and is
-          then ranked by reported fair value. Tiers rank risk; they are not default probabilities.
+          then ranked by reported fair value. Tiers rank risk; they are not default probabilities. Loans tagged
+          non-accrual are left out; a loan whose status could not be read from its filing that quarter can still
+          appear.
           {backtestHigh && backtestHigh.lift_na != null && (
             <>
               {" "}In the historical back-test below, loans in the{" "}
@@ -347,9 +349,10 @@ export default function WatchlistPage() {
         {valTab === "oos" && (() => {
           const oosWindow = validationWindow(ewsInfo.validated);
           const multipliers = Object.entries(ewsInfo.signal_multipliers ?? {})
-            .filter(([, m]) => m >= 1.5)
+            .filter((entry): entry is [string, number] => typeof entry[1] === "number" && entry[1] >= 1.5)
             .sort((a, b) => b[1] - a[1]);
           const weak = weakSignals();
+          const unmeasured = unmeasuredSignals();
           return (
             <>
               <p className="text-xs mt-1 mb-2" style={{ color: "#8b8ba8" }}>
@@ -370,10 +373,13 @@ export default function WatchlistPage() {
                   <> Signals with little or no lift get few points: {weak.map((w) =>
                     `${signalLabel(w.key)} (${w.multiplier}×${w.points != null ? `, ${w.points} point${w.points === 1 ? "" : "s"}` : ""})`).join("; ")}.</>
                 )}
+                {unmeasured.length > 0 && (
+                  <> Too few loans in the fitting period carried {unmeasured.map(signalLabel).join(" or ")} to
+                    measure {unmeasured.length === 1 ? "it" : "them"}, so {unmeasured.length === 1 ? "it scores" : "they score"} no points.</>
+                )}
               </p>
               <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
-                These hit rates are <span className="text-white">lower bounds</span>: a loan whose later status we
-                could not see is counted as not going non-accrual.
+                {ewsLabelText}
               </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -440,9 +446,7 @@ export default function WatchlistPage() {
         <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
           <span className="text-white">In-sample:</span> the watchlist&apos;s point weights were set using these same
           results, so read the tier rows as a description of history rather than an independent test — the
-          out-of-sample tab is the stricter test. A loan whose later status is unknown counts as not going
-          non-accrual, which mostly pushes these rates down; a few loans that reappear after a reporting gap
-          already on non-accrual can be counted as new, which pushes them up slightly. The net effect is small.
+          out-of-sample tab is the stricter test. {backtestLabelText}
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -648,8 +652,8 @@ export default function WatchlistPage() {
           label changes; that matching is automated, so treat a signal as a prompt to look, not proof of an
           amendment or default. Loans already on non-accrual, loans marked below 2¢ and equity are excluded,
           and JV/structured vehicles are hidden by default. A score shown as &ldquo;≥&rdquo; had some signals we
-          couldn&apos;t observe, so it may be higher. MFIC reports non-accruals only as a total, so a few of its
-          loans already on non-accrual may still appear here.
+          couldn&apos;t observe, so it may be higher. A loan whose non-accrual status could not be read from its
+          filing that quarter is screened like a performing loan, so it may already be on non-accrual.
         </p>
       </section>
     </div>

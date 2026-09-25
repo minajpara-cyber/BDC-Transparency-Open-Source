@@ -2,26 +2,16 @@ import Link from "next/link";
 import { GitBranch, Database, FileText, BarChart3, Shield } from "lucide-react";
 import { siteMeta } from "@/data/site_meta";
 import { creditQuality } from "@/data/credit_quality";
-import { naPublicationDisplay } from "@/lib/enrichBDC";
-import {
-  dataCheckedOn, dataReleaseId, dataReleaseManifestPath, laggingIssuers, longTailReportingDate,
-} from "@/lib/dataRelease";
-
-/** BDCs left out of the pooled industry non-accrual rate in its latest quarter, with the reason. */
-function industryNaExclusions() {
-  const latest = creditQuality
-    .filter((row) => row.ticker === "industry")
-    .reduce((max, row) => (row.period_end > max ? row.period_end : max), "");
-  const excluded = creditQuality
-    .filter((row) => row.ticker !== "industry" && row.period_end === latest && !(row.na_eligible_cost_b > 0))
-    .map((row) => ({ ticker: row.ticker, reason: naPublicationDisplay(row).label }))
-    .sort((a, b) => a.ticker.localeCompare(b.ticker));
-  return { latest, excluded };
-}
+import { industryNaPool, naPoolExclusionText } from "@/lib/naCoverage";
+import { dataReleaseManifestPath, laggingIssuers, longTailReportingDate } from "@/lib/dataRelease";
+import { checkDataRelease } from "@/lib/dataReleaseCheck";
 
 export default function AboutPage() {
   const lagging = laggingIssuers();
-  const naExclusions = industryNaExclusions();
+  const naPool = industryNaPool(creditQuality);
+  // The release file's checksums must still match the data this build ships;
+  // otherwise its checks describe an earlier version of the data.
+  const release = checkDataRelease();
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -152,28 +142,33 @@ export default function AboutPage() {
               borrower universe) run only through {longTailReportingDate}.
             </li>
           )}
-          {naExclusions.latest && (
+          {naPool.latest && (
             <li>
-              The pooled industry non-accrual rate for {naExclusions.latest}{" "}
-              {naExclusions.excluded.length > 0
-                ? `leaves out ${naExclusions.excluded.map((e) => `${e.ticker} (${e.reason.toLowerCase()})`).join(", ")}. These BDCs report only a total, use a different basis, or are still being reconciled; their own rates are shown on their BDC pages.`
-                : "includes every BDC we parse."}
+              The pooled industry non-accrual rate for {naPool.latest}
+              {naPool.industry?.na_covered_bdcs != null ? ` covers ${naPool.industry.na_covered_bdcs} BDCs` : ""};{" "}
+              {naPoolExclusionText(naPool)}.
             </li>
           )}
           <li>
             &ldquo;—&rdquo; means a number is unknown; 0.00% means a confirmed zero. Figures labelled
             &ldquo;catalog estimate&rdquo; are hand-compiled for BDCs we don&apos;t parse, not read from filings.
           </li>
-          {dataCheckedOn && (
+          {release.verified && release.checkedOn && (
             <li>
-              Each release passes automated consistency checks before it is published (last run {dataCheckedOn}).
+              Each release passes automated consistency checks before it is published (last run {release.checkedOn}).
               These checks are not an independent audit of every loan or event.
             </li>
           )}
+          {!release.verified && release.checkedOn && (
+            <li>
+              Some data files were regenerated after the last automated release check ({release.checkedOn}) and
+              have not been through it again yet, so this version is not covered by that check.
+            </li>
+          )}
         </ul>
-        {dataReleaseId && (
+        {release.verified && release.releaseId && (
           <p className="text-xs mt-4" style={{ color: "#6b6b88" }}>
-            Release {dataReleaseId}. For technical readers, the{" "}
+            Release {release.releaseId}. For technical readers, the{" "}
             <a href={dataReleaseManifestPath} className="underline">release file</a> lists every data file&apos;s
             version and checksum.
           </p>
@@ -221,7 +216,8 @@ export default function AboutPage() {
           The <Link href="/vintage" className="text-indigo-400 hover:underline">vintage analysis</Link>{" "}
           and quarterly credit-modification metrics use distinct methodologies and covered populations.
           Quarterly flow rates use matched debt observations; holding cohorts show quarter-end
-          non-accrual evidence and unresolved observation bounds. MFIC&apos;s disclosed issuer NA rate is shown separately from the industry position-based ratio.
+          non-accrual evidence and unresolved observation bounds. A quarter whose loan-by-loan status can&apos;t be
+          decoded, or disagrees with the BDC&apos;s own disclosed rate for that date, uses that disclosed rate instead.
         </p>
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Dated holding cohorts</h3>

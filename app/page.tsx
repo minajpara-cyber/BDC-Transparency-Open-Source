@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { ArrowRight, AlertTriangle, TrendingDown, Clock, Users } from "lucide-react";
 import { siteMeta } from "@/data/site_meta";
 import { longTailReportingDate } from "@/lib/dataRelease";
-import { matchedNaChange, priorQuarterEnd } from "@/lib/naCoverage";
+import { industryNaPool, matchedNaChange, naPoolExclusionText, priorQuarterEnd } from "@/lib/naCoverage";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { creditQuality } from "@/data/credit_quality";
 import { nonAccrualFlow } from "@/data/non_accrual_events";
@@ -143,7 +143,7 @@ export default function HomePage() {
             label: "High early-warning scores",
             value: ewsIndustry ? ewsIndustry.n_hi.toLocaleString() : "—",
             note: oosTop
-              ? `score ≥5 · ${oosTop.hit_rate_pct.toFixed(1)}% went NA within 2q when tested out-of-sample (a lower bound)`
+              ? `score ≥5 · ${oosTop.hit_rate_pct.toFixed(1)}% went NA within 2q when tested out-of-sample`
               : "score ≥5",
           },
         ].map((s) => (
@@ -157,9 +157,8 @@ export default function HomePage() {
 
       <p className="text-xs" style={{ color: "#8b8ba8" }}>
         Industry non-accrual is the cost-weighted rate across the {stats.naNow?.na_covered_bdcs ?? 0} BDCs we can
-        pool on the same basis ({stats.naNow ? fmtB(stats.naNow.na_eligible_cost_b) : "—"} of cost). BDCs that report
-        only a total, use a different basis, or whose figures are still being reconciled are left out of this pooled
-        rate but shown on their own pages. &ldquo;—&rdquo; means unknown; 0.00% means a confirmed zero.
+        pool on the same basis ({stats.naNow ? fmtB(stats.naNow.na_eligible_cost_b) : "—"} of cost);{" "}
+        {naPoolExclusionText(industryNaPool(creditQuality))}. &ldquo;—&rdquo; means unknown; 0.00% means a confirmed zero.
       </p>
 
       {/* What changed */}

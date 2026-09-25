@@ -75,3 +75,51 @@ export function matchedNaChange(
     sameMembership: common.length === now.size && common.length === before.size,
   };
 }
+
+type PoolRow = RateRow & {
+  n_positions?: number;
+  na_publication_status?: string;
+  na_publication_reason?: string;
+  na_covered_bdcs?: number;
+  na_universe_bdcs?: number;
+};
+
+/** Why a BDC's rate is not in the pooled industry rate, in a few words. */
+export function naPoolExclusionReason(row: PoolRow): string {
+  const status = row.na_publication_status;
+  if (status === "withheld_reconciliation") return "being reconciled";
+  if (row.n_positions === 0) return "no accepted book this quarter";
+  if (row.pct_non_accrual == null) {
+    return status === "disclosed_aggregate" ? "only a fair-value figure is disclosed" : "status not decoded this quarter";
+  }
+  if ((row.na_publication_reason ?? "").startsWith("Approximate")) return "approximate rate";
+  return "not on the pooled basis";
+}
+
+export interface IndustryNaPool {
+  /** Latest quarter with an industry row. */
+  latest: string;
+  industry: PoolRow | null;
+  /** BDCs with a book that quarter whose rate is not pooled, with the reason. */
+  excluded: { ticker: string; reason: string }[];
+}
+
+/** Which BDCs the latest pooled industry non-accrual rate covers, straight from the data. */
+export function industryNaPool(rows: readonly PoolRow[]): IndustryNaPool {
+  const latest = rows
+    .filter((row) => row.ticker === "industry")
+    .reduce((max, row) => (row.period_end > max ? row.period_end : max), "");
+  const industry = rows.find((row) => row.ticker === "industry" && row.period_end === latest) ?? null;
+  const excluded = rows
+    .filter((row) => row.ticker !== "industry" && row.period_end === latest && !(row.na_eligible_cost_b > 0))
+    .map((row) => ({ ticker: row.ticker, reason: naPoolExclusionReason(row) }))
+    .sort((a, b) => a.ticker.localeCompare(b.ticker));
+  return { latest, industry, excluded };
+}
+
+/** "left out: FSK (approximate rate), …" or "every BDC with a book that quarter is included". */
+export function naPoolExclusionText(pool: IndustryNaPool): string {
+  return pool.excluded.length > 0
+    ? `left out: ${pool.excluded.map((e) => `${e.ticker} (${e.reason})`).join(", ")}; their own rates are on their BDC pages`
+    : "every BDC with a book that quarter is included";
+}

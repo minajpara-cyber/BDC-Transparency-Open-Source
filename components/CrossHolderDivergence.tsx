@@ -180,7 +180,7 @@ export default function CrossHolderDivergence() {
       <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
         Borrowers matched by normalized name across covered BDCs (a conservative subset — different legal-entity names for the
         same credit may not link). Marks are fair value ÷ par on the debt tranches; an <span style={{ color: "#fcd34d" }}>amber</span>{" "}holdout
-        is already carrying the loan below 85¢ while still accruing. MFIC is excluded (its SOI doesn&apos;t flag non-accrual per position).
+        is already carrying the loan below 85¢ while still accruing. A holder whose non-accrual status is unknown that quarter is left out.
       </p>
     </section>
   );

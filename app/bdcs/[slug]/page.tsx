@@ -17,7 +17,7 @@ import { ewsByBdc, ewsTopByBdc, ewsHistory } from "@/data/early_warning_scores";
 import { holdingsAsOfByTicker } from "@/data/bdc_holdings";
 import EwsTrendChart from "@/components/EwsTrendChart";
 import NaForecastSummary from "@/components/NaForecastSummary";
-import { ewsInfo, scoreText, signalLabel, validationWindow } from "@/lib/earlyWarningDisplay";
+import { ewsInfo, ewsLabelText, scoreText, signalLabel, validationWindow } from "@/lib/earlyWarningDisplay";
 import { creditQuality } from "@/data/credit_quality";
 import { modificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
@@ -651,8 +651,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
               {partialCoverage
                 ? "Where a signal can't be observed it counts as not firing, so with coverage below 100% these figures are lower bounds. "
                 : ""}
-              The test hit rates behind them are lower bounds too: a loan whose later status we couldn&apos;t see
-              counts as not going non-accrual.
+              {ewsLabelText}
             </p>
             {(() => {
               const mineH = ewsHistory.filter((r) => r.ticker === bdc.ticker);

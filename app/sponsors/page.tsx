@@ -218,7 +218,7 @@ export default function SponsorsIndexPage() {
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.04)" }}
-                  title="% of debt positions tagged non-accrual at the position level (MFIC excluded — aggregate-only NA reporting)"
+                  title="% of debt positions tagged non-accrual at the position level (positions whose status is unknown that quarter are left out)"
                 >
                   {renderSortButton({ k: "pct_non_accrual", label: "Non-accrual", align: "right" })}
                 </th>
@@ -360,8 +360,8 @@ export default function SponsorsIndexPage() {
       <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
         Credit lens: position-count weighted across the latest snapshot per (BDC, borrower,
         investment type, maturity). Equity / preferred / warrants / partnership interests
-        excluded from all credit metrics. Non-accrual denominator excludes MFIC because its
-        SOI lacks per-position non-accrual tagging. Modified = loan flipped cash-pay → PIK
+        excluded from all credit metrics. The non-accrual denominator leaves out positions whose
+        non-accrual status is unknown that quarter. Modified = loan flipped cash-pay → PIK
         within our observation window (from <code>loan_history.pik_modified_from_cash</code>).
         PIK now is the share of debt positions known to be paying PIK. Where some positions&apos; PIK
         status is unknown, counting them all as PIK gives an upper bound; the range is shown when it is
