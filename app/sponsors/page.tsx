@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { sponsors, SponsorIndex } from "@/data/sponsors_index";
 import { borrowers } from "@/data/borrowers_index";
+import { formatPikPublication, pikRangeText, sponsorPikPublication } from "@/lib/pikPublication";
 
 const fmtUSD = (v: number) => {
   if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
@@ -14,51 +15,7 @@ const fmtUSD = (v: number) => {
 };
 
 type SortDir = "asc" | "desc";
-type SortKey = Exclude<keyof SponsorIndex, "pct_exits_distress" | "realized_loss_usd" | "n_exits" | "n_distress">;
-
-// These fields are optional here so the route can render both the current
-// generated artifacts and the observability-aware sponsor export.
-type SponsorPikFields = {
-  pct_pik_now?: number;
-  pct_pik_now_upper?: number;
-  n_positions_pik_applicable?: number;
-  n_positions_pik_observed?: number;
-  n_positions_pik_unknown?: number;
-  pik_observation_coverage_pct?: number | null;
-  pik_publication_status?: string;
-  pik_publication_reason?: string;
-  pik_metric_version?: string;
-};
-
-function sponsorPikPublication(row: SponsorPikFields) {
-  const unavailable = row.pik_publication_status === "unavailable";
-  const lower = !unavailable && Number.isFinite(row.pct_pik_now)
-    ? row.pct_pik_now as number
-    : null;
-  const upper = !unavailable && Number.isFinite(row.pct_pik_now_upper)
-    ? row.pct_pik_now_upper as number
-    : lower;
-  const coverage = Number.isFinite(row.pik_observation_coverage_pct)
-    ? row.pik_observation_coverage_pct as number
-    : null;
-  return {
-    lower,
-    upper,
-    coverage,
-    applicable: row.n_positions_pik_applicable,
-    status: row.pik_publication_status ?? "legacy_point_estimate",
-    reason: row.pik_publication_reason
-      ?? "This generated sponsor snapshot predates PIK observation bounds.",
-  };
-}
-
-function formatPikRange(pik: ReturnType<typeof sponsorPikPublication>) {
-  if (pik.lower == null || pik.upper == null) return "Unknown";
-  if (pik.status === "bounded" && Math.abs(pik.upper - pik.lower) > 0.05) {
-    return `${pik.lower.toFixed(1)}–${pik.upper.toFixed(1)}%`;
-  }
-  return `${pik.lower.toFixed(1)}%`;
-}
+type SortKey = keyof SponsorIndex;
 
 // Higher values are WORSE for credit metrics; flip the color scale on these.
 const NEGATIVE_KEYS = new Set<SortKey>([
@@ -67,6 +24,7 @@ const NEGATIVE_KEYS = new Set<SortKey>([
   "pct_non_accrual",
   "pct_pik_now",
   "pct_modified",
+  "pct_exits_distress",
 ]);
 
 // Sponsors with fewer than this many attributed borrowers get a muted /
@@ -220,8 +178,8 @@ export default function SponsorsIndexPage() {
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
             Click any column header to sort. Credit metrics are debt-only and weighted
             by position count across the latest snapshot per (BDC, borrower, loan).
-            Higher = more stress on the credit columns. Exit outcomes and realized losses are withheld:
-            disappearance from a schedule and the last reported mark do not establish disposition proceeds.
+            Higher = more stress on the credit columns. The two exit columns are proxies built from the
+            filings — see the note under the table.
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -267,9 +225,9 @@ export default function SponsorsIndexPage() {
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.04)" }}
-                  title="Known-positive lower bound through the upper bound that includes unknown applicable PIK fields"
+                  title="% of debt positions known to be paying PIK; when some positions' PIK status is unknown and counting them all as PIK would add more than 1pp, the range is shown"
                 >
-                  {renderSortButton({ k: "pct_pik_now", label: "PIK range", align: "right" })}
+                  {renderSortButton({ k: "pct_pik_now", label: "PIK now", align: "right" })}
                 </th>
                 <th
                   className="px-3 py-3 text-right"
@@ -281,16 +239,22 @@ export default function SponsorsIndexPage() {
                 <th
                   className="px-3 py-3 text-right border-l"
                   style={{ borderColor: "#1a1a28", background: "rgba(239,68,68,0.06)" }}
-                  title="Withheld pending evidence of disposition and outcome"
+                  title="Of this sponsor's loans that have left a BDC's book across our panel, the share that left in distress: ever on non-accrual, or last marked below 85¢ at exit (or marked below 80¢ before exit). A proxy — the filings do not say why a loan left. The number in brackets is the count of exits."
                 >
-                  <span className="text-xs text-gray-400">Exit outcomes</span>
+                  {renderSortButton({ k: "pct_exits_distress", label: "Distress exits", align: "right" })}
+                  <div className="text-[10px] font-normal normal-case whitespace-nowrap text-right" style={{ color: "#6b6b88" }}>
+                    (proxy: ever non-accrual or exit mark &lt;85¢)
+                  </div>
                 </th>
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.06)" }}
-                  title="Withheld: last reported fair value is not realized proceeds"
+                  title="Summed over the sponsor's distress exits: last reported fair value minus cost at exit, USD. A proxy for the realized loss — the last mark is not the sale price."
                 >
-                  <span className="text-xs text-gray-400">Realized loss</span>
+                  {renderSortButton({ k: "realized_loss_usd", label: "Realized-loss proxy", align: "right" })}
+                  <div className="text-[10px] font-normal normal-case whitespace-nowrap text-right" style={{ color: "#6b6b88" }}>
+                    (last FV − cost at exit)
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -300,7 +264,8 @@ export default function SponsorsIndexPage() {
                 const nameColor = thin ? "#8b8ba8" : "#ffffff";
                 const numColor  = thin ? "#6b6b88" : "#d1d5db";
                 const fvColor   = thin ? "#8b8ba8" : "#ffffff";
-                const pik = sponsorPikPublication(s as SponsorIndex & SponsorPikFields);
+                const pik = sponsorPikPublication(s);
+                const pikRange = pikRangeText(pik, 1);
                 return (
                 <tr
                   key={s.sponsor_slug}
@@ -355,13 +320,13 @@ export default function SponsorsIndexPage() {
                   <td
                     className="px-3 py-3 text-right font-mono"
                     style={{ color: pctColor(s.pct_pik_now, "pct_pik_now", thin) }}
-                    title={`${pik.reason}${pik.coverage == null ? "" : ` (${pik.coverage.toFixed(1)}% observation coverage${pik.applicable == null ? "" : ` across ${pik.applicable} applicable positions`})`}`}
+                    title={`${pik.reason}${pikRange ? ` Range ${pikRange}.` : ""}${pik.observationCoveragePct == null ? "" : ` (${pik.observationCoveragePct.toFixed(1)}% observation coverage${s.n_positions_pik_applicable == null ? "" : ` across ${s.n_positions_pik_applicable} applicable positions`})`}`}
                   >
-                    <div className="text-sm whitespace-nowrap">{formatPikRange(pik)}</div>
+                    <div className="text-sm whitespace-nowrap">{formatPikPublication(pik, 1)}</div>
                     <div className="text-[10px] whitespace-nowrap" style={{ color: thin ? "#55556e" : "#6b6b88" }}>
-                      {pik.coverage == null
-                        ? (pik.status === "legacy_point_estimate" ? "coverage pending" : "no applicable fields")
-                        : `${pik.coverage.toFixed(0)}% observed`}
+                      {pik.observationCoveragePct == null
+                        ? "no applicable positions"
+                        : `${pik.observationCoveragePct.toFixed(0)}% observed`}
                     </div>
                   </td>
                   <td
@@ -373,11 +338,17 @@ export default function SponsorsIndexPage() {
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono border-l"
-                    style={{ borderColor: "#1a1a28", color: "#6b6b88" }}
-                    title="Outcome evidence pending validation"
-                  >—</td>
-                  <td className="px-3 py-3 text-right text-sm font-mono" style={{ color: "#6b6b88" }}
-                    title="Realized proceeds have not been established">—</td>
+                    style={{ borderColor: "#1a1a28",
+                             color: s.n_exits < 3 ? "#6b6b88" : pctColor(s.pct_exits_distress, "pct_exits_distress", thin) }}
+                    title={`${s.n_distress ?? 0} distress of ${s.n_exits} exits${s.n_exits < 3 ? " — too few exits to read" : ""}`}
+                  >
+                    {s.n_exits > 0 && Number.isFinite(s.pct_exits_distress) ? `${s.pct_exits_distress.toFixed(0)}%` : "—"}
+                    <span className="ml-1 text-xs" style={{ color: "#6b6b88" }}>({s.n_exits})</span>
+                  </td>
+                  <td className="px-3 py-3 text-right text-sm font-mono" style={{ color: numColor }}
+                    title={s.n_distress ? `last fair value minus cost, summed over ${s.n_distress} distress exit${s.n_distress === 1 ? "" : "s"}` : "no distress exits"}>
+                    {s.realized_loss_usd > 0 ? fmtUSD(s.realized_loss_usd) : "—"}
+                  </td>
                 </tr>
                 );
               })}
@@ -392,9 +363,18 @@ export default function SponsorsIndexPage() {
         excluded from all credit metrics. Non-accrual denominator excludes MFIC because its
         SOI lacks per-position non-accrual tagging. Modified = loan flipped cash-pay → PIK
         within our observation window (from <code>loan_history.pik_modified_from_cash</code>).
-        PIK uses the source-aware applicable-position denominator (observed + unknown), excluding
-        rows classified not applicable. It is shown as a known-positive lower bound through an
-        upper bound that treats every unknown applicable position as PIK.
+        PIK now is the share of debt positions known to be paying PIK. Where some positions&apos; PIK
+        status is unknown, counting them all as PIK gives an upper bound; the range is shown when it is
+        more than 1pp wide, otherwise it is in the hover text.
+      </p>
+      <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+        Exit columns are proxies. A loan &quot;exits&quot; when it leaves a BDC&apos;s schedule of investments;
+        the filings do not say whether it was repaid, refinanced, sold or written off. A{" "}
+        <span style={{ color: "#8b8ba8" }}>distress exit</span>{" "}is one that was ever on non-accrual, or whose
+        last mark before leaving was below 85¢ (or that was marked below 80¢ at some point before it left). The{" "}
+        <span style={{ color: "#8b8ba8" }}>realized-loss proxy</span>{" "}adds up last reported fair value minus cost
+        over those distress exits — the last mark is not the sale price, so treat it as an estimate. Sponsors with
+        fewer than 3 exits are greyed out.
       </p>
       <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
         <span style={{ color: "#8b8ba8" }}>*</span> Italicized / muted rows have fewer than {THIN_COVERAGE} attributed

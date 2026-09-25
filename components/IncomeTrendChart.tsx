@@ -31,6 +31,10 @@ interface Props {
   title: string;
   subtitle?: string;
   from?: string;
+  /** Marks a BDC-quarter value as an estimate: the tooltip adds "(estimate)". */
+  isEstimate?: (r: IncomeTtmRow) => boolean;
+  /** Tooltip name for the dashed median line. */
+  medianLabel?: string;
 }
 
 const isCoverage = (m: TrendMetric) => m === "cov_ex_pik" || m === "cov_ex_net_pik";
@@ -48,7 +52,8 @@ function fmt(m: TrendMetric, v: number | null | undefined): string {
 }
 
 export default function IncomeTrendChart({
-  rows, universe, metric, defaultTickers, title, subtitle, from = "2016-12-31",
+  rows, universe, metric, defaultTickers, title, subtitle, from = "2016-12-31", isEstimate,
+  medianLabel = "Universe median",
 }: Props) {
   const tickers = useMemo(() => Array.from(new Set(rows.map((r) => r.ticker))).sort(), [rows]);
   const [sel, setSel] = useState<string[]>(defaultTickers.slice(0, MAX_BDCS));
@@ -63,10 +68,11 @@ export default function IncomeTrendChart({
       if (r.period_end < from || !sel.includes(r.ticker)) continue;
       const rec = byP.get(r.period_end) ?? { period_end: r.period_end };
       rec[r.ticker] = r[metric];
+      if (isEstimate && r[metric] != null && isEstimate(r)) rec[`${r.ticker}__estimate`] = 1;
       byP.set(r.period_end, rec);
     }
     return [...byP.values()].sort((a, b) => String(a.period_end).localeCompare(String(b.period_end)));
-  }, [rows, universe, metric, sel, from]);
+  }, [rows, universe, metric, sel, from, isEstimate]);
 
   const toggle = (t: string) =>
     setSel((s) => (s.includes(t) ? s.filter((x) => x !== t) : s.length >= MAX_BDCS ? s : [...s, t]));
@@ -119,7 +125,10 @@ export default function IncomeTrendChart({
             <Tooltip
               contentStyle={{ background: "#0f0f16", border: "1px solid #2d2d45", fontSize: 12 }}
               labelStyle={{ color: "#e5e7eb" }}
-              formatter={(v, name) => [fmt(metric, v as number), name === "median" ? "Universe median" : String(name)]}
+              formatter={(v, name, item) => {
+                const est = name !== "median" && (item?.payload as Record<string, unknown> | undefined)?.[`${String(name)}__estimate`];
+                return [`${fmt(metric, v as number)}${est ? " (estimate)" : ""}`, name === "median" ? medianLabel : String(name)];
+              }}
               labelFormatter={(l) => `TTM to ${String(l)}`}
             />
             <Line type="monotone" dataKey="median" stroke={MEDIAN_COLOR} strokeWidth={2.5}

@@ -13,6 +13,7 @@ import { creditQuality, CreditQuality } from "@/data/credit_quality";
 import { modificationRate, ModificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
 import { modificationEvents } from "@/data/modification_events";
+import { ewsByBdc, ewsMeta } from "@/data/early_warning_scores";
 import { watchlistByTicker } from "@/data/early_warning_history";
 import ModificationEventsTable from "@/components/ModificationEventsTable";
 import { assetComposition } from "@/data/asset_composition";
@@ -20,11 +21,12 @@ import { spreadAnalysis } from "@/data/spread_analysis";
 import { stressedPositions } from "@/data/stressed_positions";
 import { borrowers } from "@/data/borrowers_index";
 import { borrowerHistory } from "@/data/borrowers_history";
-import OutcomeEvidenceNotice from "@/components/OutcomeEvidenceNotice";
+import { pikCascade, type PIKCascadeRow } from "@/data/pik_cascade";
 import { sectorCredit } from "@/data/sector_credit";
 import { macroContext } from "@/data/macro_context";
 import { sponsors } from "@/data/sponsors_index";
-import { creditPikPublication } from "@/lib/pikPublication";
+import { creditPikPublication, formatPikPublication, pikRangeText, sponsorPikPublication } from "@/lib/pikPublication";
+import { joinList } from "@/lib/joinList";
 
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
 // commonly capture mark-based fields (par / cost / fv) cleanly even when
@@ -100,6 +102,16 @@ function isQuarterEnd(period_end: string): boolean {
   return QUARTER_END_SUFFIXES.has(period_end.slice(5));
 }
 
+/** Why a BDC-quarter is not in the pooled industry non-accrual rate. */
+function plainNaReason(status: string | null | undefined): string {
+  switch (status) {
+    case "disclosed_aggregate": return "rate shown as the BDC reports it, on a different basis from the pool";
+    case "withheld_reconciliation": return "figures on hold while reconciled to the filing";
+    case "unavailable_coverage": return "non-accrual flags incomplete";
+    default: return status ? status.replace(/_/g, " ") : "no usable rate";
+  }
+}
+
 // ----- helpers ----------------------------------------------------------------
 
 type NumericKeys =
@@ -130,6 +142,30 @@ function buildCreditCellMap(field: NumericKeys) {
     });
   }
   return m;
+}
+
+// The industry non-accrual line keeps every quarter with a usable pool, so its
+// history reaches back as far as the data does; each point carries its pool
+// size (n BDCs) for the tooltip. Two guards instead of the 10-BDC floor used
+// by the other industry lines: at least MIN_BDCS_FOR_NA_HISTORY BDCs, and at
+// least NA_POOL_DROP_LIMIT of the previous point's pool — early in a reporting
+// season the newest quarter holds only a few early filers.
+const MIN_BDCS_FOR_NA_HISTORY = 5;
+const NA_POOL_DROP_LIMIT = 0.6;
+
+function buildNaIndustrySeries(): IndustryPoint[] {
+  const points = creditQuality
+    .filter((r) => r.ticker === "industry" && isQuarterEnd(r.period_end) && r.pct_non_accrual != null)
+    .map((r) => ({ period_end: r.period_end, value: r.pct_non_accrual as number, coverage: r.na_covered_bdcs ?? 0 }))
+    .sort((a, b) => a.period_end.localeCompare(b.period_end));
+  const out: IndustryPoint[] = [];
+  for (const p of points) {
+    if (p.coverage < MIN_BDCS_FOR_NA_HISTORY) continue;
+    const prev = out[out.length - 1];
+    if (prev && p.coverage < NA_POOL_DROP_LIMIT * prev.coverage) continue;
+    out.push(p);
+  }
+  return out;
 }
 
 /** Read the dollar-weighted industry rows produced by the canonical exporter. */
@@ -299,6 +335,51 @@ function buildSpreadIndustry(field: "avg_spread_book_bps" | "avg_spread_new_bps"
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
 }
 
+// ----- PIK cascade ------------------------------------------------------------
+// data/pik_cascade.ts buckets each cash → PIK switch by where the loan was a
+// year later. Newer exports add "not yet seasoned" and "mark unknown" buckets;
+// older ones fold unseasoned switches into "exited", so for those the switch
+// years whose follow-up runs past the latest quarter are flagged instead.
+type CascadeSource = PIKCascadeRow & Partial<Record<string, number | string | null>>;
+type CascadeDisplayRow = {
+  year: string; flips: number; pct_cured: number | null; pct_pik_strong: number | null;
+  pct_pik_weak: number | null; pct_pik_distress: number | null; pct_mark_unknown: number | null;
+  pct_exited: number | null; pct_pending: number | null; incomplete: boolean;
+};
+const CASCADE_PENDING_KEYS = ["pending", "not_yet_seasoned", "not_yet_observable"] as const;
+const CASCADE_MARK_UNKNOWN_KEYS = ["mark_unknown", "pik_mark_unknown", "pik_unknown"] as const;
+
+/** A bucket's share of the year's switches: the exported pct_ field, or count ÷ flips. */
+function cascadeShare(r: CascadeSource, keys: readonly string[]): number | null {
+  const rec = r as Record<string, unknown>;
+  for (const k of keys) {
+    const pct = rec[`pct_${k}`];
+    if (typeof pct === "number" && Number.isFinite(pct)) return pct;
+    const n = rec[k];
+    if (typeof n === "number" && Number.isFinite(n) && r.flips > 0) return (100 * n) / r.flips;
+  }
+  return null;
+}
+
+function buildCascadeRows(latestQuarter: string): CascadeDisplayRow[] {
+  return pikCascade.map((raw) => {
+    const r = raw as CascadeSource;
+    const pending = cascadeShare(r, CASCADE_PENDING_KEYS);
+    const markUnknown = cascadeShare(r, CASCADE_MARK_UNKNOWN_KEYS);
+    // Without a pending bucket, a switch year is fully followed up only once
+    // the end of the following year has been reported.
+    const incomplete = pending != null ? pending >= 50 : `${Number(r.year) + 1}-12-31` > latestQuarter;
+    const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+    return {
+      year: r.year, flips: r.flips, pct_cured: num(r.pct_cured), pct_pik_strong: num(r.pct_pik_strong),
+      pct_pik_weak: num(r.pct_pik_weak), pct_pik_distress: num(r.pct_pik_distress), pct_mark_unknown: markUnknown,
+      pct_exited: num(r.pct_exited), pct_pending: pending, incomplete,
+    };
+  });
+}
+
+const fmtCascade = (v: number | null) => (v == null ? "—" : `${v.toFixed(1)}%`);
+
 // ----- page -------------------------------------------------------------------
 
 export default function CreditPage() {
@@ -327,7 +408,20 @@ export default function CreditPage() {
   const lt90Map = buildCreditCellMap("pct_below_90");
   const modMap  = buildModCellMap();
 
-  const naLine   = buildIndustrySeries("pct_non_accrual");
+  const cascadeRows = buildCascadeRows(periods[periods.length - 1] ?? "");
+  const cascadeHasPending = cascadeRows.some((r) => r.pct_pending != null);
+  const cascadeHasMarkUnknown = cascadeRows.some((r) => r.pct_mark_unknown != null);
+  const cascadeIncompleteYears = cascadeHasPending ? [] : cascadeRows.filter((r) => r.incomplete).map((r) => r.year);
+
+  const naLine   = buildNaIndustrySeries();
+  const naFirst  = naLine[0];
+  const naLast   = naLine[naLine.length - 1];
+  const naThin   = naLine.filter((p) => p.coverage < MIN_BDCS_FOR_INDUSTRY);
+  // BDCs left out of the latest pooled point, with the exporter's reason.
+  const naLatestPeriod = naLast?.period_end ?? "";
+  const naLeftOut = creditQuality
+    .filter((r) => r.ticker !== "industry" && r.period_end === naLatestPeriod && !(r.na_covered_bdcs > 0))
+    .sort((a, b) => a.ticker.localeCompare(b.ticker));
   const lt95Line = buildIndustrySeries("pct_below_95");
   const lt90Line = buildIndustrySeries("pct_below_90");
   const modPctLine = buildModIndustrySeries();
@@ -553,7 +647,7 @@ export default function CreditPage() {
         <p className="text-sm" style={{ color: "#9ca3af" }}>
           BDCs as rows, quarter-ends as columns. Each cell is the metric expressed as a percent (or
           basis points for spreads); companion charts show the industry-wide aggregate
-          (position-weighted across BDCs).{" "}
+          (cost-weighted across BDCs; hover a point for how many BDCs it pools).{" "}
           <Link href="/methodology" className="hover:text-white" style={{ color: "#a5b4fc" }}>
             How is this computed? →
           </Link>
@@ -576,7 +670,8 @@ export default function CreditPage() {
           ["#compare", "Compare BDCs"],
           ["#concentration", "Concentration"],
           ["#dispersion", "Mark dispersion"],
-          ["#pik-cascade", "PIK follow-up"],
+          ["#forward-queue", "Forward queue"],
+          ["#pik-cascade", "PIK cascade"],
         ].map(([href, label]) => (
           <a
             key={href}
@@ -603,9 +698,9 @@ export default function CreditPage() {
           because those parsers capture par / cost / fv cleanly even pre-XBRL. CCAP and OCSL
           pre-XBRL remain fully muted (parser was extracting summary rows / par missing). FSK&apos;s
           non-accrual is muted through Q3 2021 (FSKR-merger era — parser misreads merger-adjustment
-          footnotes as NA). MFIC&apos;s issuer-level NA rate comes from a separate filing disclosure;
-          it is excluded from the industry NA ratio because a matching position denominator is
-          unavailable. Unresolved funded-exposure scope, incomplete flags and reviewed reconciliation exceptions also withhold issuer ratios and exclude those issuer quarters from industry NA. PIK observations are tracked separately.
+          footnotes as NA). A BDC&apos;s non-accrual rate is shown as unknown (&quot;—&quot;), never as zero,
+          when its position flags are incomplete or its figures are on hold; those quarters are also left out
+          of the industry non-accrual line, which shows how many BDCs each point pools.
           BDC-quarters with fewer than {MIN_POSITIONS_FOR_RELIABLE} parsed positions are also
           flagged. Only calendar quarter-ends shown.
         </div>
@@ -618,7 +713,7 @@ export default function CreditPage() {
         </h2>
         <CreditHeatmap
           title="% of cost on non-accrual"
-          description="NA-flagged positive amortized cost divided by all positive-cost positions in the accepted schedule, where flag coverage is complete. This is not a debt-only denominator. MFIC uses its disclosed issuer rate; missing coverage and unresolved reconciliation stay unknown. Cells colored 0% → 2% → 5% → ≥10%."
+          description="Amortized cost of positions flagged non-accrual ÷ amortized cost of all positions in the filing's schedule (debt and equity alike). Where a BDC only reports a total, its reported rate is shown. A dash means the rate is unknown for that quarter, not zero. Cells colored 0% → 2% → 5% → ≥10%."
           periods={periods}
           tickers={tickers}
           cellMap={naMap}
@@ -629,13 +724,30 @@ export default function CreditPage() {
         />
         <div className="rounded-xl border mt-4 p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-sm font-semibold text-white mb-1">Industry non-accrual rate</div>
-          <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>USD cost-weighted ratio across issuer quarters with fully decoded position NA flags. The denominator includes all positive-cost positions in those accepted schedules. Aggregate-only disclosures, incomplete flag coverage and reviewed reconciliation exclusions are omitted from both the NA numerator and denominator; coverage can change by quarter.</p>
+          <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
+            Dollar-weighted: total non-accrual cost ÷ total cost across the BDCs with a usable non-accrual rate
+            that quarter. A BDC whose rate is unknown that quarter is left out of both sides rather than counted
+            as zero, so the pool changes over time — hover a point for how many BDCs it holds.
+          </p>
           <CreditLensChart
             data={naLine}
             yLabel="% non-accrual (industry)"
             color="#ef4444"
             overlay={{ series: hyOasSeries, label: "HY OAS", unit: "bps" }}
           />
+          {naFirst && naLast && (
+            <p className="text-xs mt-2" style={{ color: "#6b6b88" }} data-na-pool={`${naFirst.coverage}-${naLast.coverage}`}>
+              Pool: {naFirst.coverage} BDCs in {naFirst.period_end.slice(0, 7)}, {naLast.coverage} in{" "}
+              {naLast.period_end.slice(0, 7)}.
+              {naThin.length > 0
+                ? ` ${naThin.length} quarter${naThin.length === 1 ? "" : "s"} (${naThin[0].period_end.slice(0, 7)}${naThin.length > 1 ? ` to ${naThin[naThin.length - 1].period_end.slice(0, 7)}` : ""}) pool fewer than ${MIN_BDCS_FOR_INDUSTRY} BDCs, so read them as indicative.`
+                : ""}
+              {" "}Quarters with fewer than {MIN_BDCS_FOR_NA_HISTORY} BDCs are not plotted.
+              {naLeftOut.length > 0
+                ? ` Not in the ${naLast.period_end.slice(0, 7)} pool: ${naLeftOut.map((r) => `${r.ticker} (${plainNaReason(r.na_publication_status)})`).join(", ")}.`
+                : ""}
+            </p>
+          )}
         </div>
       </section>
 
@@ -827,14 +939,100 @@ export default function CreditPage() {
         <ModificationEventsTable events={modificationEvents} />
       </section>
 
+      {/* Section 4b — Forward queue: per-BDC implied NA formation.
+          Companion to the cash→PIK table above: mods are the stress ACTIONS
+          managers took this quarter; this is the FORWARD view, scored on
+          signals tested out of sample (scripts/78). */}
       <section id="forward-queue" className="mb-12 scroll-mt-6">
-        <OutcomeEvidenceNotice title="Non-accrual estimates are coverage-gated">
-          Current four-quarter formation estimates publish for BDCs meeting the 66.67% observed-feature floor;
-          all other rows are explicitly withheld or unavailable. See the{" "}
-          <Link href="/watchlist#gated-na-projections" className="text-indigo-300 underline">gated projection table</Link>.
-          Historical model hit-rate claims and position-level outcome probabilities remain withheld while their
-          time-series evidence is reviewed.
-        </OutcomeEvidenceNotice>
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Forward queue: implied non-accrual formation{" "}
+          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            next 2 quarters, as of {ewsMeta.as_of}
+          </span>
+        </h2>
+        <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+          <p className="text-xs mb-4 max-w-4xl" style={{ color: "#9ca3af" }}>
+            The modification tables above show the stress <span className="text-white">actions</span>{" "}
+            managers took this quarter; this is a <span className="text-white">forward</span>{" "}view. Every loan
+            not yet on non-accrual gets a score from a few warning signals — a mark below 90¢, a mark drop, a switch
+            from cash interest to PIK, a modification, another BDC already carrying the same borrower on
+            non-accrual. The score was fitted on data through {ewsMeta.trained_through} and then tested on{" "}
+            {ewsMeta.validated.replace("..", " to ")}, which it had not seen: of the loans in each score bucket,{" "}
+            {ewsMeta.validation_buckets.map((b) => `${b.hit_rate_pct}% (score ${b.bucket.replace("-+", "+")})`).join(", ")}{" "}
+            went on non-accrual within two quarters, against {ewsMeta.validation_base_rate_pct}% overall. Those test
+            labels treat an unknown future status as no non-accrual, so the hit rates are lower bounds. Each BDC&apos;s
+            implied figure applies those hit rates to its own scored loans. Per-loan queue on the{" "}
+            <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Watchlist</Link>; the separate
+            BDC-level projection table is at{" "}
+            <Link href="/watchlist#gated-na-projections" className="text-indigo-400 hover:text-indigo-300">Watchlist → projections</Link>.
+          </p>
+          {(() => {
+            const rows = ewsByBdc.filter((r) => r.ticker !== "industry");
+            const ind = ewsByBdc.find((r) => r.ticker === "industry");
+            const maxPct = Math.max(0.0001, ...rows.map((r) => r.implied_na_2q_pct ?? 0));
+            const indPct = ind?.implied_na_2q_pct ?? null;
+            const covOf = (r: (typeof ewsByBdc)[number]) =>
+              typeof r.signal_coverage_pct === "number" && Number.isFinite(r.signal_coverage_pct) ? r.signal_coverage_pct : null;
+            const isLowerBound = (r: (typeof ewsByBdc)[number]) => (covOf(r) ?? 0) < 100;
+            return (
+              <div className="space-y-1.5" data-forward-queue-rows={rows.length}>
+                <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider" style={{ color: "#6b6b88" }}>
+                  <span className="w-14">BDC</span>
+                  <span className="flex-1">implied non-accrual formation, % of eligible debt</span>
+                  <span className="w-16 text-right">rate</span>
+                  <span className="w-24 text-right">$ implied</span>
+                  <span className="w-20 text-right" title="share of the scored book whose signals could all be checked">signals seen</span>
+                  <span className="hidden sm:inline w-44 text-right">high-score loans</span>
+                </div>
+                {rows.map((r) => {
+                  const cov = covOf(r);
+                  const lb = isLowerBound(r) ? "≥" : "";
+                  return (
+                    <div key={r.ticker} className="flex items-center gap-3 text-sm">
+                      <Link href={`/bdcs/${r.ticker.toLowerCase()}`}
+                        className="w-14 font-mono text-xs text-indigo-300 hover:text-indigo-200">
+                        {r.ticker}
+                      </Link>
+                      <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
+                        <div className="h-full rounded-full" style={{
+                          width: `${(100 * (r.implied_na_2q_pct ?? 0)) / maxPct}%`,
+                          background: indPct != null && r.implied_na_2q_pct >= indPct * 1.25
+                            ? "#ef4444" : indPct != null && r.implied_na_2q_pct >= indPct
+                            ? "#f59e0b" : "#6366f1",
+                        }} />
+                      </div>
+                      <span className="w-16 text-right tabular-nums font-semibold text-white">
+                        {r.implied_na_2q_pct == null ? "—" : `${lb}${r.implied_na_2q_pct.toFixed(2)}%`}
+                      </span>
+                      <span className="w-24 text-right tabular-nums text-xs" style={{ color: "#9ca3af" }}>
+                        {r.implied_na_2q_m == null ? "—" : `${lb}$${r.implied_na_2q_m.toFixed(0)}M`}
+                      </span>
+                      <span className="w-20 text-right tabular-nums text-xs"
+                        style={{ color: cov == null ? "#6b6b88" : cov < 80 ? "#fcd34d" : "#9ca3af" }}>
+                        {cov == null ? "—" : `${cov.toFixed(0)}%`}
+                      </span>
+                      <span className="hidden sm:inline w-44 text-right tabular-nums text-xs whitespace-nowrap" style={{ color: "#6b7280" }}>
+                        {r.n_hi} loans · {r.pct_book_hi.toFixed(1)}% of book
+                      </span>
+                    </div>
+                  );
+                })}
+                {ind && (
+                  <p className="text-xs pt-2" style={{ color: "#6b6b88" }}>
+                    Industry reference: {ind.implied_na_2q_pct.toFixed(2)}% of the eligible (not yet
+                    non-accrual) book, ${(ind.implied_na_2q_m / 1000).toFixed(1)}B implied across{" "}
+                    {ind.n_scored.toLocaleString()} positions
+                    {covOf(ind) != null ? `, with signals seen on ${covOf(ind)!.toFixed(0)}% of it` : ""}. Bars are % of
+                    each BDC&apos;s own eligible debt book — red ≥1.25× industry, amber ≥ industry. &quot;Signals
+                    seen&quot; is the share of the scored book whose signals could all be checked. A signal that
+                    could not be checked counts as absent, so where it is below 100% the implied figure is a lower
+                    bound (marked ≥). High-score loans score 5 or more.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
       </section>
 
       {/* Section 5 — Asset composition (moved below modifications) */}
@@ -1095,15 +1293,17 @@ export default function CreditPage() {
                 with fewer than 30 positions across the universe are excluded as too thin a sample.
                 Mark-based percentages are position-count weighted (not dollar-weighted) so a
                 single mega-deal doesn&apos;t dominate. Sponsor → company mapping comes from
-                bdctransparency.io. Current PIK is the known-positive lower bound; this legacy
-                sponsor rollup does not yet publish an unknown-exposure upper bound.
+                bdctransparency.io. Current PIK is the share of positions known to pay PIK; where some
+                positions&apos; PIK status is unknown and counting them all as PIK would add more than 1pp, the
+                range is shown (hover for coverage).
               </p>
               <CsvDownloadButton
                 filename="credit-by-sponsor"
-                columns={["sponsor", "n_companies", "n_positions", "total_fv_usd", "pct_below_95", "pct_below_90", "pct_non_accrual", "pct_pik_now", "pct_modified"]}
+                columns={["sponsor", "n_companies", "n_positions", "total_fv_usd", "pct_below_95", "pct_below_90", "pct_non_accrual", "pct_pik_now_lower", "pct_pik_now_upper", "pik_observation_coverage_pct", "pct_modified"]}
                 rows={topSponsors.map((s) => [
                   s.sponsor, s.n_companies, s.n_positions, s.total_fv,
-                  s.pct_below_95, s.pct_below_90, s.pct_non_accrual, s.pct_pik_now, s.pct_modified,
+                  s.pct_below_95, s.pct_below_90, s.pct_non_accrual, s.pct_pik_now, s.pct_pik_now_upper ?? null,
+                  s.pik_observation_coverage_pct ?? null, s.pct_modified,
                 ])}
               />
             </div>
@@ -1140,11 +1340,18 @@ export default function CreditPage() {
                 color: s.pct_below_90 >= 15 ? "#fca5a5" : s.pct_below_90 >= 8 ? "#fdba74" : "#9ca3af",
               }}>{s.pct_below_90.toFixed(2)}%</span>
             ) },
-            { key: "pct_pik_now", label: "% PIK lower", align: "right", render: (s) => (
-              <span className="font-mono" style={{
-                color: s.pct_pik_now >= 25 ? "#d8b4fe" : s.pct_pik_now >= 12 ? "#c4b5fd" : "#9ca3af",
-              }}>{s.pct_pik_now.toFixed(2)}%</span>
-            ) },
+            { key: "pct_pik_now", label: "% currently PIK", align: "right", render: (s) => {
+              const pik = sponsorPikPublication(s);
+              const range = pikRangeText(pik);
+              return (
+                <span className="font-mono" style={{
+                  color: (pik.lower ?? 0) >= 25 ? "#d8b4fe" : (pik.lower ?? 0) >= 12 ? "#c4b5fd" : "#9ca3af",
+                }} title={[range ? `range ${range}` : null, pik.observationCoveragePct == null ? null
+                  : `${pik.observationCoveragePct.toFixed(1)}% of positions observed`].filter(Boolean).join(" · ") || undefined}>
+                  {formatPikPublication(pik)}
+                </span>
+              );
+            } },
             { key: "pct_modified", label: "% modified cash→PIK", align: "right", render: (s) => (
               <span className="font-mono" style={{
                 color: s.pct_modified >= 10 ? "#a855f7" : s.pct_modified >= 5 ? "#c084fc" : "#9ca3af",
@@ -1292,12 +1499,81 @@ export default function CreditPage() {
         />
       </section>
 
+      {/* Section 10 — PIK cascade (loan-tranche level) */}
       <section id="pik-cascade" className="mb-12 scroll-mt-6">
-        <OutcomeEvidenceNotice title="PIK follow-up outcomes pending validation">
-          Four-quarter outcome percentages are withheld until cohorts have a complete calendar follow-up window
-          and missing observations and marks are kept unknown. A missing loan does not establish an exit or cure;
-          a missing mark does not establish a healthy exposure. Current PIK exposures and observed changes remain above.
-        </OutcomeEvidenceNotice>
+        <h2 className="text-lg font-semibold text-white mb-3">
+          PIK cascade <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · what happens to a loan a year after it switches from cash interest to PIK
+          </span>
+        </h2>
+        <SortableTable
+          data={cascadeRows}
+          rowKey={(r) => r.year}
+          dense
+          initialSort={{ key: "year", dir: "desc" }}
+          emptyMessage="Not enough loans have been followed from a cash → PIK switch yet."
+          headerSlot={
+            <div className="px-5 py-4 flex items-start justify-between gap-3">
+              <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
+                For every loan we saw switch from cash-pay to PIK, where was it{" "}
+                {cascadeHasPending ? "four calendar quarters later" : "at its fourth later filing (usually a year later)"}?
+                Each loan tranche is followed on its own, so a borrower with several tranches counts once per
+                tranche. <b>Back to cash-pay</b>{" "}means the loan was paying cash interest again.{" "}
+                <b>Still PIK</b>{" "}is split by the loan&apos;s mark then; below 80¢ is the worst outcome.
+                {cascadeHasMarkUnknown ? <> <b>Mark unknown</b>{" "}means it was still PIK but its mark could not be read.</> : null}{" "}
+                <b>Left the book</b>{" "}means the BDC was filing but the loan was gone — a refinancing, repayment,
+                sale or write-off; the filings do not say which.
+                {cascadeHasPending
+                  ? <> <b>Not yet seasoned</b>{" "}means the four quarters have not passed yet; rows that are mostly unseasoned are dimmed.</>
+                  : <> For switches in {cascadeIncompleteYears.length ? joinList(cascadeIncompleteYears) : "the latest year"} the year of follow-up has
+                    not passed for every loan, so &quot;left the book&quot; there also includes loans not yet followed up;
+                    those rows are dimmed.</>}{" "}
+                Years with fewer than 10 switches are omitted.
+              </p>
+              <CsvDownloadButton
+                filename="credit-pik-cascade-by-year"
+                columns={["flip_year", "n_tranches", "pct_back_to_cash", "pct_pik_90_plus", "pct_pik_80_90",
+                  "pct_pik_below_80", "pct_pik_mark_unknown", "pct_left_book", "pct_not_yet_seasoned", "follow_up_incomplete"]}
+                rows={cascadeRows.map((r) => [
+                  r.year, r.flips, r.pct_cured, r.pct_pik_strong, r.pct_pik_weak, r.pct_pik_distress,
+                  r.pct_mark_unknown, r.pct_exited, r.pct_pending, r.incomplete ? 1 : 0,
+                ])}
+              />
+            </div>
+          }
+          columns={([
+            { key: "year", label: "Switch year", render: (r) => (
+              <span style={{ opacity: r.incomplete ? 0.55 : 1 }}>
+                <span className="font-mono" style={{ color: "#d1d5db" }}>{r.year}</span>
+                {r.incomplete && <span className="ml-1 text-[10px]" style={{ color: "#fdba74" }}>(follow-up incomplete)</span>}
+              </span>
+            ) },
+            { key: "flips", label: "# tranches", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#fafafa", opacity: r.incomplete ? 0.55 : 1 }}>{r.flips}</span>
+            ) },
+            { key: "pct_cured", label: "% back to cash-pay", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#86efac", opacity: r.incomplete ? 0.55 : 1 }}>{fmtCascade(r.pct_cured)}</span>
+            ) },
+            { key: "pct_pik_strong", label: "% still PIK · ≥90¢", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#fde68a", opacity: r.incomplete ? 0.55 : 1 }}>{fmtCascade(r.pct_pik_strong)}</span>
+            ) },
+            { key: "pct_pik_weak", label: "% still PIK · 80–90¢", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#fdba74", opacity: r.incomplete ? 0.55 : 1 }}>{fmtCascade(r.pct_pik_weak)}</span>
+            ) },
+            { key: "pct_pik_distress", label: "% still PIK · <80¢", align: "right", render: (r) => (
+              <span className="font-mono font-semibold" style={{ color: "#fca5a5", opacity: r.incomplete ? 0.55 : 1 }}>{fmtCascade(r.pct_pik_distress)}</span>
+            ) },
+            ...(cascadeHasMarkUnknown ? [{ key: "pct_mark_unknown", label: "% still PIK · mark unknown", align: "right", render: (r: CascadeDisplayRow) => (
+              <span className="font-mono" style={{ color: "#9ca3af", opacity: r.incomplete ? 0.55 : 1 }}>{fmtCascade(r.pct_mark_unknown)}</span>
+            ) }] : []),
+            { key: "pct_exited", label: "% left the book", align: "right", render: (r) => (
+              <span className="font-mono" style={{ color: "#9ca3af", opacity: r.incomplete ? 0.55 : 1 }}>{fmtCascade(r.pct_exited)}</span>
+            ) },
+            ...(cascadeHasPending ? [{ key: "pct_pending", label: "% not yet seasoned", align: "right", render: (r: CascadeDisplayRow) => (
+              <span className="font-mono" style={{ color: "#6b6b88", opacity: r.incomplete ? 0.55 : 1 }}>{fmtCascade(r.pct_pending)}</span>
+            ) }] : []),
+          ] as Column<CascadeDisplayRow>[])}
+        />
       </section>
 
       <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>

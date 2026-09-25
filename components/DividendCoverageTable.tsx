@@ -6,17 +6,13 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { IncomeTtmRow } from "@/data/income_coverage";
+import { recaptureDisplay } from "@/lib/pikRecapture";
+import { joinList } from "@/lib/joinList";
 import CsvDownloadButton from "./CsvDownloadButton";
 
 type Key =
-  | "ticker" | "nii_m" | "dist_m" | "pik_pct_nii" | "nii_cov" | "cov_ex_pik" | "recapture_pct" | "cov_ex_net_pik"
+  | "ticker" | "nii_m" | "dist_m" | "pik_pct_nii" | "nii_cov" | "cov_ex_pik" | "recapture_shown" | "cov_ex_net_pik_shown"
   | "cov_strict" | "pik_cushion_pct" | "severe_share" | "cov_ex_severe" | "stressed";
-
-const RECAPTURE_TIP: Record<string, string> = {
-  reported: "reported on the cash-flow statement",
-  estimated: "estimated from loans that left the book or were refinanced at par — a floor",
-  net_basis: "this filer prints PIK already net of cash collected",
-};
 
 function covColor(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "transparent";
@@ -37,10 +33,16 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   const enriched = useMemo(
-    () => rows.map((r) => ({
-      ...r,
-      stressed: r.dist_m > 0 ? (r.nii_m - (haircut / 100) * r.pik_m) / r.dist_m : null,
-    })),
+    () => rows.map((r) => {
+      const recap = recaptureDisplay(r);
+      return {
+        ...r,
+        recap,
+        recapture_shown: recap.recapturePct,
+        cov_ex_net_pik_shown: recap.covExNetPik,
+        stressed: r.dist_m > 0 ? (r.nii_m - (haircut / 100) * r.pik_m) / r.dist_m : null,
+      };
+    }),
     [rows, haircut],
   );
   const sorted = useMemo(() => {
@@ -56,6 +58,7 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
   }, [enriched, sortKey, sortDir]);
 
   const nBelow = enriched.filter((r) => (r.stressed ?? 9) < 1).length;
+  const reportedList = joinList(rows.filter((r) => r.recapture_src === "reported").map((r) => r.ticker).sort());
   const nBelowReported = enriched.filter((r) => (r.nii_cov ?? 9) < 1).length;
 
   const head: [Key, string, string][] = [
@@ -65,8 +68,8 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
     ["pik_pct_nii", "PIK % of NII", "right"],
     ["nii_cov", "Reported coverage", "right"],
     ["cov_ex_pik", "Cash coverage ex-PIK", "right"],
-    ["recapture_pct", "PIK recaptured", "right"],
-    ["cov_ex_net_pik", "Cash cov. net of recapture", "right"],
+    ["recapture_shown", "PIK recaptured", "right"],
+    ["cov_ex_net_pik_shown", "Cash cov. net of recapture", "right"],
     ["cov_strict", "Ex-PIK & accretion", "right"],
     ["pik_cushion_pct", "PIK cushion", "right"],
     ["severe_share", "Severe share of PIK book", "right"],
@@ -79,11 +82,13 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
   };
 
   const csvColumns = ["ticker", "ttm_to", "nii_m", "distributions_m", "pik_m", "accretion_m", "pik_pct_nii",
-    "reported_coverage", "cash_coverage_ex_pik", "pik_recaptured_m", "recapture_source", "recapture_pct_of_pik",
+    "reported_coverage", "cash_coverage_ex_pik", "pik_recaptured_m", "recapture_basis", "recapture_pct_of_pik",
     "net_pik_pct_nii", "cash_coverage_net_of_recapture", "coverage_ex_pik_and_accretion", "pik_cushion_pct",
     "severe_share_of_pik_book", "coverage_if_severe_pik_lost", `coverage_if_${haircut}pct_pik_lost`, "pik_basis"];
   const csvRows = sorted.map((r) => [r.ticker, r.period_end, r.nii_m, r.dist_m, r.pik_m, r.acc_m, r.pik_pct_nii,
-    r.nii_cov, r.cov_ex_pik, r.pik_recaptured_m, r.recapture_src, r.recapture_pct, r.net_pik_pct_nii, r.cov_ex_net_pik,
+    r.nii_cov, r.cov_ex_pik, r.recap.recapturePct == null ? null : r.pik_recaptured_m,
+    r.recapture_src === "estimated" ? (r.recap.estimate ? "estimate" : "estimate not shown") : r.recapture_src,
+    r.recap.recapturePct, r.recap.netPikPctNii, r.recap.covExNetPik,
     r.cov_strict, r.pik_cushion_pct,
     r.severe_share == null ? null : +(100 * r.severe_share).toFixed(1), r.cov_ex_severe,
     r.stressed == null ? null : +r.stressed.toFixed(3), r.basis]);
@@ -98,8 +103,10 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
               Reported coverage is NII ÷ distributions declared. <span className="text-white">Cash coverage</span>{" "}
               takes the PIK income out of NII first — PIK is interest paid by adding to the loan, so it funds
               no dividend until the borrower repays. <span className="text-white">PIK recaptured</span>{" "}is the
-              share of the year&apos;s PIK that came back as cash within the same year — reported by ARCC and ASIF,
-              estimated for the rest from loans that left the book or were refinanced at par (a floor).{" "}
+              share of the year&apos;s PIK that came back as cash within the same year —{" "}
+              {reportedList ? `reported by ${reportedList}; ` : ""}estimated for the rest from loans that left the
+              book or were refinanced at par, marked &quot;est.&quot; (an estimate, not a reported figure). An
+              estimate larger than the PIK booked is not shown.{" "}
               <span className="text-white">Cash coverage net of recapture</span>{" "}strips only the PIK that has
               not come back. The <span className="text-white">PIK cushion</span>{" "}is the share of the year&apos;s
               PIK that could prove uncollectible before reported NII stops covering the dividend (negative =
@@ -157,11 +164,15 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
                 <td className="px-3 py-2 text-right tabular-nums" style={{ background: covColor(r.nii_cov), color: "#e5e7eb" }}>{x2(r.nii_cov)}</td>
                 <td className="px-3 py-2 text-right tabular-nums font-semibold text-white" style={{ background: covColor(r.cov_ex_pik) }}>{x2(r.cov_ex_pik)}</td>
                 <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap" style={{ color: "#d1d5db" }}
-                  title={r.recapture_src ? RECAPTURE_TIP[r.recapture_src] : "not measurable yet"}>
-                  {r.recapture_src === "net_basis" ? "net" : pct(r.recapture_pct, 0)}
-                  {r.recapture_src === "estimated" && <span className="text-[10px] ml-1" style={{ color: "#6b6b88" }}>est.</span>}
+                  title={r.recap.note || "not measurable yet"}>
+                  {r.recapture_src === "net_basis" ? "net" : pct(r.recap.recapturePct, 0)}
+                  {r.recap.estimate && <span className="text-[10px] ml-1" style={{ color: "#6b6b88" }}>est.</span>}
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ background: covColor(r.cov_ex_net_pik), color: "#fafafa" }}>{x2(r.cov_ex_net_pik)}</td>
+                <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ background: covColor(r.recap.covExNetPik), color: "#fafafa" }}
+                  title={r.recap.note || undefined}>
+                  {x2(r.recap.covExNetPik)}
+                  {r.recap.estimate && <span className="text-[10px] ml-1 font-normal" style={{ color: "#9ca3af" }}>est.</span>}
+                </td>
                 <td className="px-3 py-2 text-right tabular-nums" style={{ background: covColor(r.cov_strict), color: "#9ca3af" }}>{x2(r.cov_strict)}</td>
                 <td className="px-3 py-2 text-right tabular-nums"
                   style={{ color: (r.pik_cushion_pct ?? -1) < 0 ? "#ef4444" : (r.pik_cushion_pct ?? 0) < 25 ? "#f59e0b" : "#22c55e" }}>

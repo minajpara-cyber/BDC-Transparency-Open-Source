@@ -1,9 +1,34 @@
 export type PikPublicationStatus =
   | "fully_observed"
+  | "near_complete"
   | "bounded"
   | "unavailable"
   | "legacy_point_estimate"
   | string;
+
+// Display rules for the PIK lower/upper bounds. The lower bound counts only
+// positions known to pay PIK; the upper bound also counts every position whose
+// PIK status is unknown. Most bands are a few hundredths of a point wide, so:
+//   - a band narrower than PIK_BOUNDED_MIN_PP is not called "bounded";
+//   - a single number (the lower bound) is shown unless the band is wider than
+//     PIK_RANGE_DISPLAY_PP, with the range kept for tooltips / secondary text;
+//   - a quarter-on-quarter change is shown when both bands are narrower than
+//     PIK_DELTA_MAX_BAND_PP.
+export const PIK_BOUNDED_MIN_PP = 0.1;
+export const PIK_RANGE_DISPLAY_PP = 1;
+export const PIK_DELTA_MAX_BAND_PP = 0.25;
+
+/** Width of the lower–upper band in percentage points, or null when unknown. */
+export function pikBandPp(lower: number | null | undefined, upper: number | null | undefined): number | null {
+  if (lower == null || upper == null || !Number.isFinite(lower) || !Number.isFinite(upper)) return null;
+  return Math.max(0, upper - lower);
+}
+
+/** True when the band is wide enough that the range itself should be shown. */
+export function showPikRange(lower: number | null | undefined, upper: number | null | undefined): boolean {
+  const band = pikBandPp(lower, upper);
+  return band != null && band > PIK_RANGE_DISPLAY_PP;
+}
 
 export interface PikPublication {
   lower: number | null;
@@ -28,6 +53,15 @@ interface CreditPikFields {
   pct_pik_total: number | null;
   pct_pik_total_lower?: number | null;
   pct_pik_total_upper?: number | null;
+  pik_observation_coverage_pct?: number | null;
+  pik_publication_status?: string;
+  pik_publication_reason?: string;
+  pik_metric_version?: string;
+}
+
+interface SponsorPikFields {
+  pct_pik_now: number | null;
+  pct_pik_now_upper?: number | null;
   pik_observation_coverage_pct?: number | null;
   pik_publication_status?: string;
   pik_publication_reason?: string;
@@ -75,6 +109,17 @@ function normalized(
     reason: "This generated snapshot predates field-observability bounds.",
     metricVersion: null,
   };
+  // A "bounded" row whose unknowns move the rate by less than
+  // PIK_BOUNDED_MIN_PP is effectively observed; say so instead of "bounded".
+  const band = pikBandPp(lower, upper);
+  if (status === "bounded" && band != null && band < PIK_BOUNDED_MIN_PP) return {
+    lower: lower ?? null,
+    upper: upper ?? null,
+    observationCoveragePct: coverage ?? null,
+    status: "near_complete",
+    reason: `A small amount of applicable cost has unknown PIK status; it moves the rate by less than ${PIK_BOUNDED_MIN_PP}pp.`,
+    metricVersion: metricVersion ?? null,
+  };
   return {
     lower: lower ?? null,
     upper: upper ?? null,
@@ -109,6 +154,19 @@ export function creditPikPublication(row: CreditPikFields): PikPublication {
   );
 }
 
+/** Sponsor rollups weight by position count rather than cost. */
+export function sponsorPikPublication(row: SponsorPikFields): PikPublication {
+  return normalized(
+    row.pct_pik_now,
+    row.pct_pik_now,
+    row.pct_pik_now_upper,
+    row.pik_observation_coverage_pct,
+    row.pik_publication_status,
+    row.pik_publication_reason,
+    row.pik_metric_version,
+  );
+}
+
 export function enrichedPikPublication(row: EnrichedPikFields): PikPublication {
   return normalized(
     row.pikRate,
@@ -123,27 +181,44 @@ export function enrichedPikPublication(row: EnrichedPikFields): PikPublication {
 
 export function formatPikPublication(value: PikPublication, digits = 2): string {
   if (value.status === "unavailable" || value.lower == null || value.upper == null) return "Unknown";
-  if (value.status === "bounded" && Math.abs(value.upper - value.lower) > 10 ** -(digits + 1)) {
+  if (showPikRange(value.lower, value.upper)) {
     return `${value.lower.toFixed(digits)}–${value.upper.toFixed(digits)}%`;
   }
   return `${value.lower.toFixed(digits)}%`;
 }
 
+/** The lower–upper range as text, for tooltips or secondary lines; null when
+ *  there is no band worth mentioning (under PIK_BOUNDED_MIN_PP). */
+export function pikRangeText(value: PikPublication, digits = 2): string | null {
+  const band = pikBandPp(value.lower, value.upper);
+  if (value.status === "unavailable" || band == null || band < PIK_BOUNDED_MIN_PP) return null;
+  return `${value.lower!.toFixed(digits)}–${value.upper!.toFixed(digits)}%`;
+}
+
 export function pikPublicationLabel(value: PikPublication): string {
+  const coverage = value.observationCoveragePct == null
+    ? "partial observation coverage"
+    : `${value.observationCoveragePct.toFixed(1)}% observed`;
   if (value.status === "bounded") {
-    const coverage = value.observationCoveragePct == null
-      ? "partial observation coverage"
-      : `${value.observationCoveragePct.toFixed(1)}% observed`;
-    return `Bounded estimate · ${coverage}`;
+    if (value.upper != null && !showPikRange(value.lower, value.upper)) {
+      return `Up to ${value.upper.toFixed(2)}% if every unknown is PIK · ${coverage}`;
+    }
+    return `Range: unknowns counted as PIK at the top · ${coverage}`;
   }
+  if (value.status === "near_complete") return `${coverage}; unknowns move it by under ${PIK_BOUNDED_MIN_PP}pp`;
   if (value.status === "fully_observed") return "Fully observed applicable PIK fields";
   if (value.status === "unavailable") return "PIK coverage unavailable";
   return "Legacy point estimate";
 }
 
+/** Quarter-on-quarter change in the lower bound. Shown only when both
+ *  quarters have a published value and a band narrower than
+ *  PIK_DELTA_MAX_BAND_PP, so the change is not an artefact of unknowns. */
 export function exactPikDelta(current: PikPublication, prior: PikPublication): number | null {
-  if (current.status !== "fully_observed" || prior.status !== "fully_observed"
-      || current.lower == null || prior.lower == null
-      || current.upper !== current.lower || prior.upper !== prior.lower) return null;
-  return current.lower - prior.lower;
+  const usable = (v: PikPublication) => v.status !== "unavailable" && v.status !== "legacy_point_estimate";
+  const curBand = pikBandPp(current.lower, current.upper);
+  const priorBand = pikBandPp(prior.lower, prior.upper);
+  if (!usable(current) || !usable(prior) || curBand == null || priorBand == null
+      || curBand >= PIK_DELTA_MAX_BAND_PP || priorBand >= PIK_DELTA_MAX_BAND_PP) return null;
+  return current.lower! - prior.lower!;
 }

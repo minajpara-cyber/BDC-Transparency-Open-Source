@@ -3,6 +3,8 @@
 // PIK by the year it was booked, pooled across the BDCs, split by what has
 // happened to it since: the maturation curve of PIK. Older PIK has had time
 // to be repaid or written off; the newest is almost all still in the book.
+// "Still in the book" is observed in the latest schedule; "collected" and
+// "lost" are estimates from how each loan left the book.
 import { useState } from "react";
 import {
   ResponsiveContainer,
@@ -17,10 +19,11 @@ import {
 import type { PikLedgerYear } from "@/data/pik_ledger";
 
 const SERIES = [
-  { key: "collected", label: "Collected (repaid or refinanced at par)", color: "#86efac" },
-  { key: "in_book_performing", label: "Still in the book, performing", color: "#a5b4fc" },
-  { key: "in_book_impaired", label: "In impaired loans", color: "#fcd34d" },
-  { key: "lost", label: "Lost", color: "#fca5a5" },
+  { key: "collected", label: "Collected (estimate: repaid or refinanced at par)", color: "#86efac" },
+  { key: "in_book_performing", label: "Still in the book, performing (observed)", color: "#a5b4fc" },
+  { key: "in_book_impaired", label: "In impaired loans (observed)", color: "#fcd34d" },
+  { key: "in_book_unknown", label: "Still in the book, PIK status unknown", color: "#6b7280" },
+  { key: "lost", label: "Lost (estimated from last mark)", color: "#fca5a5" },
 ] as const;
 
 export default function PikLedgerYearChart({ rows, latestYear }: { rows: PikLedgerYear[]; latestYear: string }) {
@@ -28,7 +31,7 @@ export default function PikLedgerYearChart({ rows, latestYear }: { rows: PikLedg
   const data = rows.map((r) => ({
     year: r.year === latestYear ? `${r.year}*` : r.year,
     total: r.pik_accrued_m,
-    ...Object.fromEntries(SERIES.map((s) => [s.key, mode === "pct" ? r[`${s.key}_pct`] : r[`${s.key}_m`]])),
+    ...Object.fromEntries(SERIES.map((s) => [s.key, (mode === "pct" ? r[`${s.key}_pct`] : r[`${s.key}_m`]) ?? null])),
   }));
   return (
     <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
@@ -36,8 +39,8 @@ export default function PikLedgerYearChart({ rows, latestYear }: { rows: PikLedg
         <div className="max-w-3xl">
           <h3 className="font-semibold text-white text-sm">PIK by the year it was booked — what has happened to it since</h3>
           <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
-            All covered BDCs pooled. Each bar is the PIK income booked in that year; the colours show where those
-            dollars are today. * = year to date.
+            All covered BDCs pooled. Each bar is the PIK booked in that year, followed loan by loan; the colours
+            show where those dollars are today. * = year to date.
           </p>
         </div>
         <div className="flex gap-1.5">
@@ -61,7 +64,7 @@ export default function PikLedgerYearChart({ rows, latestYear }: { rows: PikLedg
               domain={mode === "pct" ? [0, 100] : [0, "auto"]} />
             <Tooltip contentStyle={{ background: "#0f0f16", border: "1px solid #2d2d45", fontSize: 12 }}
               labelStyle={{ color: "#e5e7eb" }} cursor={{ fill: "rgba(255,255,255,0.04)" }}
-              formatter={(v, name) => [mode === "pct" ? `${Number(v).toFixed(1)}%` : `$${Number(v).toFixed(0)}m`, String(name)]}
+              formatter={(v, name) => [v == null ? "—" : mode === "pct" ? `${Number(v).toFixed(1)}%` : `$${Number(v).toFixed(0)}m`, String(name)]}
               labelFormatter={(l, payload) => {
                 const t = payload && payload[0] ? (payload[0].payload as { total: number }).total : null;
                 return `PIK booked in ${String(l).replace("*", "")}${t != null ? ` — $${t.toFixed(0)}m` : ""}`;

@@ -10,6 +10,7 @@ import {
   Legend,
   Line,
 } from "recharts";
+import { PIK_BOUNDED_MIN_PP, pikBandPp } from "@/lib/pikPublication";
 import type { SponsorHistoryRow } from "@/data/sponsors_history";
 
 type Mode = "fv" | "credit";
@@ -36,9 +37,12 @@ export default function SponsorHistoryChart({ rows, mode, height = 240 }: Props)
       pct_below_95: r.pct_below_95,
       pct_non_accrual: r.pct_non_accrual,
       pct_pik_now: unavailable ? null : r.pct_pik_now,
+      // The upper line is drawn only where unknowns move the share by at
+      // least PIK_BOUNDED_MIN_PP; narrower bands read as one number.
       pct_pik_now_upper: !unavailable
         && r.pik_publication_status === "bounded"
         && Number.isFinite(r.pct_pik_now_upper)
+        && (pikBandPp(r.pct_pik_now, r.pct_pik_now_upper) ?? 0) >= PIK_BOUNDED_MIN_PP
         ? r.pct_pik_now_upper as number
         : null,
       pik_observation_coverage_pct: Number.isFinite(r.pik_observation_coverage_pct)
