@@ -130,7 +130,7 @@ export default function NaForecastTable() {
             </h2>
             <p className="text-xs mt-1 max-w-4xl" style={{ color: "#8b8ba8" }}>
               For each BDC, the share of today&apos;s performing loans (at cost) we expect to{" "}
-              <span className="text-white">newly</span> go on non-accrual over the next four quarters.
+              <span className="text-white">newly</span>{" "}go on non-accrual over the next four quarters.
               Every performing borrower is scored on warning signs — its mark, PIK, loan changes,
               trouble at other lenders and loan age — the scores are added up by cost, and the total
               is calibrated against each BDC&apos;s recent history. Use it to rank BDCs, not as a
@@ -303,7 +303,7 @@ export default function NaForecastTable() {
         <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
           <span className="text-white">The test.</span> We re-ran the model at past quarter-ends and compared
           each forecast with what then happened. Each past forecast was fitted only on loans whose
-          {embargoQ != null ? ` ${embargoQ}-quarter` : ""} outcome was already known on that date, so the
+          {embargoQ != null ? ` ${embargoQ}-quarter` : ""}{" "}outcome was already known on that date, so the
           test has no look-ahead (the outcome window is embargoed). Loans whose later status is unknown are left
           out of the scoring rather than counted as &ldquo;no default&rdquo;.
           {fm.n != null && ` That strictness leaves a small sample — ${fm.n} BDC-quarters — so read these results as indicative.`}
@@ -351,7 +351,7 @@ export default function NaForecastTable() {
           high-yield credit spread.
         </p>
         <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-          <span className="text-white">Corrected September 2026.</span> The back-test now waits for
+          <span className="text-white">Corrected September 2026.</span>{" "}The back-test now waits for
           outcomes to be known before using a loan for training — earlier versions did not, which made
           the track record look better than it was. Unknown non-accrual status is no longer counted as
           &ldquo;performing&rdquo;. Borrowers are tracked as the same company even when the name in the

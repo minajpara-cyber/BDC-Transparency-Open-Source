@@ -444,7 +444,7 @@ export default function WatchlistPage() {
           </p>
         )}
         <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-          <span className="text-white">In-sample:</span> the watchlist&apos;s point weights were set using these same
+          <span className="text-white">In-sample:</span>{" "}the watchlist&apos;s point weights were set using these same
           results, so read the tier rows as a description of history rather than an independent test — the
           out-of-sample tab is the stricter test. {backtestLabelText}
         </p>
