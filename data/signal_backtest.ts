@@ -3,6 +3,9 @@
 // positions carrying it that went on to NON-ACCRUAL (rate_na) or to
 // non-accrual-OR-marked-below-80 (rate_bad) within 4 quarters, vs the base
 // rate across all positions. `lift` = rate / base rate. Coverage floor 2018.
+// IN-SAMPLE: the tier weights were calibrated on this same history. Windows
+// whose non-accrual status is unknown (start or any forward quarter) are
+// excluded, not counted as "no non-accrual" — see signalBacktestMeta.
 
 export interface BacktestRow {
   signal: string; n: number;
@@ -10,18 +13,31 @@ export interface BacktestRow {
   lift_bad: number | null; lift_na: number | null;
 }
 export const signalBacktest: BacktestRow[] = [
-  {"signal": "ALL (base rate)", "n": 104480, "rate_bad": 5.8, "rate_na": 2.5, "lift_bad": 1.0, "lift_na": 1.0},
-  {"signal": "mark < 90c", "n": 7477, "rate_bad": 42.2, "rate_na": 14.0, "lift_bad": 7.3, "lift_na": 5.7},
-  {"signal": "mark < 80c", "n": 2676, "rate_bad": 69.0, "rate_na": 21.9, "lift_bad": 11.9, "lift_na": 8.9},
-  {"signal": "mark falling ≥3pt QoQ", "n": 5507, "rate_bad": 29.6, "rate_na": 11.8, "lift_bad": 5.1, "lift_na": 4.8},
-  {"signal": "falling 2 quarters", "n": 909, "rate_bad": 56.8, "rate_na": 24.2, "lift_bad": 9.8, "lift_na": 9.8},
-  {"signal": "cash→PIK flip", "n": 1094, "rate_bad": 27.2, "rate_na": 16.0, "lift_bad": 4.7, "lift_na": 6.5},
-  {"signal": "PIK severe", "n": 3645, "rate_bad": 18.6, "rate_na": 13.3, "lift_bad": 3.2, "lift_na": 5.4},
-  {"signal": "amend-and-extend", "n": 5261, "rate_bad": 7.5, "rate_na": 4.1, "lift_bad": 1.3, "lift_na": 1.7},
-  {"signal": "spread cut", "n": 4308, "rate_bad": 6.1, "rate_na": 2.8, "lift_bad": 1.1, "lift_na": 1.1},
-  {"signal": "NA at another BDC", "n": 818, "rate_bad": 56.2, "rate_na": 54.3, "lift_bad": 9.7, "lift_na": 22.0},
-  {"signal": "NA elsewhere + mark < 90c", "n": 133, "rate_bad": 85.0, "rate_na": 78.2, "lift_bad": 14.7, "lift_na": 31.7},
-  {"signal": "tier: Watch", "n": 6943, "rate_bad": 31.5, "rate_na": 11.0, "lift_bad": 5.4, "lift_na": 4.4},
-  {"signal": "tier: Elevated", "n": 1959, "rate_bad": 59.3, "rate_na": 26.9, "lift_bad": 10.3, "lift_na": 10.9},
-  {"signal": "tier: High", "n": 370, "rate_bad": 80.5, "rate_na": 51.1, "lift_bad": 13.9, "lift_na": 20.7}
+  {"signal": "ALL (base rate)", "n": 90055, "rate_bad": 5.5, "rate_na": 2.6, "lift_bad": 1.0, "lift_na": 1.0},
+  {"signal": "mark < 90c", "n": 5924, "rate_bad": 43.0, "rate_na": 15.6, "lift_bad": 7.8, "lift_na": 6.0},
+  {"signal": "mark < 80c", "n": 1950, "rate_bad": 71.7, "rate_na": 25.8, "lift_bad": 13.0, "lift_na": 9.9},
+  {"signal": "mark falling ≥3pt QoQ", "n": 4647, "rate_bad": 29.4, "rate_na": 12.2, "lift_bad": 5.3, "lift_na": 4.7},
+  {"signal": "falling 2 quarters", "n": 760, "rate_bad": 56.3, "rate_na": 23.9, "lift_bad": 10.2, "lift_na": 9.2},
+  {"signal": "cash→PIK flip", "n": 975, "rate_bad": 27.5, "rate_na": 17.3, "lift_bad": 5.0, "lift_na": 6.7},
+  {"signal": "PIK severe", "n": 3397, "rate_bad": 19.7, "rate_na": 14.9, "lift_bad": 3.6, "lift_na": 5.7},
+  {"signal": "amend-and-extend", "n": 4689, "rate_bad": 7.3, "rate_na": 4.3, "lift_bad": 1.3, "lift_na": 1.7},
+  {"signal": "spread cut", "n": 3750, "rate_bad": 5.8, "rate_na": 3.0, "lift_bad": 1.0, "lift_na": 1.2},
+  {"signal": "NA at another BDC", "n": 548, "rate_bad": 74.6, "rate_na": 74.3, "lift_bad": 13.5, "lift_na": 28.5},
+  {"signal": "NA elsewhere + mark < 90c", "n": 96, "rate_bad": 88.5, "rate_na": 87.5, "lift_bad": 16.0, "lift_na": 33.6},
+  {"signal": "tier: Watch", "n": 5452, "rate_bad": 32.2, "rate_na": 12.7, "lift_bad": 5.8, "lift_na": 4.9},
+  {"signal": "tier: Elevated", "n": 1611, "rate_bad": 61.0, "rate_na": 29.4, "lift_bad": 11.0, "lift_na": 11.3},
+  {"signal": "tier: High", "n": 316, "rate_bad": 82.3, "rate_na": 54.4, "lift_bad": 14.9, "lift_na": 20.9}
 ];
+
+export const signalBacktestMeta = {
+  "evidence": "in_sample",
+  "evidence_note": "Historical hit rates on the same 2018+ history the tier weights were calibrated against: tier lifts are in-sample. The out-of-sample test is scripts/78's score (ewsMeta).",
+  "horizon_quarters": 4,
+  "coverage_floor": "2018-01-01",
+  "label_policy": "unknown_status_windows_excluded",
+  "label_note": "A position counts as not going non-accrual only when its BDC's status was observed in the start quarter and in all four following quarters.",
+  "n_candidates": 104480,
+  "n_scored": 90055,
+  "n_excluded_unknown_start": 8699,
+  "n_excluded_unknown_outcome": 5726
+} as const;
