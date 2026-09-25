@@ -4,6 +4,7 @@ export type PikPublicationStatus =
   | "bounded"
   | "unavailable"
   | "legacy_point_estimate"
+  | "catalog_estimate"
   | string;
 
 // Display rules for the PIK lower/upper bounds. The lower bound counts only
@@ -29,6 +30,15 @@ export function showPikRange(lower: number | null | undefined, upper: number | n
   const band = pikBandPp(lower, upper);
   return band != null && band > PIK_RANGE_DISPLAY_PP;
 }
+
+// BDCs we don't parse keep the hand-compiled figures from data/bdcs.ts, which
+// was assembled in March 2026 from public disclosures. Their non-accrual and PIK
+// values are shown with the same label so neither reads as a parsed number.
+export const CATALOG_ESTIMATE_STATUS = "catalog_estimate";
+export const CATALOG_AS_OF_LABEL = "Mar 2026";
+export const CATALOG_ESTIMATE_LABEL = `Catalog estimate (as of ${CATALOG_AS_OF_LABEL})`;
+export const CATALOG_ESTIMATE_REASON =
+  `Hand-compiled catalog figure (as of ${CATALOG_AS_OF_LABEL}), not parsed from this BDC's filings; treat it as approximate.`;
 
 export interface PikPublication {
   lower: number | null;
@@ -206,6 +216,7 @@ export function pikPublicationLabel(value: PikPublication): string {
     return `Range: unknowns counted as PIK at the top · ${coverage}`;
   }
   if (value.status === "near_complete") return `${coverage}; unknowns move it by under ${PIK_BOUNDED_MIN_PP}pp`;
+  if (value.status === CATALOG_ESTIMATE_STATUS) return CATALOG_ESTIMATE_LABEL;
   if (value.status === "fully_observed") return "Fully observed applicable PIK fields";
   if (value.status === "unavailable") return "PIK coverage unavailable";
   return "Legacy point estimate";

@@ -8,14 +8,21 @@
 // We also surface the as-of date and Δ vs prior quarter, so the table can
 // show "as of YYYY-MM-DD" + green/red Δ chips.
 //
-// BDCs without usable parsed history retain their static catalog metadata,
-// but unsupported PIK point estimates are withheld explicitly.
+// BDCs without usable parsed history keep their hand-compiled catalog figures.
+// Non-accrual and PIK are both labelled "catalog estimate (as of …)" so neither
+// reads as a number parsed from the filings.
 
 import { bdcs, BDC } from "@/data/bdcs";
 import { bdcsHistory, BDCQuarter } from "@/data/bdcs_history";
 import { isReliable } from "@/lib/reliability";
 import { hasReportedSize } from "@/lib/quarterCoverage";
-import { exactPikDelta, historyPikPublication } from "@/lib/pikPublication";
+import {
+  CATALOG_ESTIMATE_LABEL,
+  CATALOG_ESTIMATE_REASON,
+  CATALOG_ESTIMATE_STATUS,
+  exactPikDelta,
+  historyPikPublication,
+} from "@/lib/pikPublication";
 
 // Optional while older generated snapshots are still in use.
 export interface NonAccrualPublicationMetadata {
@@ -26,6 +33,10 @@ export interface NonAccrualPublicationMetadata {
 
 export function naPublicationDisplay(metadata: NonAccrualPublicationMetadata = {}) {
   const status = metadata.na_publication_status;
+  if (status === CATALOG_ESTIMATE_STATUS) return {
+    label: CATALOG_ESTIMATE_LABEL,
+    description: metadata.na_publication_reason ?? CATALOG_ESTIMATE_REASON,
+  };
   if (status === "withheld_reconciliation") return {
     label: "Reconciliation pending",
     description: metadata.na_publication_reason ?? "The non-accrual ratio is withheld while its numerator and denominator are reconciled.",
@@ -56,6 +67,7 @@ export interface BDCEnriched extends Omit<BDC, "nonAccrualRate" | "pikRate">, No
   pikMetricVersion?: string | null;
   asOf?: string;                  // 'YYYY-MM-DD' from parsed data
   parsed?: boolean;               // true if overlay values came from our parser
+  catalogEstimate?: boolean;      // true if NA / PIK / FV are hand-compiled catalog figures
   delta_fv_b?: number | null;     // QoQ change in total_fv_b
   delta_na_pct?: number | null;   // QoQ change in na_pct_at_cost
   delta_pik_pct?: number | null;  // QoQ change in pik_pct_at_cost
@@ -75,29 +87,36 @@ function indexHistory(): Map<string, BDCQuarter[]> {
   return m;
 }
 
-function withoutObservedPik(bdc: BDC): BDCEnriched {
+function catalogEstimate(bdc: BDC): BDCEnriched {
+  const nonAccrualRate = Number.isFinite(bdc.nonAccrualRate) ? bdc.nonAccrualRate : null;
+  const pikRate = Number.isFinite(bdc.pikRate) ? bdc.pikRate : null;
   return {
     ...bdc,
-    pikRate: null,
-    pikRateLower: null,
-    pikRateUpper: null,
+    nonAccrualRate,
+    na_basis: "static_catalog",
+    na_publication_status: CATALOG_ESTIMATE_STATUS,
+    na_publication_reason: CATALOG_ESTIMATE_REASON,
+    pikRate,
+    pikRateLower: pikRate,
+    pikRateUpper: pikRate,
     pikObservationCoveragePct: null,
-    pikPublicationStatus: "unavailable",
-    pikPublicationReason: "No source-observed PIK coverage is available for this BDC in the current parsed dataset.",
+    pikPublicationStatus: CATALOG_ESTIMATE_STATUS,
+    pikPublicationReason: CATALOG_ESTIMATE_REASON,
     pikMetricVersion: null,
     parsed: false,
+    catalogEstimate: true,
   };
 }
 
 export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriched {
   const all = hist.get(bdc.ticker);
-  if (!all || all.length === 0) return withoutObservedPik(bdc);
+  if (!all || all.length === 0) return catalogEstimate(bdc);
   // Only quarters whose size parsed can stand in for the portfolio. An
   // unparsed quarter exports as 0, so taking it as "latest" would show the BDC
   // at $0.0B, and taking it as "prior" would make the QoQ change the whole
   // portfolio. ADS, MAIN, OCIC, OCSL, CCAP and BCRED each have such rows.
   const rows = all.filter(hasReportedSize);
-  if (rows.length === 0) return withoutObservedPik(bdc);
+  if (rows.length === 0) return catalogEstimate(bdc);
   const latest = rows[rows.length - 1] as BDCQuarter & NonAccrualPublicationMetadata;
   const prior = rows.length >= 2 ? rows[rows.length - 2] as BDCQuarter & NonAccrualPublicationMetadata : null;
   const comparableNaBasis = latest.na_basis === prior?.na_basis;
