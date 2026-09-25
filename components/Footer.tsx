@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { TrendingUp, GitBranch } from "lucide-react";
+import { siteMeta } from "@/data/site_meta";
 
 export default function Footer() {
   return (
@@ -83,7 +84,9 @@ export default function Footer() {
             © 2025 BDC Transparency. Open source under MIT License.
           </p>
           <p className="text-xs" style={{ color: "#6b6b88" }}>
-            Data as of Q3 2025 · Not investment advice
+            Data as of {siteMeta.latest_quarter} ·{" "}
+            <Link href="/about#data-notes" className="underline hover:text-white">Data notes</Link>
+            {" "}· Not investment advice
           </p>
         </div>
       </div>

@@ -81,9 +81,9 @@ export default function NonAccrualsPage() {
     .sort((a, b) => (b.prv_fv_m ?? 0) - (a.prv_fv_m ?? 0));
 
   const uncertainGroups = [
-    { event: "first_observed_na", title: "First observed non-accrual", detail: "NA is present, but the prior observation or component status does not establish when it began." },
-    { event: "removed_unknown", title: "Removed; outcome unknown", detail: "Previously flagged exposure is absent from the current snapshot. Sale, repayment, write-off and identity changes remain unresolved." },
-    { event: "unknown_status", title: "Status unresolved", detail: "Missing flags, mixed components, changed row counts or reporting gaps prevent a supported return-to-accrual conclusion." },
+    { event: "first_observed_na", title: "First seen already on non-accrual", detail: "On non-accrual now, but the prior filing doesn't tell us when that started." },
+    { event: "removed_unknown", title: "Gone from the filing; outcome unknown", detail: "On non-accrual last quarter and missing from this filing. It may have been sold, repaid, written off or renamed; we can't tell which." },
+    { event: "unknown_status", title: "Status unclear", detail: "Flags are missing or mixed, or the borrower's loans changed between filings, so we can't say whether it returned to accruing." },
   ].map((group) => ({ ...group, rows: filteredFlow.filter((e) => e.event === group.event) }));
   const industryNA = creditQuality.filter((r) => r.ticker === "industry").sort((a, b) => b.period_end.localeCompare(a.period_end))[0];
 
@@ -108,9 +108,10 @@ export default function NonAccrualsPage() {
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">Non-Accruals — Cross-BDC View</h1>
         <p className="text-sm" style={{ color: "#8b8ba8" }}>
-          Observed non-accrual positions from each BDC&apos;s latest approved Schedule of Investments,
-          with changes grouped by BDC, borrower and instrument type. These groups can contain several
-          facilities. MFIC contributes its disclosed issuer rate below; borrower flags are unavailable.
+          Every loan flagged non-accrual in each BDC&apos;s latest Schedule of Investments, what changed since
+          the prior quarter, and where lenders disagree. Changes are grouped by BDC, borrower and loan type, so
+          one row can cover several loans. MFIC reports non-accruals only as a total, so it appears in the BDC
+          table below but not in the loan lists.
         </p>
       </div>
 
@@ -142,14 +143,14 @@ export default function NonAccrualsPage() {
           <div className="text-2xl font-bold text-white">
             +{newNAEvents.length} / -{curedEvents.length}
           </div>
-          <div className="text-xs mt-1" style={{ color: "#6b6b88" }}>new NA groups / observed returns</div>
+          <div className="text-xs mt-1" style={{ color: "#6b6b88" }}>new non-accruals / back to accruing</div>
         </div>
       </div>
 
       <p className="text-xs mb-5" style={{ color: "#8b8ba8" }}>
-        Status changes compare consecutive snapshots of borrower/instrument groups, not verified facility events.
-        Missing positions never establish a cure. Unknown rates display as —; a reported or fully decoded zero displays as 0.00%.
-        {industryNA && <> Industry NA coverage: {industryNA.na_covered_bdcs} BDCs, ${industryNA.na_eligible_cost_b.toFixed(1)}B matched cost as of {industryNA.period_end}; aggregate-only disclosures, incomplete flags and reviewed reconciliation exclusions (including unresolved funded-exposure scope) are excluded from that weighted rate.</>}
+        Changes compare this quarter&apos;s filing with the last one; a loan that simply disappears is not counted
+        as cured. &ldquo;—&rdquo; means unknown; 0.00% means a confirmed zero.
+        {industryNA && <> The industry non-accrual rate covers {industryNA.na_covered_bdcs} BDCs (${industryNA.na_eligible_cost_b.toFixed(1)}B of cost, as of {industryNA.period_end}); BDCs that report only a total, use a different basis, or whose figures are still being reconciled are left out of it.</>}
       </p>
 
       {/* Ticker filter */}
@@ -243,10 +244,10 @@ export default function NonAccrualsPage() {
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#7f1d1d" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: "#7f1d1d", background: "#1a0505" }}>
             <h2 className="font-semibold" style={{ color: "#ef4444" }}>
-              Newly Non-Accrual Groups ({newNAEvents.length})
+              New Non-Accruals This Quarter ({newNAEvents.length})
             </h2>
             <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              All observed components changed from accruing to non-accrual in consecutive quarters. Values cover the borrower/instrument group, sorted by current fair value.
+              Accruing last quarter and on non-accrual now — every loan in the group changed. Sorted by current fair value.
             </p>
           </div>
           <div className="divide-y" style={{ borderColor: "#1a1a28" }}>
@@ -283,10 +284,10 @@ export default function NonAccrualsPage() {
         <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#14532d" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: "#14532d", background: "#05140a" }}>
             <h2 className="font-semibold" style={{ color: "#22c55e" }}>
-              Observed Returns to Accrual ({curedEvents.length})
+              Back to Accruing ({curedEvents.length})
             </h2>
             <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              All observed components changed from non-accrual to accruing, with the same row count in consecutive quarters. This is an aggregate observation; facility-level cures still require verification.
+              On non-accrual last quarter and accruing now, with the same loans in both filings. Sorted by prior-quarter fair value.
             </p>
           </div>
           <div className="divide-y" style={{ borderColor: "#1a1a28" }}>
@@ -314,7 +315,7 @@ export default function NonAccrualsPage() {
               </div>
             ))}
             {curedEvents.length === 0 && (
-              <div className="px-5 py-6 text-sm text-center" style={{ color: "#8b8ba8" }}>No supported aggregate returns to accrual this quarter.</div>
+              <div className="px-5 py-6 text-sm text-center" style={{ color: "#8b8ba8" }}>No loans clearly returned to accruing this quarter.</div>
             )}
           </div>
         </div>
@@ -346,7 +347,7 @@ export default function NonAccrualsPage() {
           </h2>
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
             Borrowers held by 2+ covered BDCs where at least one BDC flags non-accrual on at least
-            one tranche and at least one has complete, explicitly accruing observations. Unknown holders are excluded. Names are normalized via the bdctransparency.io
+            one tranche while another clearly shows it accruing (lenders whose status we can&apos;t read are left out). Names are normalized via the bdctransparency.io
             alias dictionary so divergent legal-entity strings roll up to a single operating company.
           </p>
         </div>
@@ -405,8 +406,8 @@ export default function NonAccrualsPage() {
         <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
           <h2 className="font-semibold text-white">BDCs by Non-Accrual % at Cost</h2>
           <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
-            Basis labels distinguish issuer disclosures from rates derived from parsed positions. Hover a label for scope
-            or the reason a ratio is unavailable. Position evidence remains listed above when an issuer ratio is withheld.
+            The small label under each rate says where it comes from — the BDC&apos;s own disclosure, or our count of
+            its flagged loans. Hover it for details. Where a rate isn&apos;t shown, the flagged loans are still listed above.
           </p>
         </div>
         <div className="overflow-x-auto">

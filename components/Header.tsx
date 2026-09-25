@@ -118,7 +118,7 @@ export default function Header() {
           <div className="hidden md:flex items-center gap-3">
             <SiteSearch />
             <div className="flex items-center gap-1.5 text-xs whitespace-nowrap" style={{ color: "#8b8ba8" }}
-              title={`Latest accepted quarter ends ${siteMeta.latest_period} · data release ${siteMeta.generated_at} · ${siteMeta.n_filings} selected filings`}
+              title={`Latest quarter ends ${siteMeta.latest_period} · data updated ${siteMeta.generated_at} · ${siteMeta.n_filings} SEC filings`}
               data-release-id={dataReleaseId}>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse-slow" />
               {siteMeta.latest_quarter}
@@ -150,8 +150,8 @@ export default function Header() {
               </Link>
             ))}
             <div className="px-4 py-2 text-xs" style={{ color: "#6b7280" }}>
-              Data through {siteMeta.latest_quarter} · data release {siteMeta.generated_at}
-              {dataReleaseId && <a href="/data-release.json" className="ml-2 underline">Release details</a>}
+              Data through {siteMeta.latest_quarter} · updated {siteMeta.generated_at}
+              <Link href="/about#data-notes" onClick={() => setMobileOpen(false)} className="ml-2 underline">Data notes</Link>
             </div>
           </div>
         )}

@@ -1,7 +1,27 @@
 import Link from "next/link";
 import { GitBranch, Database, FileText, BarChart3, Shield } from "lucide-react";
+import { siteMeta } from "@/data/site_meta";
+import { creditQuality } from "@/data/credit_quality";
+import { naPublicationDisplay } from "@/lib/enrichBDC";
+import {
+  dataCheckedOn, dataReleaseId, dataReleaseManifestPath, laggingIssuers, longTailReportingDate,
+} from "@/lib/dataRelease";
+
+/** BDCs left out of the pooled industry non-accrual rate in its latest quarter, with the reason. */
+function industryNaExclusions() {
+  const latest = creditQuality
+    .filter((row) => row.ticker === "industry")
+    .reduce((max, row) => (row.period_end > max ? row.period_end : max), "");
+  const excluded = creditQuality
+    .filter((row) => row.ticker !== "industry" && row.period_end === latest && !(row.na_eligible_cost_b > 0))
+    .map((row) => ({ ticker: row.ticker, reason: naPublicationDisplay(row).label }))
+    .sort((a, b) => a.ticker.localeCompare(b.ticker));
+  return { latest, excluded };
+}
 
 export default function AboutPage() {
+  const lagging = laggingIssuers();
+  const naExclusions = industryNaExclusions();
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -113,6 +133,53 @@ export default function AboutPage() {
         </div>
       </div>
 
+      {/* Data notes — what this release covers, in plain English */}
+      <div id="data-notes" className="rounded-xl border p-6 mb-6 scroll-mt-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+        <h2 className="font-semibold text-white mb-4">Data notes</h2>
+        <ul className="text-sm leading-relaxed space-y-2 pl-5 list-disc" style={{ color: "#d1d5db" }}>
+          <li>
+            Latest quarter: <span className="text-white">{siteMeta.latest_quarter}</span> (ending {siteMeta.latest_period}),
+            from {siteMeta.n_filings} SEC filings across {siteMeta.n_bdcs} BDCs. Data updated {siteMeta.generated_at}.
+          </li>
+          <li>
+            {lagging.length === 0
+              ? `Every one of the ${siteMeta.n_bdcs} BDCs we parse has filed for that quarter.`
+              : `Not yet filed for that quarter: ${lagging.map((l) => `${l.ticker} (latest ${l.period})`).join(", ")}. Their pages show their latest filing.`}
+          </li>
+          {longTailReportingDate && (
+            <li>
+              The smaller BDCs we add from the SEC&apos;s bulk data sets (used in industry mark comparisons and the
+              borrower universe) run only through {longTailReportingDate}.
+            </li>
+          )}
+          {naExclusions.latest && (
+            <li>
+              The pooled industry non-accrual rate for {naExclusions.latest}{" "}
+              {naExclusions.excluded.length > 0
+                ? `leaves out ${naExclusions.excluded.map((e) => `${e.ticker} (${e.reason.toLowerCase()})`).join(", ")}. These BDCs report only a total, use a different basis, or are still being reconciled; their own rates are shown on their BDC pages.`
+                : "includes every BDC we parse."}
+            </li>
+          )}
+          <li>
+            &ldquo;—&rdquo; means a number is unknown; 0.00% means a confirmed zero. Figures labelled
+            &ldquo;catalog estimate&rdquo; are hand-compiled for BDCs we don&apos;t parse, not read from filings.
+          </li>
+          {dataCheckedOn && (
+            <li>
+              Each release passes automated consistency checks before it is published (last run {dataCheckedOn}).
+              These checks are not an independent audit of every loan or event.
+            </li>
+          )}
+        </ul>
+        {dataReleaseId && (
+          <p className="text-xs mt-4" style={{ color: "#6b6b88" }}>
+            Release {dataReleaseId}. For technical readers, the{" "}
+            <a href={dataReleaseManifestPath} className="underline">release file</a> lists every data file&apos;s
+            version and checksum.
+          </p>
+        )}
+      </div>
+
       {/* BDC Basics */}
       <div className="rounded-xl border p-6 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <h2 className="font-semibold text-white mb-4">BDC Basics</h2>
@@ -174,31 +241,32 @@ export default function AboutPage() {
           composition is shown separately, with unknown dates and issuer reporting dates retained.
         </p>
 
-        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Quarterly inferred modifications</h3>
+        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Quarterly loan modifications</h3>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          The quarterly headline, severity chart and named table share the same material PIK event
-          definition. These are inferred changes in observed terms, not confirmed disclosed amendments.
-          The broad event table includes five signals, which can overlap:
+          We infer modifications by comparing each loan&apos;s terms from one quarter to the next; they are
+          not amendments the BDC has confirmed. The quarterly headline, the severity chart and the named-events
+          table all use the same cash → PIK definition. The broader events table uses five signals, which can
+          overlap:
         </p>
         <ul className="text-xs leading-relaxed mb-3 pl-5 list-disc" style={{ color: "#9ca3af" }}>
-          <li><span className="text-white">Cash → PIK</span> — a material-rule PIK observation after two consecutive cash quarters. Materiality uses the coupon share or all-PIK label; where the split is missing, the rule uses a PIK rate of at least 150bps, or retains the event with unknown severity if the rate is also missing. Persistence remains provisional unless PIK is observed in the next quarter.</li>
-          <li><span className="text-white">Maturity extension</span> — at least six indexed months of extension. Parsed maturity precision can be coarse.</li>
-          <li><span className="text-white">Stressed par reduction</span> — a par drop greater than 15% with a prior mark below 85¢, prior NA flag, or newly observed equity in the borrower. This does not prove a haircut or exclude a sale.</li>
-          <li><span className="text-white">Contractual spread cut</span> — spread over the reference index falls by more than 50bps. Cash coupon can move differently.</li>
-          <li><span className="text-white">Lien downgrade</span> — inferred from a change in the matched instrument&apos;s class.</li>
+          <li><span className="text-white">Cash → PIK</span> — a loan that paid cash interest for two quarters in a row starts paying a meaningful part of its interest in kind (PIK). &ldquo;Meaningful&rdquo; is judged from the PIK share of the coupon or an all-PIK label; if the split isn&apos;t disclosed, a PIK rate of at least 1.5% counts, and if that is missing too the event is kept with severity &ldquo;unknown&rdquo;. It stays provisional until PIK shows up again the next quarter.</li>
+          <li><span className="text-white">Maturity extension</span> — the maturity date moves out by at least six months. Some filings give maturity only to the month or year.</li>
+          <li><span className="text-white">Stressed cut to the loan amount</span> — par falls by more than 15% while the loan was marked below 85¢ or on non-accrual, or the BDC newly holds equity in the borrower. This suggests a write-down but can&apos;t rule out a partial sale.</li>
+          <li><span className="text-white">Spread cut</span> — the margin over the base rate falls by more than 0.5 percentage points. The cash coupon can move differently.</li>
+          <li><span className="text-white">Lien downgrade</span> — the matched loan moves to a lower-ranking class (for example, first lien to second lien).</li>
         </ul>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          The denominator is current USD cost of identified funded debt with observed PIK flags at
-          adjacent calendar quarter-ends. Unknown instrument classes, gaps and disclosed unfunded
-          commitments are excluded. Zero-event eligible issuer quarters remain in the denominator;
-          unknown severity remains in the total. Industry rollups require at least 10 issuers and
-          exclude issuer quarters with a material PIK event cost share of 30% or more. Coverage is partial.
+          Rates are measured against the cost, in US dollars, of drawn loans whose PIK status we can see at
+          both consecutive quarter-ends. Loans of unknown type, quarters with gaps and unfunded commitments are
+          left out. A BDC with no events still counts (as zero), and events of unknown severity still count in
+          the total. The industry line needs at least 10 BDCs and leaves out any BDC-quarter where 30% or more
+          of the book flipped to PIK. Not every loan can be measured, so coverage is partial.
         </p>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          Named events include source-row comparison references and before/after evidence. Those
-          references identify observed comparisons, not permanent legal facilities. An observed
-          PIK → cash transition does not establish a credit cure. Holding-cohort non-accrual bounds
-          use a separate historical population and should not be read as quarterly modification flows.
+          Each named event shows the before-and-after rows from the filings it compares; its reference
+          identifies that comparison, not a legal loan agreement. A loan switching back from PIK to cash is
+          not proof the borrower has recovered. The vintage page&apos;s non-accrual figures use a different,
+          historical set of loans and should not be read as quarterly modification rates.
         </p>
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Sector classification &amp; borrower profiles</h3>
@@ -224,7 +292,7 @@ export default function AboutPage() {
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Coverage caveats</h3>
         <ul className="text-xs leading-relaxed pl-5 list-disc" style={{ color: "#9ca3af" }}>
           <li>Acquisition cohorts exclude holdings first observed after their acquisition quarter. This limits late-entry bias but does not establish complete historical coverage; missing quarters and unknown flags remain visible in the bounds.</li>
-          <li>Modification matching can confuse an amendment, refinancing or changed instrument label. The signal rules do not establish legal amendment terms or measured recall of all modifications.</li>
+          <li>Matching a loan across quarters can mistake a refinancing or a relabelled loan for an amendment, and the rules can&apos;t confirm legal terms or promise to catch every modification.</li>
           <li>Acquisition disclosures can refer to purchases or new securities, and changing or contradictory dates require review. First observed is a monitoring anchor only. No externally validated origination-accuracy rate is claimed.</li>
           <li>Cohort results depend on available issuer history, identified funded-debt coverage and the chosen follow-up horizon. Current composition and historical cohort denominators are different populations.</li>
         </ul>

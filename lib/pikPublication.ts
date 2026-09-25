@@ -3,7 +3,17 @@ export type PikPublicationStatus =
   | "bounded"
   | "unavailable"
   | "legacy_point_estimate"
+  | "catalog_estimate"
   | string;
+
+// BDCs we don't parse keep the hand-compiled figures from data/bdcs.ts, which
+// was assembled in March 2026 from public disclosures. Their non-accrual and PIK
+// values are shown with the same label so neither reads as a parsed number.
+export const CATALOG_ESTIMATE_STATUS = "catalog_estimate";
+export const CATALOG_AS_OF_LABEL = "Mar 2026";
+export const CATALOG_ESTIMATE_LABEL = `Catalog estimate (as of ${CATALOG_AS_OF_LABEL})`;
+export const CATALOG_ESTIMATE_REASON =
+  `Hand-compiled catalog figure (as of ${CATALOG_AS_OF_LABEL}), not parsed from this BDC's filings; treat it as approximate.`;
 
 export interface PikPublication {
   lower: number | null;
@@ -136,6 +146,7 @@ export function pikPublicationLabel(value: PikPublication): string {
       : `${value.observationCoveragePct.toFixed(1)}% observed`;
     return `Bounded estimate · ${coverage}`;
   }
+  if (value.status === CATALOG_ESTIMATE_STATUS) return CATALOG_ESTIMATE_LABEL;
   if (value.status === "fully_observed") return "Fully observed applicable PIK fields";
   if (value.status === "unavailable") return "PIK coverage unavailable";
   return "Legacy point estimate";

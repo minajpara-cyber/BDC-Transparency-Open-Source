@@ -4,8 +4,10 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import AlertBadge from "@/components/AlertBadge";
 import { bdcsHistory } from "@/data/bdcs_history";
-import { enrichedBDCs, BDCEnriched } from "@/lib/enrichBDC";
-import { enrichedPikPublication, formatPikPublication, pikPublicationLabel } from "@/lib/pikPublication";
+import { enrichedBDCs, BDCEnriched, naPublicationDisplay } from "@/lib/enrichBDC";
+import {
+  CATALOG_AS_OF_LABEL, enrichedPikPublication, formatPikPublication, pikPublicationLabel,
+} from "@/lib/pikPublication";
 
 type FilterType = "All" | "Traded" | "Non-Traded";
 
@@ -94,8 +96,9 @@ export default function BDCsPage() {
       <div className="mb-7">
         <h1 className="text-2xl font-bold text-white mb-2">Business Development Companies</h1>
         <p className="text-sm" style={{ color: "#8b8ba8" }}>
-          {bdcs.length} BDCs tracked · {parsedCount} with FV / non-accrual / PIK overlaid from our SEC SOI parsers
-          {latestParsed && ` · latest as of ${latestParsed}`}
+          {bdcs.length} BDCs tracked · {parsedCount} with fair value, non-accrual and PIK read from their own SEC filings
+          {latestParsed && ` (latest ${latestParsed})`}
+          {bdcs.length > parsedCount && ` · the other ${bdcs.length - parsedCount} show catalog estimates as of ${CATALOG_AS_OF_LABEL}`}
         </p>
       </div>
 
@@ -147,7 +150,7 @@ export default function BDCsPage() {
               return cost > 0 ? `${(weighted / cost).toFixed(2)}%` : "Unknown";
             })()}
           </div>
-          <div className="text-xs" style={{ color: "#8b8ba8" }}>Cost-weighted NA · eligible parsed coverage</div>
+          <div className="text-xs" style={{ color: "#8b8ba8" }}>Cost-weighted non-accrual · parsed BDCs on a common basis</div>
         </div>
         <div className="rounded-lg p-3 border text-center" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="text-lg font-bold text-white">
@@ -223,6 +226,11 @@ export default function BDCsPage() {
                         </span>
                         <DeltaChip delta={bdc.delta_na_pct} fmt={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}pp`} />
                       </div>
+                      <span className="block text-[10px] mt-1" style={{ color: "#8b8ba8" }}
+                        title={naPublicationDisplay(bdc).description}
+                        data-na-publication-status={bdc.na_publication_status ?? "unspecified"}>
+                        {naPublicationDisplay(bdc).label}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
@@ -240,10 +248,16 @@ export default function BDCsPage() {
                       {bdc.portfolioCompanies.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-right text-xs" style={{ color: bdc.asOf ? "#a5b4fc" : "#6b6b88" }}>
-                      {bdc.asOf ?? <span style={{ color: "#6b6b88" }}>static</span>}
+                      {bdc.asOf ?? <span style={{ color: "#6b6b88" }} title="Hand-compiled catalog figures, not parsed from filings">
+                        catalog · {CATALOG_AS_OF_LABEL}
+                      </span>}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-4 py-3 text-center"
+                      title={bdc.catalogEstimate ? "Based on the catalog estimate of non-accruals" : undefined}>
                       <AlertBadge severity={risk} label />
+                      {bdc.catalogEstimate && risk !== "Unknown" && (
+                        <span className="block text-[10px] mt-1" style={{ color: "#6b6b88" }}>estimate</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -255,7 +269,8 @@ export default function BDCsPage() {
 
       <p className="text-xs mt-4" style={{ color: "#6b6b88" }}>
         Data sourced from SEC Schedule of Investments filings and public BDC disclosures. Software exposure estimates based on BDC-reported industry classifications.
-        Non-traded BDC data sourced from quarterly reports. Traded BDC data as of latest 10-Q.
+        Rows dated &ldquo;catalog&rdquo; are hand-compiled figures ({CATALOG_AS_OF_LABEL}), not read from each filing — treat their
+        fair value, non-accrual, PIK and risk badge as approximate.
       </p>
     </div>
   );

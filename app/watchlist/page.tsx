@@ -21,7 +21,12 @@ import { watchlistByManager, watchlistByTicker } from "@/data/early_warning_hist
 import CreditHeatmap from "@/components/CreditHeatmap";
 import NaForecastTable from "@/components/NaForecastTable";
 import NaQuartileTrend from "@/components/NaQuartileTrend";
-import OutcomeEvidenceNotice from "@/components/OutcomeEvidenceNotice";
+import { signalBacktest } from "@/data/signal_backtest";
+import { ewsRows } from "@/data/early_warning_scores";
+import {
+  backtestBase, backtestCrossHolder, backtestCrossHolderStacked, backtestHigh, bucketLabel,
+  ewsIndustry, ewsInfo, scoreText, signalLabel, validationWindow, weakSignals,
+} from "@/lib/earlyWarningDisplay";
 
 const TIER_COLOR: Record<string, string> = {
   High: "#ef4444",
@@ -101,6 +106,7 @@ export default function WatchlistPage() {
   const [q, setQ] = useState<string>("");
   const [newOnly, setNewOnly] = useState(false);
   const [hideStructured, setHideStructured] = useState(true);
+  const [valTab, setValTab] = useState<"lifts" | "oos">("lifts");
   const [wlCut, setWlCut] = useState<WlCut>("watch_plus");
 
   // BDC x quarter watchlist-severity grid — the same shape as the non-accrual
@@ -157,6 +163,12 @@ export default function WatchlistPage() {
     });
   }, [tier, mgr, fund, q, newOnly, hideStructured]);
 
+  // Back-test hit rate by tier, lowest tier first, for the in-sample tab.
+  const tierRates = ["Watch", "Elevated", "High"]
+    .map((tier) => ({ tier, rate: signalBacktest.find((b) => b.signal === `tier: ${tier}`)?.rate_na }))
+    .filter((t): t is { tier: string; rate: number } => t.rate != null);
+  const tierRatesRise = tierRates.every((t, i) => i === 0 || t.rate > tierRates[i - 1].rate);
+
   const totalFV = rows.reduce((s, r) => s + r.fv_m, 0);
   const nHigh = rows.filter((r) => r.tier === "High").length;
   const nElevated = rows.filter((r) => r.tier === "Elevated").length;
@@ -201,7 +213,12 @@ export default function WatchlistPage() {
       render: (r) => <TierBadge tier={r.tier} />,
     },
     { key: "score", label: "Screen score", sortable: true, align: "right",
-      render: (r) => <span className="font-semibold text-white">{r.score}</span> },
+      render: (r) => (
+        <span className="font-semibold text-white"
+          title={r.score_observation_status === "lower_bound" ? "Some signals could not be observed, so the true score may be higher." : undefined}>
+          {r.score_observation_status === "lower_bound" ? `≥${r.score}` : r.score}
+        </span>
+      ) },
     {
       key: "company", label: "Borrower", sortable: true,
       render: (r) => (
@@ -263,7 +280,7 @@ export default function WatchlistPage() {
   ];
 
   const csvRows = rows.map((r) => [
-    r.tier, r.score, r.company, r.ticker, r.manager, r.parent, r.industry,
+    r.tier, r.score, r.score_observation_status, r.company, r.ticker, r.manager, r.parent, r.industry,
     r.maturity_date, r.mark, r.fv_m, r.cost_m, r.is_new, r.signals.join("; "),
   ]);
 
@@ -279,33 +296,190 @@ export default function WatchlistPage() {
           </span>
         </div>
         <p className="text-sm max-w-3xl" style={{ color: "#9ca3af" }}>
-          Positions selected for review from reported marks, mark changes, PIK terms and other observed signals.
-          Screen scores and tiers are heuristic labels, not validated probabilities of default or future non-accrual.
-          Positions explicitly tagged non-accrual are excluded from this screen; missing status and ambiguous
-          cross-holder matches can remain. Dollar amounts show reported fair value, not an estimate of future losses.
+          Loans that are <span className="text-white">showing stress but are not yet on non-accrual</span> — the
+          leading edge of credit problems. Each loan gets a screen score from its mark and how fast it is falling,
+          a switch from cash to PIK interest, heavy PIK, amend-and-extends and non-accrual at another BDC, and is
+          then ranked by reported fair value. Tiers rank risk; they are not default probabilities.
+          {backtestHigh && backtestHigh.lift_na != null && (
+            <>
+              {" "}In the historical back-test below, loans in the{" "}
+              <span style={{ color: TIER_COLOR.High }}>High</span> tier went on non-accrual within a year{" "}
+              <span className="text-white">{backtestHigh.lift_na}× as often as the average loan</span>.
+            </>
+          )}{" "}
+          Dollar amounts are reported fair value, not an estimate of losses.
         </p>
       </div>
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard label="Reported FV on watchlist" value={fmtM(totalFV)}
-          sub={`${rows.length} positions selected for review`} color="#f59e0b" highlight />
+          sub={`${rows.length} positions, not yet on non-accrual`} color="#f59e0b" highlight />
         <StatCard label="High tier" value={String(nHigh)} color="#ef4444"
           sub={`+ ${nElevated} elevated`} />
         <StatCard label="New this quarter" value={String(nNew)} color="#6366f1"
           sub={`${fmtM(newFV)} entered the watchlist`} />
-        <StatCard label="Position probabilities" value="Withheld" color="#9ca3af"
-          sub="Pending source and follow-up validation" />
+        <StatCard label="High → non-accrual ≤1yr"
+          value={backtestHigh ? `${backtestHigh.rate_na}%` : "—"} color="#ef4444"
+          trend="down" trendLabel={backtestHigh?.lift_na != null ? `${backtestHigh.lift_na}× base rate` : undefined}
+          sub={backtestBase ? `vs ${backtestBase.rate_na}% base · historical, in-sample` : "historical, in-sample"} />
       </div>
 
-      <section className="mb-8">
-        <OutcomeEvidenceNotice title="Watchlist score performance pending validation">
-          Historical hit rates, predictive lifts and fitted outcome scores are withheld until source labels,
-          consecutive follow-up and unresolved observations are reviewed. The screen below preserves reported
-          exposures and observed signals for investigation; it does not establish a future credit outcome. Current
-          BDC-level four-quarter estimates that meet the separate coverage gate appear in the{" "}
-          <Link href="#gated-na-projections" className="text-indigo-300 underline">gated projection table</Link>.
-        </OutcomeEvidenceNotice>
+      {/* Back-test credibility panel — two validation lenses, one card */}
+      <section className="mb-8 rounded-xl border p-5" style={{ background: "#0d0d14", borderColor: "#1e1e2e" }}
+        id="signal-backtest">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <h2 className="text-lg font-semibold text-white">Does the signal actually predict trouble?</h2>
+          <div className="flex items-center gap-1 text-xs">
+            {([["lifts", "Historical lifts (in-sample)"], ["oos", "Out-of-sample 2Q score"]] as const).map(([k, label]) => (
+              <button key={k} onClick={() => setValTab(k)}
+                className="px-2.5 py-1 rounded-md font-medium transition-colors"
+                style={{
+                  color: valTab === k ? "#a5b4fc" : "#8b8ba8",
+                  background: valTab === k ? "rgba(99,102,241,0.12)" : "transparent",
+                  border: `1px solid ${valTab === k ? "rgba(99,102,241,0.35)" : "#2d2d50"}`,
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {valTab === "oos" && (() => {
+          const oosWindow = validationWindow(ewsInfo.validated);
+          const multipliers = Object.entries(ewsInfo.signal_multipliers ?? {})
+            .filter(([, m]) => m >= 1.5)
+            .sort((a, b) => b[1] - a[1]);
+          const weak = weakSignals();
+          return (
+            <>
+              <p className="text-xs mt-1 mb-2" style={{ color: "#8b8ba8" }}>
+                The stricter test, using a separate, simpler score. Its points per signal were{" "}
+                <span className="text-white">fitted only on history through {ewsInfo.trained_through ?? "—"}</span>
+                {multipliers.length > 0 && (
+                  <> (how much more often loans with each signal went non-accrual than the average:{" "}
+                    {multipliers.map(([k, m]) => `${signalLabel(k)} ${m}×`).join(", ")})</>
+                )}
+                , then tested on {oosWindow ? `${oosWindow.from} to ${oosWindow.to}` : "later"} data the fit never saw.
+                Share that went on non-accrual within two quarters, by score:{" "}
+                {(ewsInfo.validation_buckets ?? []).map((b) => `score ${bucketLabel(b.bucket)}: ${b.hit_rate_pct}%`).join(" · ")}.
+                {ewsInfo.precision_at_50_pct != null && (
+                  <> Of the 50 highest-scored loans, {ewsInfo.precision_at_50_pct}% went on non-accrual
+                    {ewsInfo.validation_base_rate_pct != null ? `, against a ${ewsInfo.validation_base_rate_pct}% base rate` : ""}.</>
+                )}
+                {weak.length > 0 && (
+                  <> Signals with little or no lift get few points: {weak.map((w) =>
+                    `${signalLabel(w.key)} (${w.multiplier}×${w.points != null ? `, ${w.points} point${w.points === 1 ? "" : "s"}` : ""})`).join("; ")}.</>
+                )}
+              </p>
+              <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
+                These hit rates are <span className="text-white">lower bounds</span>: a loan whose later status we
+                could not see is counted as not going non-accrual.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                    <tr>
+                      {["BDC", "Borrower", "Score", "Fired signals", "Reported FV", "Mark"].map(h => (
+                        <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ewsRows.slice(0, 25).map((r, i) => (
+                      <tr key={`${r.ticker}-${r.borrower}-${i}`} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
+                        <td className="px-3 py-2 text-xs font-semibold text-white">{r.ticker}</td>
+                        <td className="px-3 py-2 text-sm" style={{ color: "#d1d5db" }}>{r.borrower}</td>
+                        <td className="px-3 py-2 text-sm font-bold" style={{ color: r.score >= 5 ? "#ef4444" : r.score >= 3 ? "#f97316" : "#eab308" }}>{scoreText(r)}</td>
+                        <td className="px-3 py-2">
+                          {r.signals.map(s => (
+                            <span key={s} className="inline-block mr-1 mb-0.5 px-1.5 py-0.5 rounded text-xs"
+                                  style={{ background: "rgba(239,68,68,0.10)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.2)" }}>
+                              {signalLabel(s)}
+                            </span>
+                          ))}
+                        </td>
+                        <td className="px-3 py-2 text-sm" style={{ color: "#9ca3af" }}>${r.fv_m.toFixed(0)}M</td>
+                        <td className="px-3 py-2 text-sm font-mono" style={{ color: "#9ca3af" }}>{r.mark == null ? "—" : `${(100 * r.mark).toFixed(0)}¢`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+                Top 25 of the {ewsRows.length} highest-scoring positions as of {ewsInfo.as_of ?? latest}
+                {ewsIndustry ? `; ${ewsIndustry.n_hi.toLocaleString()} positions across the universe score 5 or more` : ""}.
+                Scores are per position, so one borrower can appear through several loans or lenders. A &ldquo;≥&rdquo;
+                score means some signals couldn&apos;t be observed, so the true score may be higher. Loans already on
+                non-accrual are excluded — this is the queue before non-accrual.{" "}
+                <Link href="/credit#forward-queue" className="text-indigo-400 hover:text-indigo-300">
+                  Per-BDC rollup →
+                </Link>
+              </p>
+            </>
+          );
+        })()}
+        {valTab === "lifts" && (
+        <>
+        <p className="text-sm mb-3" style={{ color: "#9ca3af" }}>
+          For every loan not yet on non-accrual since 2018, we checked whether it went on non-accrual at that BDC
+          within four quarters. Each row shows how often loans with that signal did
+          {backtestBase ? `, against the ${backtestBase.rate_na}% base rate across ${backtestBase.n.toLocaleString()} loan-quarters` : ""}.
+          {tierRates.length > 1 && (tierRatesRise
+            ? ` The tiers rank risk in order: ${tierRates.map((t) => `${t.tier} ${t.rate}%`).join(" → ")} went non-accrual within a year.`
+            : ` Tier hit rates: ${tierRates.map((t) => `${t.tier} ${t.rate}%`).join(", ")}.`)}
+        </p>
+        {backtestCrossHolder && (
+          <p className="text-sm mb-3" style={{ color: "#9ca3af" }}>
+            The sharpest single signal is one a single-BDC view cannot see:{" "}
+            <span className="text-white">the same borrower already on non-accrual at a different BDC</span>{" "}
+            ({backtestCrossHolder.rate_na}% went non-accrual{backtestCrossHolder.lift_na != null ? `, ${backtestCrossHolder.lift_na}× the base rate` : ""}
+            {`, across ${backtestCrossHolder.n.toLocaleString()} loan-quarters`}).
+            {backtestCrossHolderStacked && ` Combined with a mark below 90¢ it reaches ${backtestCrossHolderStacked.rate_na}%.`}
+          </p>
+        )}
+        <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
+          <span className="text-white">In-sample:</span> the watchlist&apos;s point weights were set using these same
+          results, so read the tier rows as a description of history rather than an independent test — the
+          out-of-sample tab is the stricter test. A loan whose later status is unknown counts as not going
+          non-accrual, which mostly pushes these rates down; a few loans that reappear after a reporting gap
+          already on non-accrual can be counted as new, which pushes them up slightly. The net effect is small.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ color: "#8b8ba8" }} className="text-xs uppercase tracking-wider">
+                <th className="text-left font-semibold py-2">Signal / tier</th>
+                <th className="text-right font-semibold py-2">Loan-quarters</th>
+                <th className="text-right font-semibold py-2">→ Non-accrual ≤1yr</th>
+                <th className="text-right font-semibold py-2">Lift</th>
+                <th className="text-right font-semibold py-2">→ NA or &lt;80¢</th>
+              </tr>
+            </thead>
+            <tbody>
+              {signalBacktest.map((b, i) => {
+                const isTier = b.signal.startsWith("tier:");
+                const isBase = b.signal.startsWith("ALL");
+                return (
+                  <tr key={i} style={{ borderTop: "1px solid #1a1a28",
+                    background: isTier ? "#12121c" : undefined }}>
+                    <td className="py-2 font-medium" style={{ color: isBase ? "#8b8ba8" : "#e5e5f0" }}>
+                      {isTier ? <TierBadge tier={b.signal.replace("tier: ", "")} /> : b.signal}
+                    </td>
+                    <td className="py-2 text-right tabular-nums" style={{ color: "#9ca3af" }}>{b.n.toLocaleString()}</td>
+                    <td className="py-2 text-right tabular-nums font-semibold text-white">{b.rate_na}%</td>
+                    <td className="py-2 text-right tabular-nums"
+                      style={{ color: (b.lift_na ?? 1) >= 3 ? "#ef4444" : "#9ca3af" }}>
+                      {b.lift_na != null ? `${b.lift_na}×` : "—"}
+                    </td>
+                    <td className="py-2 text-right tabular-nums" style={{ color: "#c7c7e0" }}>{b.rate_bad}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        </>
+        )}
       </section>
 
       {/* By manager */}
@@ -452,7 +626,7 @@ export default function WatchlistPage() {
             <input type="checkbox" checked={hideStructured} onChange={(e) => setHideStructured(e.target.checked)} /> Hide JV/structured
           </label>
           <CsvDownloadButton filename={`watchlist_${latest}`}
-            columns={["tier", "score", "company", "ticker", "manager", "parent", "industry",
+            columns={["tier", "score", "score_observation_status", "company", "ticker", "manager", "parent", "industry",
               "maturity", "mark", "fv_m", "cost_m", "is_new", "signals"]}
             rows={csvRows} />
         </div>
@@ -466,12 +640,16 @@ export default function WatchlistPage() {
           emptyMessage="No positions match these filters."
         />
         <p className="text-xs mt-4 max-w-3xl" style={{ color: "#6b6b88" }}>
-          Methodology &amp; caveats: this heuristic screen combines mark bands, mark changes, cash→PIK signals,
-          PIK share and inferred changes to loan terms. Matching across periods and holders can remain ambiguous;
-          a signal is a review prompt, not a confirmed amendment or default. Scores have not been revalidated
-          on the corrected source and identity basis. Already tagged non-accrual and sub-2¢ positions are excluded,
-          as is preferred equity. JV/structured vehicles are hidden by default. MFIC has aggregate non-accrual
-          disclosure, so individual status remains unknown. No historical hit rate or predictive lift is asserted.
+          How the screen works: a loan scores points for a mark below 90¢ (more below 80¢), a mark drop of 3+
+          points in a quarter (more if it falls two quarters running), a switch from cash to PIK interest, heavy
+          PIK, non-accrual at another BDC and — lightly — an amend-and-extend. A stressed cut to the loan amount
+          adds points only alongside another signal; spread cuts are shown as a tag but do not score, because
+          most are healthy repricings. The same loan is followed quarter to quarter through extensions and
+          label changes; that matching is automated, so treat a signal as a prompt to look, not proof of an
+          amendment or default. Loans already on non-accrual, loans marked below 2¢ and equity are excluded,
+          and JV/structured vehicles are hidden by default. A score shown as &ldquo;≥&rdquo; had some signals we
+          couldn&apos;t observe, so it may be higher. MFIC reports non-accruals only as a total, so a few of its
+          loans already on non-accrual may still appear here.
         </p>
       </section>
     </div>

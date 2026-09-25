@@ -13,7 +13,11 @@ import { bdcsHistory } from "@/data/bdcs_history";
 import { hasReportedSize, reportedCostB, reportedFvB, reportedMarkPct } from "@/lib/quarterCoverage";
 import { naPublicationDisplay, type NonAccrualPublicationMetadata } from "@/lib/enrichBDC";
 import { creditPikPublication, exactPikDelta, formatPikPublication, historyPikPublication, pikPublicationLabel } from "@/lib/pikPublication";
-import OutcomeEvidenceNotice from "@/components/OutcomeEvidenceNotice";
+import { ewsByBdc, ewsTopByBdc, ewsHistory } from "@/data/early_warning_scores";
+import { holdingsAsOfByTicker } from "@/data/bdc_holdings";
+import EwsTrendChart from "@/components/EwsTrendChart";
+import NaForecastSummary from "@/components/NaForecastSummary";
+import { ewsInfo, scoreText, signalLabel, validationWindow } from "@/lib/earlyWarningDisplay";
 import { creditQuality } from "@/data/credit_quality";
 import { modificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
@@ -295,9 +299,11 @@ export default async function BDCDetailPage({ params }: PageProps) {
 
       {bdc.ticker === "FSK" && (
         <p className="text-xs mb-6" style={{ color: "#8b8ba8" }}>
-          Reconciled FSK portfolio totals include the filing&apos;s unfunded-commitment adjustments.
-          PIK exposure percentages use gross position balances and cannot be multiplied by those net totals.
-          The non-accrual percentage remains unavailable while its funded-exposure scope is reconciled.
+          FSK&apos;s portfolio totals follow the filing&apos;s adjustment for unfunded commitments (money promised
+          to borrowers but not yet lent). PIK percentages are measured on gross position balances, so don&apos;t
+          apply them to those net totals.
+          {cqLatest && cqLatest.pct_non_accrual == null &&
+            " Its non-accrual rate is not shown yet while the drawn-loan scope is reconciled to the filing."}
         </p>
       )}
 
@@ -562,14 +568,159 @@ export default async function BDCDetailPage({ params }: PageProps) {
         </section>
       )}
 
-      <section className="mb-8">
-        <OutcomeEvidenceNotice title="Non-accrual estimates are coverage-gated">
-          Current four-quarter formation estimates publish only for BDCs meeting the 66.67% observed-feature floor.
-          See this issuer in the{" "}
-          <Link href="/watchlist#gated-na-projections" className="text-indigo-300 underline">gated projection table</Link>.
-          Historical forecast rankings, model-accuracy claims and position-level outcome probabilities remain withheld.
-        </OutcomeEvidenceNotice>
-      </section>
+      {/* This BDC's row from the four-quarter non-accrual projection (scripts/83). */}
+      <NaForecastSummary ticker={bdc.ticker} />
+
+      {/* Forward queue — out-of-sample-tested 2Q early-warning score, this BDC vs
+          industry, plus its top queued (pre-non-accrual) positions. */}
+      {(() => {
+        const mine = ewsByBdc.find((r) => r.ticker === bdc.ticker);
+        if (!mine) return null;
+        const ind = ewsByBdc.find((r) => r.ticker === "industry");
+        const peers = ewsByBdc
+          .filter((r) => r.ticker !== "industry")
+          .sort((a, b) => b.implied_na_2q_pct - a.implied_na_2q_pct);
+        const rank = peers.findIndex((r) => r.ticker === bdc.ticker) + 1;
+        const queue = ewsTopByBdc.filter((r) => r.ticker === bdc.ticker);
+        const vsInd = ind ? mine.implied_na_2q_pct / Math.max(ind.implied_na_2q_pct, 0.0001) : null;
+        const tone = vsInd == null ? "#9ca3af" : vsInd >= 1.25 ? "#ef4444" : vsInd >= 1 ? "#f59e0b" : "#22c55e";
+        const oosWindow = validationWindow(ewsInfo.validated);
+        const partialCoverage = mine.signal_coverage_pct < 100;
+        const nullableSignals = ewsInfo.observability?.nullable_signals ?? [];
+        return (
+          <div className="rounded-xl border p-5 mb-8" style={{ background: "#111118", borderColor: "#1e1e2e" }}
+            id="forward-queue">
+            <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+              <div>
+                <h2 className="font-semibold text-white">
+                  Forward queue: loans likely to go non-accrual{" "}
+                  <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+                    next 2 quarters · as of {holdingsAsOfByTicker[bdc.ticker] ?? ewsInfo.as_of ?? "—"}
+                  </span>
+                </h2>
+                <p className="text-xs mt-1 max-w-3xl" style={{ color: "#8b8ba8" }}>
+                  Every loan not yet on non-accrual is scored on warning signs whose weights were fitted on data
+                  through {ewsInfo.trained_through ?? "—"} and then tested
+                  {oosWindow ? ` on ${oosWindow.from} to ${oosWindow.to} data` : " on later data"} the fit never saw.
+                  Each score is turned into the share of similar loans that went non-accrual within two quarters in
+                  that test; adding those up gives the dollars queued for non-accrual.{" "}
+                  <Link href="/credit#forward-queue" className="text-indigo-400 hover:text-indigo-300">
+                    All BDCs ranked →
+                  </Link>
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-4 text-sm">
+              <div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Implied new NA</div>
+                <div className="text-xl font-bold" style={{ color: tone }}>
+                  {mine.implied_na_2q_pct.toFixed(2)}%
+                </div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>
+                  of book scored{ind ? ` · industry ${ind.implied_na_2q_pct.toFixed(2)}%` : ""}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Implied dollars</div>
+                <div className="text-xl font-bold text-white">${mine.implied_na_2q_m.toFixed(0)}M</div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>over ~2 quarters</div>
+              </div>
+              <div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>High-score positions</div>
+                <div className="text-xl font-bold text-white">{mine.n_hi}</div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>{mine.pct_book_hi.toFixed(1)}% of book at score ≥5</div>
+              </div>
+              <div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Rank among {peers.length} BDCs</div>
+                <div className="text-xl font-bold text-white">{rank > 0 ? `#${rank}` : "—"}</div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>#1 = most queued risk</div>
+              </div>
+              <div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Signal coverage</div>
+                <div className="text-xl font-bold" style={{ color: partialCoverage ? "#fbbf24" : "#fafafa" }}>
+                  {mine.signal_coverage_pct.toFixed(0)}%
+                </div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>
+                  {nullableSignals.length > 0
+                    ? `${nullableSignals.map(signalLabel).join(" and ")} signals observed, by value`
+                    : "signals observed, by value"}
+                </div>
+              </div>
+            </div>
+            <p className="text-xs mb-4" style={{ color: "#6b6b88" }}>
+              {partialCoverage
+                ? "Where a signal can't be observed it counts as not firing, so with coverage below 100% these figures are lower bounds. "
+                : ""}
+              The test hit rates behind them are lower bounds too: a loan whose later status we couldn&apos;t see
+              counts as not going non-accrual.
+            </p>
+            {(() => {
+              const mineH = ewsHistory.filter((r) => r.ticker === bdc.ticker);
+              if (mineH.length < 4) return null;
+              const indH = new Map(
+                ewsHistory.filter((r) => r.ticker === "industry")
+                  .map((r) => [r.period_end, r.implied_na_2q_pct]),
+              );
+              const trend = mineH.map((r) => ({
+                period_end: r.period_end,
+                bdc: r.implied_na_2q_pct,
+                industry: indH.get(r.period_end) ?? null,
+              }));
+              return (
+                <div className="mb-4">
+                  <EwsTrendChart data={trend} ticker={bdc.ticker} />
+                  <p className="text-xs mt-1" style={{ color: "#6b6b88" }}>
+                    Today&apos;s signal weights applied to past quarters, as a trend view (quarters with fewer than
+                    50 scored positions are dropped). Only quarters after{" "}
+                    {ewsInfo.trained_through ?? "the training period"} were unseen by the fit; earlier points are
+                    in-sample.
+                  </p>
+                </div>
+              );
+            })()}
+            {queue.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
+                    <tr>
+                      {["Borrower", "Score", "Fired signals", "Reported FV", "Mark"].map((h) => (
+                        <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {queue.map((r, i) => (
+                      <tr key={i} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
+                        <td className="px-3 py-2" style={{ color: "#d1d5db" }}>{r.borrower}</td>
+                        <td className="px-3 py-2 font-bold" style={{ color: r.score >= 5 ? "#ef4444" : r.score >= 3 ? "#f97316" : "#eab308" }}>{scoreText(r)}</td>
+                        <td className="px-3 py-2">
+                          {r.signals.map((s) => (
+                            <span key={s} className="inline-block mr-1 mb-0.5 px-1.5 py-0.5 rounded text-xs"
+                              style={{ background: "rgba(239,68,68,0.10)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.2)" }}>
+                              {signalLabel(s)}
+                            </span>
+                          ))}
+                        </td>
+                        <td className="px-3 py-2" style={{ color: "#9ca3af" }}>${r.fv_m.toFixed(0)}M</td>
+                        <td className="px-3 py-2 font-mono" style={{ color: "#9ca3af" }}>{r.mark == null ? "—" : `${Math.round(100 * r.mark)}¢`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+                  Top {queue.length} positions by score, not yet on non-accrual. A &ldquo;≥&rdquo; score had some
+                  signals we couldn&apos;t observe.{" "}
+                  <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Full watchlist →</Link>
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs" style={{ color: "#6b7280" }}>
+                No positions currently score high enough to be queued.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Debt maturity profile */}
       {(() => {
