@@ -39,25 +39,25 @@ export interface NaForecastRow {
 }
 
 export const naForecast: NaForecastRow[] = [
-  {"ticker": "BXSL", "period_end": "2026-06-30", "na_now": 3.58, "na_mean8": 1.26, "wl_high_pct": 0.583, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.826, "lo_q1": 2.111, "hi_q1": 3.797, "q2_label": "2026-Q4", "na_q2": 2.943, "lo_q2": 2.045, "hi_q2": 4.344, "p_rise": 0.632, "xh_pp": 2.149, "b90_pp": 7.431, "form_4q": 5.452, "form_lo": 4.489, "form_hi": 8.389, "form_feature_coverage_pct": 88.53508056692597, "form_observation_status": "imputed_with_indicators", "form_trailing": 4.77},
-  {"ticker": "BCRED", "period_end": "2026-06-30", "na_now": 2.13, "na_mean8": 0.874, "wl_high_pct": 1.402, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 1.83, "lo_q1": 1.115, "hi_q1": 2.801, "q2_label": "2026-Q4", "na_q2": 2.111, "lo_q2": 1.213, "hi_q2": 3.512, "p_rise": 0.625, "xh_pp": 1.987, "b90_pp": 10.098, "form_4q": 4.9, "form_lo": 3.936, "form_hi": 7.836, "form_feature_coverage_pct": 84.3494448813955, "form_observation_status": "imputed_with_indicators", "form_trailing": 2.971},
-  {"ticker": "CGBD", "period_end": "2026-06-30", "na_now": 1.19, "na_mean8": 1.619, "wl_high_pct": 0.731, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 1.413, "lo_q1": 0.698, "hi_q1": 2.384, "q2_label": "2026-Q4", "na_q2": 1.56, "lo_q2": 0.661, "hi_q2": 2.961, "p_rise": 0.541, "xh_pp": 1.736, "b90_pp": 6.344, "form_4q": 4.711, "form_lo": 3.748, "form_hi": 7.648, "form_feature_coverage_pct": 81.18795716742764, "form_observation_status": "imputed_with_indicators", "form_trailing": 1.804},
-  {"ticker": "OBDC", "period_end": "2026-06-30", "na_now": 2.84, "na_mean8": 2.059, "wl_high_pct": 0.678, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.634, "lo_q1": 1.919, "hi_q1": 3.605, "q2_label": "2026-Q4", "na_q2": 2.77, "lo_q2": 1.872, "hi_q2": 4.171, "p_rise": 0.462, "xh_pp": 1.583, "b90_pp": 5.478, "form_4q": 4.01, "form_lo": 3.047, "form_hi": 6.947, "form_feature_coverage_pct": 80.49780936793813, "form_observation_status": "imputed_with_indicators", "form_trailing": 2.795},
-  {"ticker": "OTF", "period_end": "2026-06-30", "na_now": 0.58, "na_mean8": 0.28, "wl_high_pct": 1.344, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 0.609, "lo_q1": 0.0, "hi_q1": 1.58, "q2_label": "2026-Q4", "na_q2": 0.878, "lo_q2": 0.0, "hi_q2": 2.279, "p_rise": 0.744, "xh_pp": 2.844, "b90_pp": 9.454, "form_4q": 3.819, "form_lo": 2.856, "form_hi": 6.756, "form_feature_coverage_pct": 80.50053270598451, "form_observation_status": "imputed_with_indicators", "form_trailing": 0.505},
-  {"ticker": "OCIC", "period_end": "2026-06-30", "na_now": 0.35, "na_mean8": 0.406, "wl_high_pct": 0.682, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 0.438, "lo_q1": 0.0, "hi_q1": 1.409, "q2_label": "2026-Q4", "na_q2": 0.574, "lo_q2": 0.0, "hi_q2": 1.975, "p_rise": 0.453, "xh_pp": 1.538, "b90_pp": 5.337, "form_4q": 3.39, "form_lo": 2.427, "form_hi": 6.327, "form_feature_coverage_pct": 86.49743000044323, "form_observation_status": "imputed_with_indicators", "form_trailing": 1.127},
-  {"ticker": "CCAP", "period_end": "2026-06-30", "na_now": 4.47, "na_mean8": 3.436, "wl_high_pct": 0.598, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 4.168, "lo_q1": 3.453, "hi_q1": 5.139, "q2_label": "2026-Q4", "na_q2": 4.288, "lo_q2": 3.389, "hi_q2": 5.689, "p_rise": 0.231, "xh_pp": 0.234, "b90_pp": 10.974, "form_4q": 3.259, "form_lo": 2.295, "form_hi": 6.195, "form_feature_coverage_pct": 69.37546087426435, "form_observation_status": "imputed_with_indicators", "form_trailing": 4.766},
-  {"ticker": "TSLX", "period_end": "2026-06-30", "na_now": 1.92, "na_mean8": 2.636, "wl_high_pct": 0.017, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.172, "lo_q1": 1.457, "hi_q1": 3.143, "q2_label": "2026-Q4", "na_q2": 2.176, "lo_q2": 1.278, "hi_q2": 3.577, "p_rise": 0.155, "xh_pp": 0.017, "b90_pp": 7.922, "form_4q": 1.871, "form_lo": 0.908, "form_hi": 4.807, "form_feature_coverage_pct": 74.22458296199127, "form_observation_status": "imputed_with_indicators", "form_trailing": 1.205},
-  {"ticker": "ASIF", "period_end": "2026-06-30", "na_now": 0.32, "na_mean8": 0.12, "wl_high_pct": 0.411, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 0.291, "lo_q1": 0.0, "hi_q1": 1.262, "q2_label": "2026-Q4", "na_q2": 0.373, "lo_q2": 0.0, "hi_q2": 1.775, "p_rise": 0.237, "xh_pp": 0.413, "b90_pp": 5.788, "form_4q": 1.799, "form_lo": 0.836, "form_hi": 4.735, "form_feature_coverage_pct": 73.4765325190408, "form_observation_status": "imputed_with_indicators", "form_trailing": 0.427},
-  {"ticker": "ADS", "period_end": "2026-06-30", "na_now": 0.81, "na_mean8": 0.75, "wl_high_pct": 0.812, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 0.87, "lo_q1": 0.155, "hi_q1": 1.841, "q2_label": "2026-Q4", "na_q2": 1.033, "lo_q2": 0.134, "hi_q2": 2.434, "p_rise": 0.315, "xh_pp": 0.969, "b90_pp": 2.735, "form_4q": null, "form_lo": null, "form_hi": null, "form_feature_coverage_pct": 59.62484762724443, "form_observation_status": "withheld_feature_coverage", "form_trailing": 0.765},
-  {"ticker": "ARCC", "period_end": "2026-06-30", "na_now": 2.38, "na_mean8": 1.806, "wl_high_pct": 0.899, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.269, "lo_q1": 1.554, "hi_q1": 3.24, "q2_label": "2026-Q4", "na_q2": 2.449, "lo_q2": 1.551, "hi_q2": 3.85, "p_rise": 0.595, "xh_pp": 1.779, "b90_pp": 11.222, "form_4q": null, "form_lo": null, "form_hi": null, "form_feature_coverage_pct": 54.4586194249848, "form_observation_status": "withheld_feature_coverage", "form_trailing": 2.759},
-  {"ticker": "BBDC", "period_end": "2026-06-30", "na_now": 1.53, "na_mean8": 1.662, "wl_high_pct": 0.349, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 1.611, "lo_q1": 0.896, "hi_q1": 2.582, "q2_label": "2026-Q4", "na_q2": 1.681, "lo_q2": 0.783, "hi_q2": 3.082, "p_rise": 0.227, "xh_pp": 0.216, "b90_pp": 8.892, "form_4q": null, "form_lo": null, "form_hi": null, "form_feature_coverage_pct": 55.328680271323364, "form_observation_status": "withheld_feature_coverage", "form_trailing": 1.344},
-  {"ticker": "FSK", "period_end": "2026-06-30", "na_now": 7.12, "na_mean8": 5.261, "wl_high_pct": 0.0, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 6.469, "lo_q1": 5.754, "hi_q1": 7.44, "q2_label": "2026-Q4", "na_q2": 6.469, "lo_q2": 5.571, "hi_q2": 7.871, "p_rise": 0.435, "xh_pp": 0.0, "b90_pp": 31.69, "form_4q": null, "form_lo": null, "form_hi": null, "form_feature_coverage_pct": 42.80035191762521, "form_observation_status": "withheld_feature_coverage", "form_trailing": 6.115},
-  {"ticker": "GBDC", "period_end": "2026-06-30", "na_now": 2.94, "na_mean8": 1.531, "wl_high_pct": 0.154, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.462, "lo_q1": 1.747, "hi_q1": 3.433, "q2_label": "2026-Q4", "na_q2": 2.493, "lo_q2": 1.595, "hi_q2": 3.894, "p_rise": 0.197, "xh_pp": 0.375, "b90_pp": 3.927, "form_4q": null, "form_lo": null, "form_hi": null, "form_feature_coverage_pct": 65.6597240134535, "form_observation_status": "withheld_feature_coverage", "form_trailing": 5.033},
-  {"ticker": "HTGC", "period_end": "2026-06-30", "na_now": 0.35, "na_mean8": 1.034, "wl_high_pct": 0.0, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 0.589, "lo_q1": 0.0, "hi_q1": 1.56, "q2_label": "2026-Q4", "na_q2": 0.589, "lo_q2": 0.0, "hi_q2": 1.991, "p_rise": 0.114, "xh_pp": 0.0, "b90_pp": 5.446, "form_4q": null, "form_lo": null, "form_hi": null, "form_feature_coverage_pct": 56.45337961850773, "form_observation_status": "withheld_feature_coverage", "form_trailing": 1.324},
-  {"ticker": "MAIN", "period_end": "2026-06-30", "na_now": 3.99, "na_mean8": 3.974, "wl_high_pct": 0.711, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 4.055, "lo_q1": 3.34, "hi_q1": 5.026, "q2_label": "2026-Q4", "na_q2": 4.198, "lo_q2": 3.299, "hi_q2": 5.599, "p_rise": 0.274, "xh_pp": 0.387, "b90_pp": 10.176, "form_4q": null, "form_lo": null, "form_hi": null, "form_feature_coverage_pct": 42.73590742812775, "form_observation_status": "withheld_feature_coverage", "form_trailing": 1.752},
-  {"ticker": "MFIC", "period_end": "2026-06-30", "na_now": 4.61, "na_mean8": 3.404, "wl_high_pct": 1.12, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 4.3, "lo_q1": 3.584, "hi_q1": 5.271, "q2_label": "2026-Q4", "na_q2": 4.524, "lo_q2": 3.625, "hi_q2": 5.925, "p_rise": 0.294, "xh_pp": 0.311, "b90_pp": 19.356, "form_4q": null, "form_lo": null, "form_hi": null, "form_feature_coverage_pct": 64.20870163019309, "form_observation_status": "withheld_feature_coverage", "form_trailing": 3.699},
-  {"ticker": "NMFC", "period_end": "2026-06-30", "na_now": 2.79, "na_mean8": 2.539, "wl_high_pct": 1.425, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.845, "lo_q1": 2.129, "hi_q1": 3.815, "q2_label": "2026-Q4", "na_q2": 3.129, "lo_q2": 2.231, "hi_q2": 4.531, "p_rise": 0.887, "xh_pp": 3.218, "b90_pp": 19.972, "form_4q": null, "form_lo": null, "form_hi": null, "form_feature_coverage_pct": 47.856754504975044, "form_observation_status": "withheld_feature_coverage", "form_trailing": 3.753},
-  {"ticker": "OCSL", "period_end": "2026-06-30", "na_now": 3.82, "na_mean8": 5.401, "wl_high_pct": 0.642, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 4.438, "lo_q1": 3.722, "hi_q1": 5.409, "q2_label": "2026-Q4", "na_q2": 4.566, "lo_q2": 3.668, "hi_q2": 5.967, "p_rise": 0.281, "xh_pp": 0.589, "b90_pp": 15.741, "form_4q": null, "form_lo": null, "form_hi": null, "form_feature_coverage_pct": 58.37969767801809, "form_observation_status": "withheld_feature_coverage", "form_trailing": 1.533}
+  {"ticker": "NMFC", "period_end": "2026-06-30", "na_now": 2.79, "na_mean8": 2.539, "wl_high_pct": 1.425, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.845, "lo_q1": 2.129, "hi_q1": 3.815, "q2_label": "2026-Q4", "na_q2": 3.129, "lo_q2": 2.224, "hi_q2": 4.531, "p_rise": 0.887, "xh_pp": 3.218, "b90_pp": 19.972, "form_4q": 6.333, "form_lo": 5.607, "form_hi": 9.349, "form_feature_coverage_pct": 94.30237527293028, "form_observation_status": "imputed_with_indicators", "form_trailing": 3.753},
+  {"ticker": "FSK", "period_end": "2026-06-30", "na_now": 7.12, "na_mean8": 5.261, "wl_high_pct": 0.0, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 6.469, "lo_q1": 5.754, "hi_q1": 7.44, "q2_label": "2026-Q4", "na_q2": 6.469, "lo_q2": 5.564, "hi_q2": 7.871, "p_rise": 0.435, "xh_pp": 0.0, "b90_pp": 31.69, "form_4q": 6.012, "form_lo": 5.287, "form_hi": 9.028, "form_feature_coverage_pct": 94.68457753592493, "form_observation_status": "imputed_with_indicators", "form_trailing": 6.115},
+  {"ticker": "BXSL", "period_end": "2026-06-30", "na_now": 3.58, "na_mean8": 1.26, "wl_high_pct": 0.583, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.826, "lo_q1": 2.111, "hi_q1": 3.797, "q2_label": "2026-Q4", "na_q2": 2.943, "lo_q2": 2.038, "hi_q2": 4.344, "p_rise": 0.632, "xh_pp": 2.149, "b90_pp": 7.431, "form_4q": 4.727, "form_lo": 4.002, "form_hi": 7.743, "form_feature_coverage_pct": 95.1707908464849, "form_observation_status": "imputed_with_indicators", "form_trailing": 4.77},
+  {"ticker": "CGBD", "period_end": "2026-06-30", "na_now": 1.19, "na_mean8": 1.619, "wl_high_pct": 0.731, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 1.413, "lo_q1": 0.698, "hi_q1": 2.384, "q2_label": "2026-Q4", "na_q2": 1.56, "lo_q2": 0.654, "hi_q2": 2.961, "p_rise": 0.541, "xh_pp": 1.736, "b90_pp": 6.344, "form_4q": 4.636, "form_lo": 3.911, "form_hi": 7.652, "form_feature_coverage_pct": 94.21408158291918, "form_observation_status": "imputed_with_indicators", "form_trailing": 1.804},
+  {"ticker": "BCRED", "period_end": "2026-06-30", "na_now": 2.13, "na_mean8": 0.874, "wl_high_pct": 1.402, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 1.83, "lo_q1": 1.115, "hi_q1": 2.801, "q2_label": "2026-Q4", "na_q2": 2.111, "lo_q2": 1.206, "hi_q2": 3.512, "p_rise": 0.625, "xh_pp": 1.987, "b90_pp": 10.098, "form_4q": 4.281, "form_lo": 3.556, "form_hi": 7.297, "form_feature_coverage_pct": 96.16822905183369, "form_observation_status": "imputed_with_indicators", "form_trailing": 2.971},
+  {"ticker": "ARCC", "period_end": "2026-06-30", "na_now": 2.38, "na_mean8": 1.806, "wl_high_pct": 0.899, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.269, "lo_q1": 1.554, "hi_q1": 3.24, "q2_label": "2026-Q4", "na_q2": 2.449, "lo_q2": 1.544, "hi_q2": 3.85, "p_rise": 0.595, "xh_pp": 1.779, "b90_pp": 11.222, "form_4q": 4.269, "form_lo": 3.544, "form_hi": 7.285, "form_feature_coverage_pct": 96.80674131743756, "form_observation_status": "imputed_with_indicators", "form_trailing": 2.759},
+  {"ticker": "GBDC", "period_end": "2026-06-30", "na_now": 2.94, "na_mean8": 1.531, "wl_high_pct": 0.154, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.462, "lo_q1": 1.747, "hi_q1": 3.433, "q2_label": "2026-Q4", "na_q2": 2.493, "lo_q2": 1.588, "hi_q2": 3.894, "p_rise": 0.197, "xh_pp": 0.375, "b90_pp": 3.927, "form_4q": 3.698, "form_lo": 2.973, "form_hi": 6.714, "form_feature_coverage_pct": 98.56921859008285, "form_observation_status": "imputed_with_indicators", "form_trailing": 5.033},
+  {"ticker": "OBDC", "period_end": "2026-06-30", "na_now": 2.84, "na_mean8": 2.059, "wl_high_pct": 0.678, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.634, "lo_q1": 1.919, "hi_q1": 3.605, "q2_label": "2026-Q4", "na_q2": 2.77, "lo_q2": 1.865, "hi_q2": 4.171, "p_rise": 0.462, "xh_pp": 1.583, "b90_pp": 5.478, "form_4q": 3.468, "form_lo": 2.743, "form_hi": 6.484, "form_feature_coverage_pct": 96.27255586862962, "form_observation_status": "imputed_with_indicators", "form_trailing": 2.795},
+  {"ticker": "OCSL", "period_end": "2026-06-30", "na_now": 3.82, "na_mean8": 5.401, "wl_high_pct": 0.642, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 4.438, "lo_q1": 3.722, "hi_q1": 5.409, "q2_label": "2026-Q4", "na_q2": 4.566, "lo_q2": 3.661, "hi_q2": 5.967, "p_rise": 0.281, "xh_pp": 0.589, "b90_pp": 15.741, "form_4q": 3.452, "form_lo": 2.727, "form_hi": 6.468, "form_feature_coverage_pct": 93.0254894067363, "form_observation_status": "imputed_with_indicators", "form_trailing": 1.533},
+  {"ticker": "MFIC", "period_end": "2026-06-30", "na_now": 4.61, "na_mean8": 3.404, "wl_high_pct": 1.12, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 4.3, "lo_q1": 3.584, "hi_q1": 5.271, "q2_label": "2026-Q4", "na_q2": 4.524, "lo_q2": 3.618, "hi_q2": 5.925, "p_rise": 0.294, "xh_pp": 0.311, "b90_pp": 19.356, "form_4q": 3.431, "form_lo": 2.706, "form_hi": 6.447, "form_feature_coverage_pct": 99.21115885096417, "form_observation_status": "imputed_with_indicators", "form_trailing": 3.699},
+  {"ticker": "OTF", "period_end": "2026-06-30", "na_now": 0.58, "na_mean8": 0.28, "wl_high_pct": 1.344, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 0.609, "lo_q1": 0.0, "hi_q1": 1.58, "q2_label": "2026-Q4", "na_q2": 0.878, "lo_q2": 0.0, "hi_q2": 2.279, "p_rise": 0.744, "xh_pp": 2.844, "b90_pp": 9.454, "form_4q": 3.359, "form_lo": 2.634, "form_hi": 6.375, "form_feature_coverage_pct": 96.396029008994, "form_observation_status": "imputed_with_indicators", "form_trailing": 0.505},
+  {"ticker": "CCAP", "period_end": "2026-06-30", "na_now": 4.47, "na_mean8": 3.436, "wl_high_pct": 0.598, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 4.168, "lo_q1": 3.453, "hi_q1": 5.139, "q2_label": "2026-Q4", "na_q2": 4.288, "lo_q2": 3.382, "hi_q2": 5.689, "p_rise": 0.231, "xh_pp": 0.234, "b90_pp": 10.974, "form_4q": 2.98, "form_lo": 2.255, "form_hi": 5.996, "form_feature_coverage_pct": 98.18467480711908, "form_observation_status": "imputed_with_indicators", "form_trailing": 4.766},
+  {"ticker": "OCIC", "period_end": "2026-06-30", "na_now": 0.35, "na_mean8": 0.406, "wl_high_pct": 0.682, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 0.438, "lo_q1": 0.0, "hi_q1": 1.409, "q2_label": "2026-Q4", "na_q2": 0.574, "lo_q2": 0.0, "hi_q2": 1.975, "p_rise": 0.453, "xh_pp": 1.538, "b90_pp": 5.337, "form_4q": 2.851, "form_lo": 2.126, "form_hi": 5.867, "form_feature_coverage_pct": 97.45512338851307, "form_observation_status": "imputed_with_indicators", "form_trailing": 1.127},
+  {"ticker": "BBDC", "period_end": "2026-06-30", "na_now": 1.53, "na_mean8": 1.662, "wl_high_pct": 0.349, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 1.611, "lo_q1": 0.896, "hi_q1": 2.582, "q2_label": "2026-Q4", "na_q2": 1.681, "lo_q2": 0.776, "hi_q2": 3.082, "p_rise": 0.227, "xh_pp": 0.216, "b90_pp": 8.892, "form_4q": 2.747, "form_lo": 2.021, "form_hi": 5.763, "form_feature_coverage_pct": 99.89097816351365, "form_observation_status": "imputed_with_indicators", "form_trailing": 1.344},
+  {"ticker": "MAIN", "period_end": "2026-06-30", "na_now": 3.99, "na_mean8": 3.974, "wl_high_pct": 0.711, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 4.055, "lo_q1": 3.34, "hi_q1": 5.026, "q2_label": "2026-Q4", "na_q2": 4.198, "lo_q2": 3.292, "hi_q2": 5.599, "p_rise": 0.274, "xh_pp": 0.387, "b90_pp": 10.176, "form_4q": 2.493, "form_lo": 1.768, "form_hi": 5.509, "form_feature_coverage_pct": 98.87802948459274, "form_observation_status": "imputed_with_indicators", "form_trailing": 1.752},
+  {"ticker": "ASIF", "period_end": "2026-06-30", "na_now": 0.32, "na_mean8": 0.12, "wl_high_pct": 0.411, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 0.291, "lo_q1": 0.0, "hi_q1": 1.262, "q2_label": "2026-Q4", "na_q2": 0.373, "lo_q2": 0.0, "hi_q2": 1.775, "p_rise": 0.237, "xh_pp": 0.413, "b90_pp": 5.788, "form_4q": 1.641, "form_lo": 0.916, "form_hi": 4.657, "form_feature_coverage_pct": 98.50476132633364, "form_observation_status": "imputed_with_indicators", "form_trailing": 0.427},
+  {"ticker": "TSLX", "period_end": "2026-06-30", "na_now": 1.92, "na_mean8": 2.636, "wl_high_pct": 0.017, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 2.172, "lo_q1": 1.457, "hi_q1": 3.143, "q2_label": "2026-Q4", "na_q2": 2.176, "lo_q2": 1.271, "hi_q2": 3.577, "p_rise": 0.155, "xh_pp": 0.017, "b90_pp": 7.922, "form_4q": 1.617, "form_lo": 0.892, "form_hi": 4.633, "form_feature_coverage_pct": 93.49258079322045, "form_observation_status": "imputed_with_indicators", "form_trailing": 1.205},
+  {"ticker": "ADS", "period_end": "2026-06-30", "na_now": 0.81, "na_mean8": 0.75, "wl_high_pct": 0.812, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 0.87, "lo_q1": 0.155, "hi_q1": 1.841, "q2_label": "2026-Q4", "na_q2": 1.033, "lo_q2": 0.127, "hi_q2": 2.434, "p_rise": 0.315, "xh_pp": 0.969, "b90_pp": 2.735, "form_4q": 1.505, "form_lo": 0.78, "form_hi": 4.521, "form_feature_coverage_pct": 93.01269838408248, "form_observation_status": "imputed_with_indicators", "form_trailing": 0.765},
+  {"ticker": "HTGC", "period_end": "2026-06-30", "na_now": 0.35, "na_mean8": 1.034, "wl_high_pct": 0.0, "has_watchlist": true, "na_observation_coverage_pct": 100.0, "na_observation_status": "fully_observed", "na_observation_reason": null, "na_basis": "parsed_positive_cost_positions", "q1_label": "2026-Q3", "na_q1": 0.589, "lo_q1": 0.0, "hi_q1": 1.56, "q2_label": "2026-Q4", "na_q2": 0.589, "lo_q2": 0.0, "hi_q2": 1.991, "p_rise": 0.114, "xh_pp": 0.0, "b90_pp": 5.446, "form_4q": 1.435, "form_lo": 0.71, "form_hi": 4.451, "form_feature_coverage_pct": 96.36757009083655, "form_observation_status": "imputed_with_indicators", "form_trailing": 1.324}
 ];
 
 // Predicted loss content by quartile, per quarter, across the whole BDC
@@ -70,34 +70,34 @@ export interface NaQuartilePoint {
 }
 
 export const naQuartileSeries: NaQuartilePoint[] = [
-  {"period_end": "2024-12-31", "q": 1, "pred": 1.14, "actual": null, "n": 5},
-  {"period_end": "2024-12-31", "q": 2, "pred": 1.623, "actual": 2.777, "n": 5},
-  {"period_end": "2024-12-31", "q": 3, "pred": 1.867, "actual": 1.91, "n": 4},
-  {"period_end": "2024-12-31", "q": 4, "pred": 2.554, "actual": 4.373, "n": 5},
-  {"period_end": "2025-03-31", "q": 1, "pred": 1.531, "actual": 1.893, "n": 5},
-  {"period_end": "2025-03-31", "q": 2, "pred": 1.939, "actual": 1.684, "n": 4},
-  {"period_end": "2025-03-31", "q": 3, "pred": 2.13, "actual": 3.285, "n": 4},
-  {"period_end": "2025-03-31", "q": 4, "pred": 2.76, "actual": 4.519, "n": 5},
-  {"period_end": "2025-06-30", "q": 1, "pred": 1.261, "actual": 1.444, "n": 5},
-  {"period_end": "2025-06-30", "q": 2, "pred": 1.707, "actual": 1.544, "n": 5},
-  {"period_end": "2025-06-30", "q": 3, "pred": 2.237, "actual": 4.131, "n": 4},
-  {"period_end": "2025-06-30", "q": 4, "pred": 3.094, "actual": 3.396, "n": 5},
-  {"period_end": "2025-09-30", "q": 1, "pred": 1.196, "actual": null, "n": 5},
-  {"period_end": "2025-09-30", "q": 2, "pred": 1.953, "actual": null, "n": 5},
-  {"period_end": "2025-09-30", "q": 3, "pred": 2.406, "actual": null, "n": 4},
-  {"period_end": "2025-09-30", "q": 4, "pred": 3.117, "actual": null, "n": 5},
-  {"period_end": "2025-12-31", "q": 1, "pred": 1.226, "actual": null, "n": 5},
-  {"period_end": "2025-12-31", "q": 2, "pred": 2.24, "actual": null, "n": 5},
+  {"period_end": "2024-12-31", "q": 1, "pred": 0.97, "actual": null, "n": 5},
+  {"period_end": "2024-12-31", "q": 2, "pred": 1.556, "actual": 2.142, "n": 5},
+  {"period_end": "2024-12-31", "q": 3, "pred": 1.675, "actual": 2.381, "n": 4},
+  {"period_end": "2024-12-31", "q": 4, "pred": 2.477, "actual": 5.202, "n": 5},
+  {"period_end": "2025-03-31", "q": 1, "pred": 1.314, "actual": 1.688, "n": 5},
+  {"period_end": "2025-03-31", "q": 2, "pred": 1.704, "actual": 1.941, "n": 4},
+  {"period_end": "2025-03-31", "q": 3, "pred": 2.054, "actual": 3.71, "n": 4},
+  {"period_end": "2025-03-31", "q": 4, "pred": 2.748, "actual": 4.178, "n": 5},
+  {"period_end": "2025-06-30", "q": 1, "pred": 1.045, "actual": 0.806, "n": 5},
+  {"period_end": "2025-06-30", "q": 2, "pred": 1.55, "actual": 2.427, "n": 5},
+  {"period_end": "2025-06-30", "q": 3, "pred": 2.095, "actual": 3.826, "n": 4},
+  {"period_end": "2025-06-30", "q": 4, "pred": 2.962, "actual": 3.396, "n": 5},
+  {"period_end": "2025-09-30", "q": 1, "pred": 0.936, "actual": null, "n": 5},
+  {"period_end": "2025-09-30", "q": 2, "pred": 1.658, "actual": null, "n": 5},
+  {"period_end": "2025-09-30", "q": 3, "pred": 2.29, "actual": null, "n": 4},
+  {"period_end": "2025-09-30", "q": 4, "pred": 3.034, "actual": null, "n": 5},
+  {"period_end": "2025-12-31", "q": 1, "pred": 0.957, "actual": null, "n": 5},
+  {"period_end": "2025-12-31", "q": 2, "pred": 1.967, "actual": null, "n": 5},
   {"period_end": "2025-12-31", "q": 3, "pred": 2.57, "actual": null, "n": 4},
-  {"period_end": "2025-12-31", "q": 4, "pred": 3.546, "actual": null, "n": 5},
-  {"period_end": "2026-03-31", "q": 1, "pred": 1.808, "actual": null, "n": 5},
-  {"period_end": "2026-03-31", "q": 2, "pred": 2.862, "actual": null, "n": 5},
-  {"period_end": "2026-03-31", "q": 3, "pred": 3.399, "actual": null, "n": 4},
-  {"period_end": "2026-03-31", "q": 4, "pred": 4.703, "actual": null, "n": 5},
-  {"period_end": "2026-06-30", "q": 1, "pred": 1.841, "actual": null, "n": 5},
-  {"period_end": "2026-06-30", "q": 2, "pred": 3.225, "actual": null, "n": 5},
-  {"period_end": "2026-06-30", "q": 3, "pred": 4.03, "actual": null, "n": 4},
-  {"period_end": "2026-06-30", "q": 4, "pred": 5.428, "actual": null, "n": 5}
+  {"period_end": "2025-12-31", "q": 4, "pred": 3.599, "actual": null, "n": 5},
+  {"period_end": "2026-03-31", "q": 1, "pred": 1.669, "actual": null, "n": 5},
+  {"period_end": "2026-03-31", "q": 2, "pred": 2.686, "actual": null, "n": 5},
+  {"period_end": "2026-03-31", "q": 3, "pred": 3.218, "actual": null, "n": 4},
+  {"period_end": "2026-03-31", "q": 4, "pred": 4.543, "actual": null, "n": 5},
+  {"period_end": "2026-06-30", "q": 1, "pred": 1.738, "actual": null, "n": 5},
+  {"period_end": "2026-06-30", "q": 2, "pred": 3.074, "actual": null, "n": 5},
+  {"period_end": "2026-06-30", "q": 3, "pred": 3.722, "actual": null, "n": 4},
+  {"period_end": "2026-06-30", "q": 4, "pred": 5.198, "actual": null, "n": 5}
 ];
 
 export const naFcMeta = {
@@ -134,7 +134,7 @@ export const naFcMeta = {
   "horizons": {
     "1": {
       "n": 297,
-      "mean_abs": 0.5094,
+      "mean_abs": 0.5091,
       "median_abs": 0.2517,
       "p90_abs": 1.2551,
       "naive_mean_abs": 0.5258,
@@ -145,14 +145,14 @@ export const naFcMeta = {
     },
     "2": {
       "n": 277,
-      "mean_abs": 0.6685,
-      "median_abs": 0.3938,
+      "mean_abs": 0.6677,
+      "median_abs": 0.3966,
       "p90_abs": 1.6461,
       "naive_mean_abs": 0.6891,
       "naive_median_abs": 0.43,
       "naive_p90_abs": 1.694,
       "q10": -1.4013,
-      "q90": 0.8982
+      "q90": 0.9053
     }
   },
   "direction": {
@@ -172,35 +172,35 @@ export const naFcMeta = {
   "formation": {
     "n": 47,
     "horizon_q": 4,
-    "mean_abs": 1.3584,
-    "corr": 0.5731,
-    "bias": -0.8248,
+    "mean_abs": 1.3173,
+    "corr": 0.6239,
+    "bias": -0.9295,
     "actual_mean": 2.868,
-    "band_lo": 0.9633,
-    "band_hi": -2.9363,
+    "band_lo": 0.7253,
+    "band_hi": -3.016,
     "quartiles": [
       {
         "q": 1,
-        "pred": 1.4274712175499182,
-        "actual": 1.726616881140629,
+        "pred": 1.237196117046197,
+        "actual": 1.437660901749925,
         "n": 12
       },
       {
         "q": 2,
-        "pred": 1.7777595963256616,
-        "actual": 2.066360580963443,
+        "pred": 1.6514424901847218,
+        "actual": 2.662261005001597,
         "n": 12
       },
       {
         "q": 3,
-        "pred": 2.1316436245296937,
-        "actual": 3.434398092388146,
+        "pred": 1.9830421413324002,
+        "actual": 2.969958269680848,
         "n": 11
       },
       {
         "q": 4,
-        "pred": 2.8431124664529457,
-        "actual": 4.291695689389277,
+        "pred": 2.8857439881060825,
+        "actual": 4.410487748890183,
         "n": 12
       }
     ],
@@ -273,7 +273,7 @@ export const naFcMeta = {
         "eligible": 290659621700.0
       },
       "meaning": "feature missingness uses explicit indicators; NA labels are never imputed",
-      "latest_cost_weighted_coverage_pct": 73.583268545611
+      "latest_cost_weighted_coverage_pct": 96.29121331416724
     }
   }
 } as const;
