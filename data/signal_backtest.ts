@@ -5,7 +5,8 @@
 // rate across all positions. `lift` = rate / base rate. Coverage floor 2018.
 // IN-SAMPLE: the tier weights were calibrated on this same history. Windows
 // whose non-accrual status is unknown (start or any forward quarter) are
-// excluded, not counted as "no non-accrual" — see signalBacktestMeta.
+// excluded, not counted as "no non-accrual", and so are positions whose
+// borrower was already non-accrual at the same BDC — see signalBacktestMeta.
 
 export interface BacktestRow {
   signal: string; n: number;
@@ -13,20 +14,20 @@ export interface BacktestRow {
   lift_bad: number | null; lift_na: number | null;
 }
 export const signalBacktest: BacktestRow[] = [
-  {"signal": "ALL (base rate)", "n": 90055, "rate_bad": 5.5, "rate_na": 2.6, "lift_bad": 1.0, "lift_na": 1.0},
-  {"signal": "mark < 90c", "n": 5924, "rate_bad": 43.0, "rate_na": 15.6, "lift_bad": 7.8, "lift_na": 6.0},
-  {"signal": "mark < 80c", "n": 1950, "rate_bad": 71.7, "rate_na": 25.8, "lift_bad": 13.0, "lift_na": 9.9},
-  {"signal": "mark falling ≥3pt QoQ", "n": 4647, "rate_bad": 29.4, "rate_na": 12.2, "lift_bad": 5.3, "lift_na": 4.7},
-  {"signal": "falling 2 quarters", "n": 760, "rate_bad": 56.3, "rate_na": 23.9, "lift_bad": 10.2, "lift_na": 9.2},
-  {"signal": "cash→PIK flip", "n": 975, "rate_bad": 27.5, "rate_na": 17.3, "lift_bad": 5.0, "lift_na": 6.7},
-  {"signal": "PIK severe", "n": 3397, "rate_bad": 19.7, "rate_na": 14.9, "lift_bad": 3.6, "lift_na": 5.7},
-  {"signal": "amend-and-extend", "n": 4689, "rate_bad": 7.3, "rate_na": 4.3, "lift_bad": 1.3, "lift_na": 1.7},
-  {"signal": "spread cut", "n": 3750, "rate_bad": 5.8, "rate_na": 3.0, "lift_bad": 1.0, "lift_na": 1.2},
-  {"signal": "NA at another BDC", "n": 548, "rate_bad": 74.6, "rate_na": 74.3, "lift_bad": 13.5, "lift_na": 28.5},
-  {"signal": "NA elsewhere + mark < 90c", "n": 96, "rate_bad": 88.5, "rate_na": 87.5, "lift_bad": 16.0, "lift_na": 33.6},
-  {"signal": "tier: Watch", "n": 5452, "rate_bad": 32.2, "rate_na": 12.7, "lift_bad": 5.8, "lift_na": 4.9},
-  {"signal": "tier: Elevated", "n": 1611, "rate_bad": 61.0, "rate_na": 29.4, "lift_bad": 11.0, "lift_na": 11.3},
-  {"signal": "tier: High", "n": 316, "rate_bad": 82.3, "rate_na": 54.4, "lift_bad": 14.9, "lift_na": 20.9}
+  {"signal": "ALL (base rate)", "n": 91985, "rate_bad": 5.3, "rate_na": 2.3, "lift_bad": 1.0, "lift_na": 1.0},
+  {"signal": "mark < 90c", "n": 6207, "rate_bad": 42.7, "rate_na": 14.4, "lift_bad": 8.0, "lift_na": 6.3},
+  {"signal": "mark < 80c", "n": 2104, "rate_bad": 70.5, "rate_na": 22.7, "lift_bad": 13.2, "lift_na": 9.9},
+  {"signal": "mark falling ≥3pt QoQ", "n": 4670, "rate_bad": 29.5, "rate_na": 11.7, "lift_bad": 5.5, "lift_na": 5.1},
+  {"signal": "falling 2 quarters", "n": 768, "rate_bad": 56.1, "rate_na": 23.6, "lift_bad": 10.5, "lift_na": 10.3},
+  {"signal": "cash→PIK flip", "n": 992, "rate_bad": 27.4, "rate_na": 16.7, "lift_bad": 5.1, "lift_na": 7.3},
+  {"signal": "PIK severe", "n": 3262, "rate_bad": 16.8, "rate_na": 11.6, "lift_bad": 3.1, "lift_na": 5.1},
+  {"signal": "amend-and-extend", "n": 4784, "rate_bad": 6.8, "rate_na": 3.6, "lift_bad": 1.3, "lift_na": 1.6},
+  {"signal": "spread cut", "n": 3980, "rate_bad": 6.2, "rate_na": 3.3, "lift_bad": 1.2, "lift_na": 1.5},
+  {"signal": "NA at another BDC", "n": 121, "rate_bad": 46.3, "rate_na": 45.5, "lift_bad": 8.7, "lift_na": 19.9},
+  {"signal": "NA elsewhere + mark < 90c", "n": 24, "rate_bad": 83.3, "rate_na": 79.2, "lift_bad": 15.6, "lift_na": 34.6},
+  {"signal": "tier: Watch", "n": 5575, "rate_bad": 31.4, "rate_na": 10.3, "lift_bad": 5.9, "lift_na": 4.5},
+  {"signal": "tier: Elevated", "n": 1515, "rate_bad": 58.0, "rate_na": 22.4, "lift_bad": 10.8, "lift_na": 9.8},
+  {"signal": "tier: High", "n": 242, "rate_bad": 80.6, "rate_na": 43.8, "lift_bad": 15.1, "lift_na": 19.2}
 ];
 
 export const signalBacktestMeta = {
@@ -35,9 +36,10 @@ export const signalBacktestMeta = {
   "horizon_quarters": 4,
   "coverage_floor": "2018-01-01",
   "label_policy": "unknown_status_windows_excluded",
-  "label_note": "A position counts as not going non-accrual only when its BDC's status was observed in the start quarter and in all four following quarters.",
-  "n_candidates": 104480,
-  "n_scored": 90055,
-  "n_excluded_unknown_start": 8699,
-  "n_excluded_unknown_outcome": 5726
+  "label_note": "A position counts as not going non-accrual only when its BDC's status was observed in the start quarter and in all four following quarters. Positions whose borrower was already non-accrual at the same BDC in the start quarter are left out.",
+  "n_candidates": 104421,
+  "n_scored": 91985,
+  "n_excluded_unknown_start": 4385,
+  "n_excluded_borrower_already_na": 656,
+  "n_excluded_unknown_outcome": 7395
 } as const;
