@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 export const metadata: Metadata = {
   title: "BDC Transparency | Private credit, from the filings",
   description:
-    "Position-level BDC credit data parsed from SEC filings: non-accruals, dated holding cohorts, maturity walls, sponsor performance, and an early-warning watchlist across 19 BDCs.",
+    "Position-level BDC credit data parsed from SEC filings: non-accruals, vintage default curves, maturity walls, sponsor performance, and an early-warning watchlist across 19 BDCs.",
   keywords:
     "BDC, business development company, private credit, direct lending, non-accrual, PIK, vintage, default rates, maturity wall, Ares, Blackstone, Blue Owl, FS KKR",
 };

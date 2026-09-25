@@ -215,26 +215,25 @@ export default function AboutPage() {
         <p className="text-sm leading-relaxed mb-3" style={{ color: "#d1d5db" }}>
           The <Link href="/vintage" className="text-indigo-400 hover:underline">vintage analysis</Link>{" "}
           and quarterly credit-modification metrics use distinct methodologies and covered populations.
-          Quarterly flow rates use matched debt observations; holding cohorts show quarter-end
-          non-accrual evidence and unresolved observation bounds. A quarter whose loan-by-loan status can&apos;t be
+          Quarterly flow rates use matched debt observations; vintage curves track cumulative cohort
+          outcomes by the year each loan came onto a BDC&apos;s book. A quarter whose loan-by-loan status can&apos;t be
           decoded, or disagrees with the BDC&apos;s own disclosed rate for that date, uses that disclosed rate instead.
         </p>
 
-        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Dated holding cohorts</h3>
+        <h3 className="text-sm font-semibold text-white mt-4 mb-2">Cumulative default exposure (vintage)</h3>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          Cohorts separate the holder&apos;s own disclosed acquisition date from the first observation
-          in our filing history. Neither establishes original loan origination. Acquisition cohorts
-          require first observation in the acquisition quarter; monitoring cohorts can contain seasoned
-          loans. Ambiguous identities are excluded. For a selected follow-up horizon, fully seasoned
-          holding groups retain the same initial-cost denominator at every age.
+          Share of a vintage&apos;s entry cost ever flagged non-accrual OR that left the book in distress (a last
+          mark below 85¢, or after non-accrual or a sub-80¢ mark) — directionally comparable to Raymond
+          James&apos;s &ldquo;cumulative 1L default exposure&rdquo; (our headline spans all instruments; a first-lien
+          toggle gives the comparable view). A loan&apos;s vintage is the BDC&apos;s own disclosed acquisition date,
+          else the same tranche&apos;s date at a peer BDC, else a labelled estimate; the default view uses
+          high-confidence dates only. At each age only loans old enough to have reached it are counted, and
+          loans whose non-accrual status is unknown are left out rather than counted as performing.
         </p>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          The lower bound counts initial cost of groups with any observed quarter-end non-accrual;
-          the upper adds groups with unresolved past status. A positive position contributes the entire
-          holding-group weight, not the actual non-accrual dollars. Baseline positives are included,
-          gaps remain unresolved, and disappearance does not establish an outcome. These bounds do
-          not estimate continuous-time defaults, realized losses or survival. Current acquisition
-          composition is shown separately, with unknown dates and issuer reporting dates retained.
+          A stricter &ldquo;disclosed dates only&rdquo; tab keeps Codex&apos;s holding cohorts: only the holder&apos;s own
+          acquisition date or first observation, no peer dates or estimates, and lower/upper bounds on observed
+          quarter-end non-accrual in which every exit stays unresolved.
         </p>
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Quarterly loan modifications</h3>
@@ -261,7 +260,7 @@ export default function AboutPage() {
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
           Each named event shows the before-and-after rows from the filings it compares; its reference
           identifies that comparison, not a legal loan agreement. A loan switching back from PIK to cash is
-          not proof the borrower has recovered. The vintage page&apos;s non-accrual figures use a different,
+          not proof the borrower has recovered. The vintage page&apos;s cumulative figures use a different,
           historical set of loans and should not be read as quarterly modification rates.
         </p>
 
@@ -287,10 +286,10 @@ export default function AboutPage() {
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Coverage caveats</h3>
         <ul className="text-xs leading-relaxed pl-5 list-disc" style={{ color: "#9ca3af" }}>
-          <li>Acquisition cohorts exclude holdings first observed after their acquisition quarter. This limits late-entry bias but does not establish complete historical coverage; missing quarters and unknown flags remain visible in the bounds.</li>
+          <li>Vintage rollups exclude loans whose holders&apos; filing coverage started after their vintage year (survivor bias), and vintages where fewer than 60% of BDCs were yet in our data are marked thin.</li>
           <li>Matching a loan across quarters can mistake a refinancing or a relabelled loan for an amendment, and the rules can&apos;t confirm legal terms or promise to catch every modification.</li>
-          <li>Acquisition disclosures can refer to purchases or new securities, and changing or contradictory dates require review. First observed is a monitoring anchor only. No externally validated origination-accuracy rate is claimed.</li>
-          <li>Cohort results depend on available issuer history, identified funded-debt coverage and the chosen follow-up horizon. Current composition and historical cohort denominators are different populations.</li>
+          <li>Acquisition disclosures can refer to purchases, amendments or new securities, so a disclosed date can reset after a refinancing. Dates later than our first sighting of a loan are rejected, and estimated dates are graded LOW. The dating check on /vintage uses a small reference set of public financings; it is not a representative accuracy benchmark.</li>
+          <li>Several BDCs never disclose acquisition dates; their vintages rest on peer dates or estimates (see &ldquo;How each book is dated&rdquo; on /vintage).</li>
         </ul>
       </div>
 
