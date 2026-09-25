@@ -3,15 +3,15 @@
 // Where each BDC's PIK income went: the PIK booked since the window start,
 // split by what happened to the loans it accrued on — collected as principal
 // on exit (estimate), still in the book (observed: accruing, cured to
-// cash-pay, impaired, or PIK status unknown), or lost (estimated from the
-// last mark before exit).
+// cash-pay, relabelled onto another equity line, impaired, or PIK status
+// unknown), or lost (estimated from the last mark before exit).
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { PikLedgerRow } from "@/data/pik_ledger";
 import CsvDownloadButton from "./CsvDownloadButton";
 
 type Key = "ticker" | "pik_accrued_m" | "pik_pct_nii_window" | "collected_pct" | "still_pik_pct" | "cured_pct"
-  | "refinanced_pct" | "in_book_impaired_pct" | "in_book_unknown_pct" | "lost_pct" | "unresolved_pct_book"
+  | "refinanced_pct" | "relabelled_pct" | "in_book_impaired_pct" | "in_book_unknown_pct" | "lost_pct" | "unresolved_pct_book"
   | "unresolved_x_nii" | "pik_window_observation_coverage_pct";
 
 const pct = (v: number | null | undefined, d = 0) => (v == null || !Number.isFinite(v) ? "—" : `${v.toFixed(d)}%`);
@@ -33,12 +33,13 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
 
   const head: [Key, string, string][] = [
     ["ticker", "BDC", ""],
-    ["pik_accrued_m", "PIK booked ($m)", "PIK allocated to each loan from its disclosed PIK rate × principal since the window start; matched to the cash-flow statement only where every position's PIK status and rate are known"],
+    ["pik_accrued_m", "PIK booked ($m)", "PIK allocated to each loan from its disclosed PIK rate × principal since the window start; scaled to the cash-flow statement's PIK in quarters where at least 97% of the book's cost has a known PIK status and rate"],
     ["pik_pct_nii_window", "% of NII", "PIK income as a share of NII over the window"],
     ["collected_pct", "Collected (est.)", "estimate: loans that left the book at 97¢ or better, or were refinanced at par at the same BDC, plus the recovered part of loans exited below par"],
     ["refinanced_pct", "of which refinanced", "included in Collected: loans that left at par while the borrower kept a position at the same BDC — the old loan was repaid from the new facility"],
     ["still_pik_pct", "Still PIK", "observed: loans still on the book and still accruing PIK"],
     ["cured_pct", "Cured", "observed: loans back on cash-pay; the PIK already capitalized is still owed as principal"],
+    ["relabelled_pct", "Relabelled", "observed: PIK equity whose cost moved onto another equity line at the same borrower (for example preferred restated as an LP interest) — still in the book, not collected"],
     ["in_book_impaired_pct", "Impaired", "observed: loans on non-accrual or marked under 80¢, and restructurings at the same BDC"],
     ["in_book_unknown_pct", "Status unknown", "still on the book, but the latest schedule does not show whether the loan pays PIK"],
     ["lost_pct", "Lost (est.)", "estimated from the last mark: the part of exits below par not recovered"],
@@ -47,16 +48,16 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
     ["pik_window_observation_coverage_pct", "PIK status observed", "share of the book's cost over the window whose PIK status is shown in the filings; unknown cost is left out of the dollars"],
   ];
   const csvCols = ["ticker", "as_of", "window_start", "pik_booked_m", "pik_pct_nii_window", "collected_estimate_pct",
-    "still_pik_pct", "cured_pct", "refinanced_pct", "impaired_pct", "status_unknown_pct", "lost_estimate_pct",
+    "still_pik_pct", "cured_pct", "relabelled_pct", "refinanced_pct", "impaired_pct", "status_unknown_pct", "lost_estimate_pct",
     "collected_at_par_pct", "collected_below_par_pct", "distressed_exit_pct", "restructured_same_bdc_pct",
     "uncollected_m", "uncollected_pct_book", "uncollected_x_nii", "collected_last4q_estimate_m",
-    "reported_collected_last4q_m", "loan_level_coverage_of_statement", "statement_scaled", "statement_basis",
+    "reported_collected_last4q_m", "loan_level_coverage_of_statement", "statement_scaled", "pik_dollars_basis", "statement_basis",
     "pik_status_observed_window_pct", "n_loans"];
   const csvRows = sorted.map((r) => [r.ticker, r.period_end, r.window_start, r.pik_accrued_m, r.pik_pct_nii_window,
-    r.collected_pct, r.still_pik_pct, r.cured_pct, r.refinanced_pct, r.in_book_impaired_pct, r.in_book_unknown_pct,
+    r.collected_pct, r.still_pik_pct, r.cured_pct, r.relabelled_pct, r.refinanced_pct, r.in_book_impaired_pct, r.in_book_unknown_pct,
     r.lost_pct, r.collected_par_pct, r.collected_discount_pct, r.distressed_exit_pct, r.restructured_pct,
     r.unresolved_m, r.unresolved_pct_book, r.unresolved_x_nii, r.collected_last4q_m, r.reported_collected_last4q_m,
-    r.loan_coverage_of_statement, r.statement_scaling_eligible ? "yes" : "no", r.statement_basis,
+    r.loan_coverage_of_statement, r.statement_scaling_eligible ? "yes" : "no", r.pik_dollars_basis, r.statement_basis,
     r.pik_window_observation_coverage_pct, r.n_tranches]);
 
   // Where a BDC reports its PIK collected in cash, set our estimate beside it.
@@ -101,7 +102,9 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
                       ? `\nloan-level PIK rates imply ${(100 * r.loan_coverage_of_statement).toFixed(0)}% of the statement PIK` : "") +
                     (r.reported_collected_last4q_m != null
                       ? `\nreports PIK collected in cash: $${r.reported_collected_last4q_m.toFixed(0)}m over the last four quarters (our estimate: $${r.collected_last4q_m.toFixed(0)}m)` : "") +
-                    `\n${r.statement_scaling_eligible ? "matched to the cash-flow statement" : "loan-level PIK rate × principal (not matched to the statement)"}` +
+                    (r.pik_dollars_basis === "statement_scaled"
+                      ? `\nscaled to the cash-flow statement in ${r.statement_scaled_quarters} of ${r.window_quarters} quarters (${r.statement_scaled_pct_of_accrued == null ? "—" : `${r.statement_scaled_pct_of_accrued.toFixed(0)}%`} of these PIK dollars)`
+                      : "\nloan-level PIK rate × principal (not matched to the statement)") +
                     (r.statement_basis && r.statement_basis !== "gross" ? `\nstatement basis: ${r.statement_basis.replace(/_/g, " ")}` : "")}>
                   <Link href={`/bdcs/${r.ticker.toLowerCase()}`} className="hover:underline" style={{ color: "#a5b4fc" }}>{r.ticker}</Link>
                   {r.statement_basis && r.statement_basis !== "gross" && (
@@ -114,6 +117,7 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
                 <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#6b6b88" }}>{pct(r.refinanced_pct)}</td>
                 <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#d1d5db" }}>{pct(r.still_pik_pct)}</td>
                 <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#9ca3af" }}>{pct(r.cured_pct)}</td>
+                <td className="px-3 py-2 text-right tabular-nums" style={{ color: (r.relabelled_pct ?? 0) > 0 ? "#9ca3af" : "#6b6b88" }}>{pct(r.relabelled_pct)}</td>
                 <td className="px-3 py-2 text-right tabular-nums" style={{ background: red(r.in_book_impaired_pct, 30), color: "#e5e7eb" }}>{pct(r.in_book_impaired_pct)}</td>
                 <td className="px-3 py-2 text-right tabular-nums" style={{ color: (r.in_book_unknown_pct ?? 0) > 0 ? "#9ca3af" : "#6b6b88" }}>{pct(r.in_book_unknown_pct)}</td>
                 <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ background: red(r.lost_pct, 15), color: "#e5e7eb" }}>{pct(r.lost_pct)}</td>
@@ -130,9 +134,10 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
         </table>
       </div>
       <div className="px-4 py-3 border-t text-xs" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
-        Collected + still PIK + cured + impaired + status unknown + lost = 100% of the PIK booked; &quot;of which
-        refinanced&quot; is the part of Collected that was rolled into a new loan at the same BDC. Still PIK, cured
-        and impaired are what the latest schedule shows. Collected and lost are estimates from how each loan left
+        Collected + still PIK + cured + relabelled + impaired + status unknown + lost = 100% of the PIK booked;
+        &quot;of which refinanced&quot; is the part of Collected that was rolled into a new loan at the same BDC. Still
+        PIK, cured, relabelled and impaired are what the latest schedule shows; relabelled is PIK equity whose cost
+        moved onto another equity line at the same borrower, so it is still owed. Collected and lost are estimates from how each loan left
         the book: collected counts loans that exited at 97¢ or better or were refinanced at par, and lost is taken
         from the last reported mark, not from sale proceeds. PIK paid in cash while a loan stays on the book is
         not visible in the schedule

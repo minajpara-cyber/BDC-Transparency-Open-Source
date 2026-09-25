@@ -53,11 +53,15 @@ const COVERAGE_CAVEATS: Array<{
   // mark-based metrics show as 0%. Keep all metrics flagged until XBRL kicks in.
   { ticker: "OCSL", until: "2022-12-31", metrics: ALL_FAMILIES,
     reason: "Pre-XBRL OCSL SOI extraction is patchy; par missing for many quarters" },
-  // FSK mark-based metrics parse cleanly back to 2013 — only NA flag detection
-  // breaks during the FSKR merger era (Q4 2019 – Q3 2021) where the parser
-  // misreads merger-adjustment footnotes as non-accrual marks.
-  { ticker: "FSK",  until: "2021-09-30", metrics: ["na", "pik"],
-    reason: "FSK NA flag detection misfires during the FSKR-merger era (Q4 2019 – Q3 2021)" },
+  // FSK mark-based metrics parse cleanly back to 2013. Its non-accrual rate is
+  // on the funded basis (unfunded commitments out of both sides); filings before
+  // 2022-06-30 don't tag unfunded commitments, so those rates are approximate and
+  // join the industry line only when within 1pp of FSK's own disclosed rate.
+  { ticker: "FSK",  until: "2022-05-31", metrics: ["na"],
+    reason: "Approximate: FSK filings before 2022-06-30 do not tag unfunded commitments, so the parsed book can include them" },
+  // PIK footnotes misread during the FSKR merger era (Q4 2019 – Q3 2021).
+  { ticker: "FSK",  until: "2021-09-30", metrics: ["pik"],
+    reason: "FSK PIK flag detection misfires during the FSKR-merger era (Q4 2019 – Q3 2021)" },
   // OBDC pre-XBRL: mark + NA parse cleanly, but PIK footnotes don't decode.
   { ticker: "OBDC", until: "2022-03-31", metrics: ["pik"],
     reason: "Pre-XBRL OBDC parser doesn't decode PIK footnotes" },
@@ -337,17 +341,20 @@ function buildSpreadIndustry(field: "avg_spread_book_bps" | "avg_spread_new_bps"
 
 // ----- PIK cascade ------------------------------------------------------------
 // data/pik_cascade.ts buckets each cash → PIK switch by where the loan was a
-// year later. Newer exports add "not yet seasoned" and "mark unknown" buckets;
-// older ones fold unseasoned switches into "exited", so for those the switch
-// years whose follow-up runs past the latest quarter are flagged instead.
+// year later. Newer exports add "not yet seasoned", "mark unknown" and "status
+// unknown" buckets (so each row adds to 100%); older ones fold unseasoned
+// switches into "exited", so for those the switch years whose follow-up runs
+// past the latest quarter are flagged instead.
 type CascadeSource = PIKCascadeRow & Partial<Record<string, number | string | null>>;
 type CascadeDisplayRow = {
   year: string; flips: number; pct_cured: number | null; pct_pik_strong: number | null;
   pct_pik_weak: number | null; pct_pik_distress: number | null; pct_mark_unknown: number | null;
-  pct_exited: number | null; pct_pending: number | null; incomplete: boolean;
+  pct_exited: number | null; pct_pending: number | null; pct_unknown: number | null; incomplete: boolean;
 };
 const CASCADE_PENDING_KEYS = ["pending", "not_yet_seasoned", "not_yet_observable"] as const;
 const CASCADE_MARK_UNKNOWN_KEYS = ["mark_unknown", "pik_mark_unknown", "pik_unknown"] as const;
+// The BDC's filing four quarters later is not on file, or the PIK status in it can't be read.
+const CASCADE_STATUS_UNKNOWN_KEYS = ["unknown", "status_unknown"] as const;
 
 /** A bucket's share of the year's switches: the exported pct_ field, or count ÷ flips. */
 function cascadeShare(r: CascadeSource, keys: readonly string[]): number | null {
@@ -366,6 +373,7 @@ function buildCascadeRows(latestQuarter: string): CascadeDisplayRow[] {
     const r = raw as CascadeSource;
     const pending = cascadeShare(r, CASCADE_PENDING_KEYS);
     const markUnknown = cascadeShare(r, CASCADE_MARK_UNKNOWN_KEYS);
+    const statusUnknown = cascadeShare(r, CASCADE_STATUS_UNKNOWN_KEYS);
     // Without a pending bucket, a switch year is fully followed up only once
     // the end of the following year has been reported.
     const incomplete = pending != null ? pending >= 50 : `${Number(r.year) + 1}-12-31` > latestQuarter;
@@ -373,7 +381,7 @@ function buildCascadeRows(latestQuarter: string): CascadeDisplayRow[] {
     return {
       year: r.year, flips: r.flips, pct_cured: num(r.pct_cured), pct_pik_strong: num(r.pct_pik_strong),
       pct_pik_weak: num(r.pct_pik_weak), pct_pik_distress: num(r.pct_pik_distress), pct_mark_unknown: markUnknown,
-      pct_exited: num(r.pct_exited), pct_pending: pending, incomplete,
+      pct_exited: num(r.pct_exited), pct_pending: pending, pct_unknown: statusUnknown, incomplete,
     };
   });
 }
@@ -411,6 +419,7 @@ export default function CreditPage() {
   const cascadeRows = buildCascadeRows(periods[periods.length - 1] ?? "");
   const cascadeHasPending = cascadeRows.some((r) => r.pct_pending != null);
   const cascadeHasMarkUnknown = cascadeRows.some((r) => r.pct_mark_unknown != null);
+  const cascadeHasStatusUnknown = cascadeRows.some((r) => r.pct_unknown != null);
   const cascadeIncompleteYears = cascadeHasPending ? [] : cascadeRows.filter((r) => r.incomplete).map((r) => r.year);
 
   const naLine   = buildNaIndustrySeries();
@@ -697,8 +706,9 @@ export default function CreditPage() {
           data (below 95¢ / 90¢, asset mix, spread) surfaces back to 2013 for FSK and 2016 for OBDC
           because those parsers capture par / cost / fv cleanly even pre-XBRL. CCAP and OCSL
           pre-XBRL remain fully muted (parser was extracting summary rows / par missing). FSK&apos;s
-          non-accrual is muted through Q3 2021 (FSKR-merger era — parser misreads merger-adjustment
-          footnotes as NA). A BDC&apos;s non-accrual rate is shown as unknown (&quot;—&quot;), never as zero,
+          non-accrual before mid-2022 is muted as approximate: those filings don&apos;t mark unfunded
+          commitments, so the rate can drift from FSK&apos;s own figure, and a quarter joins the industry
+          line only when it is within 1pp of what FSK disclosed. A BDC&apos;s non-accrual rate is shown as unknown (&quot;—&quot;), never as zero,
           when its position flags are incomplete or its figures are on hold; those quarters are also left out
           of the industry non-accrual line, which shows how many BDCs each point pools.
           BDC-quarters with fewer than {MIN_POSITIONS_FOR_RELIABLE} parsed positions are also
@@ -1523,6 +1533,9 @@ export default function CreditPage() {
                 {cascadeHasMarkUnknown ? <> <b>Mark unknown</b>{" "}means it was still PIK but its mark could not be read.</> : null}{" "}
                 <b>Left the book</b>{" "}means the BDC was filing but the loan was gone — a refinancing, repayment,
                 sale or write-off; the filings do not say which.
+                {cascadeHasStatusUnknown
+                  ? <> <b>Status unknown</b>{" "}means the BDC&apos;s filing four quarters later is not on file, or the loan&apos;s PIK status in it can&apos;t be read — it is not counted as any outcome.</>
+                  : null}
                 {cascadeHasPending
                   ? <> <b>Not yet seasoned</b>{" "}means the four quarters have not passed yet; rows that are mostly unseasoned are dimmed.</>
                   : <> For switches in {cascadeIncompleteYears.length ? joinList(cascadeIncompleteYears) : "the latest year"} the year of follow-up has
@@ -1533,10 +1546,11 @@ export default function CreditPage() {
               <CsvDownloadButton
                 filename="credit-pik-cascade-by-year"
                 columns={["flip_year", "n_tranches", "pct_back_to_cash", "pct_pik_90_plus", "pct_pik_80_90",
-                  "pct_pik_below_80", "pct_pik_mark_unknown", "pct_left_book", "pct_not_yet_seasoned", "follow_up_incomplete"]}
+                  "pct_pik_below_80", "pct_pik_mark_unknown", "pct_left_book", "pct_not_yet_seasoned", "pct_status_unknown",
+                  "follow_up_incomplete"]}
                 rows={cascadeRows.map((r) => [
                   r.year, r.flips, r.pct_cured, r.pct_pik_strong, r.pct_pik_weak, r.pct_pik_distress,
-                  r.pct_mark_unknown, r.pct_exited, r.pct_pending, r.incomplete ? 1 : 0,
+                  r.pct_mark_unknown, r.pct_exited, r.pct_pending, r.pct_unknown, r.incomplete ? 1 : 0,
                 ])}
               />
             </div>
@@ -1571,6 +1585,9 @@ export default function CreditPage() {
             ) },
             ...(cascadeHasPending ? [{ key: "pct_pending", label: "% not yet seasoned", align: "right", render: (r: CascadeDisplayRow) => (
               <span className="font-mono" style={{ color: "#6b6b88", opacity: r.incomplete ? 0.55 : 1 }}>{fmtCascade(r.pct_pending)}</span>
+            ) }] : []),
+            ...(cascadeHasStatusUnknown ? [{ key: "pct_unknown", label: "% status unknown", align: "right", render: (r: CascadeDisplayRow) => (
+              <span className="font-mono" style={{ color: "#6b6b88", opacity: r.incomplete ? 0.55 : 1 }}>{fmtCascade(r.pct_unknown)}</span>
             ) }] : []),
           ] as Column<CascadeDisplayRow>[])}
         />
