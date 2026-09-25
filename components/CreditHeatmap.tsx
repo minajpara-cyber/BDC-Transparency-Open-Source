@@ -13,7 +13,12 @@ import CsvDownloadButton from "./CsvDownloadButton";
 interface Cell {
   value: number | null;  // null = missing (no filing that quarter)
   reliable?: boolean;     // if false, cell is muted/striped
+  estimate?: boolean;     // if true, the value is an estimate: hatched, "(estimate)" in the tooltip
+  note?: string;          // optional tooltip text, e.g. why a value is not shown
 }
+
+// Diagonal hatching laid over the color scale marks estimated cells.
+const ESTIMATE_HATCH = "repeating-linear-gradient(135deg, rgba(255,255,255,0.18) 0 2px, transparent 2px 6px)";
 
 type FlagKey = "f_na" | "f_below_95" | "f_below_90" | "f_below_80" | "f_pik";
 
@@ -85,11 +90,14 @@ export default function CreditHeatmap({
   const [modal, setModal] = useState<{ ticker: string; period_end: string } | null>(null);
   const clickable = !!flagKey;
 
-  // Flatten the cell map into a tall (ticker, period, value) CSV.
+  // Flatten the cell map into a tall (ticker, period, value) CSV; a basis
+  // column is added when any cell is an estimate.
+  const hasEstimates = Array.from(cellMap.values()).some((c) => c.estimate && c.value !== null);
   const csvRows = tickers.flatMap((ticker) =>
     periods.map((p) => {
-      const v = cellMap.get(`${ticker}|${p}`)?.value ?? null;
-      return [ticker, p, v];
+      const cell = cellMap.get(`${ticker}|${p}`);
+      const v = cell?.value ?? null;
+      return hasEstimates ? [ticker, p, v, v === null ? null : cell?.estimate ? "estimate" : "reported"] : [ticker, p, v];
     }),
   );
 
@@ -115,7 +123,7 @@ export default function CreditHeatmap({
         {csvFilename && (
           <CsvDownloadButton
             filename={csvFilename}
-            columns={["ticker", "period_end", `value${unit ? ` (${unit.trim()})` : ""}`]}
+            columns={["ticker", "period_end", `value${unit ? ` (${unit.trim()})` : ""}`, ...(hasEstimates ? ["basis"] : [])]}
             rows={csvRows}
           />
         )}
@@ -174,9 +182,10 @@ export default function CreditHeatmap({
                   const cell = cellMap.get(`${ticker}|${p}`);
                   const v = cell?.value ?? null;
                   const reliable = cell?.reliable ?? true;
+                  const estimate = !!cell?.estimate && v !== null;
                   const canClick = clickable && v !== null && reliable;
                   const cellStyle = {
-                    background: cellColor(v, thresholds),
+                    background: estimate ? `${ESTIMATE_HATCH}, ${cellColor(v, thresholds)}` : cellColor(v, thresholds),
                     color: v === null ? "#3b3b55" : reliable ? "#fafafa" : "#9ca3af",
                     fontStyle: reliable ? "normal" : ("italic" as const),
                     opacity: reliable ? 1 : 0.55,
@@ -190,8 +199,8 @@ export default function CreditHeatmap({
                       : v.toFixed(1);
                   const titleText =
                     v === null
-                      ? "no filing"
-                      : `${ticker} · ${p}: ${unit.toLowerCase().includes("bps") ? Math.round(v) : v.toFixed(2)}${unit}${reliable ? "" : "  (partial coverage)"}${canClick ? "  — click for loan detail" : ""}`;
+                      ? (cell?.note ?? "no filing")
+                      : `${ticker} · ${p}: ${unit.toLowerCase().includes("bps") ? Math.round(v) : v.toFixed(2)}${unit}${estimate ? "  (estimate)" : ""}${reliable ? "" : "  (partial coverage)"}${cell?.note ? `  — ${cell.note}` : ""}${canClick ? "  — click for loan detail" : ""}`;
                   return (
                     <td
                       key={p}
@@ -213,6 +222,13 @@ export default function CreditHeatmap({
         className="px-5 py-3 text-xs flex items-center gap-4 flex-wrap"
         style={{ color: "#6b6b88", borderTop: "1px solid #1e1e2e" }}
       >
+        {hasEstimates && (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-4 h-3 rounded-sm"
+              style={{ background: `${ESTIMATE_HATCH}, ${cellColor(thresholds[0], thresholds)}`, border: "1px solid #1e1e2e" }} />
+            hatched = estimate
+          </span>
+        )}
         <span>Scale ({unit}):</span>
         {[0, thresholds[0], thresholds[1], thresholds[2]].map((bound, i, a) => {
           const next = a[i + 1];

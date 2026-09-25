@@ -10,6 +10,7 @@ import {
   Tooltip,
   Line,
 } from "recharts";
+import { showPikRange } from "@/lib/pikPublication";
 
 // Distinct colors for up to 6 overlaid BDCs. The industry benchmark sits
 // outside this palette — it gets a neutral white so it reads as the baseline
@@ -400,7 +401,7 @@ export default function BDCComparePanel({
                     const upper = typeof upperValue === "number" ? upperValue : lower;
                     const status = String(point[`${dataKey}|status`] ?? "legacy_point_estimate");
                     const coverageValue = point[`${dataKey}|coverage`];
-                    const range = status === "bounded" && Math.abs(upper - lower) > 0.0005
+                    const range = status === "bounded" && showPikRange(lower, upper)
                       ? `${lower.toFixed(2)}–${upper.toFixed(2)}%`
                       : `${lower.toFixed(2)}%`;
                     const coverage = typeof coverageValue === "number"

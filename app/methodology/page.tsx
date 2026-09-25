@@ -138,14 +138,17 @@ export default function MethodologyPage() {
             </thead>
             <tbody className="text-xs" style={{ color: "#d1d5db" }}>
               {[
-                ["% non-accrual", "NA-flagged positive amortized cost / all positive-cost positions in the approved schedule, when position-flag coverage is complete. This denominator is not debt-only. MFIC uses its separately disclosed issuer rate; that aggregate-only rate and incomplete flag coverage are excluded from the USD cost-weighted industry ratio. FSK rates are withheld until its non-accrual numerator can be matched to funded exposure after commitment adjustments. Missing coverage is unknown, not zero."],
+                ["% non-accrual", "Amortized cost of positions flagged non-accrual ÷ amortized cost of all positions in the filing's schedule (debt and equity alike), when every position's flag can be read. Where a BDC reports only a total, its reported rate is shown. A quarter whose flags are incomplete or on hold shows as unknown, never as zero. The industry line on /credit is dollar-weighted across the BDCs with a usable rate that quarter; it shows how many BDCs each point pools and which were left out of the latest one, and plots quarters with at least 5."],
                 ["% below 95¢ / 90¢ / 80¢ of par", "Cost of debt positions where fair value / par is below the threshold, divided by debt cost. Equity positions are excluded (par is meaningless for equity)."],
-                ["% PIK", "Published as bounds over positive-cost positions in the approved schedule. The lower bound is known-positive PIK cost / scope cost; the upper bound adds applicable cost whose PIK status is unknown. Observation coverage is observed applicable cost / (observed + unknown applicable cost). Fully observed rows collapse to one value. This stock measure differs from the debt-only quarterly modification flow."],
+                ["% PIK", "Cost of positions known to pay any PIK ÷ cost of all positions in the schedule. Preferred stock paying its dividend in kind counts as PIK. Where some positions' PIK status is unknown, an upper figure counts them all as PIK. One number (the known share) is shown unless the two differ by more than 1pp, in which case the range is shown; otherwise the range is in the hover text. A figure is called 'bounded' only when the two differ by at least 0.1pp, and a quarter-on-quarter change is shown when both quarters differ by under 0.25pp. Coverage is the share of cost whose PIK status is known. This is a stock measure, unlike the quarterly cash → PIK flow below."],
                 ["Inferred cash → PIK modification rate", "Current USD cost of material-rule PIK events / eligible debt cost. Rate eligibility requires funded, identified debt with all comparison inputs observed in adjacent calendar quarters; events require two prior cash quarters. A supported positive event remains in the named ledger when an unrelated comparison input is missing, but is labeled incomplete and excluded from the rate. Next-quarter persistence may be provisional. Zero-event issuers and unknown severity remain in totals. This does not confirm a disclosed amendment or rule out refinancing."],
                 ["Weighted-avg spread (bps)", "Parsed from the SOI's reference-rate text (e.g. 'SOFR + 5.75%' → 575 bps). Cost-weighted across positions. Floating-rate loans give a clean read; fixed-rate notes fall through to coupon as a proxy."],
                 ["Holding-cohort NA bounds", "Fixed initial-cost share of holding groups with any observed quarter-end non-accrual (lower), plus groups with unresolved past status (upper). Baseline positives are included. These are not default rates or statistical confidence intervals."],
                 ["Cohort valuation snapshot", "Observed current cost with fair value below 90% of cost / current cost with an observed cost-based mark. Missing snapshots remain unknown. Exposure can grow or shrink and is not a survival probability."],
-                ["PIK follow-up outcomes", "Withheld pending validation of calendar-quarter follow-up, seasoning and unknown observations. Disappearance does not establish repayment or cure, and an unavailable mark does not establish a healthy exposure."],
+                ["PIK cascade", "For every loan tranche that switched from cash interest to PIK, where it was a year later: back to cash-pay, still PIK (split by mark: 90¢ or more, 80–90¢, under 80¢, or mark unknown), or gone from the book while the BDC was still filing. 'Left the book' does not say whether the loan was repaid, refinanced, sold or written off. Switch years whose year of follow-up has not fully passed are marked."],
+                ["Default rate (hard / shadow)", "Of the debt that was performing twelve months earlier, the share whose borrower defaulted during the year, counted once at its first event. Hard = new non-accrual (observed) or a distressed exit (inferred from the exit mark: left below 85¢, or after a mark below 80¢, without going non-accrual). Shadow adds restructurings and PIK amendments inferred from term changes. Published only for BDC windows where every loan's non-accrual status is known at the start and in every quarter; others are listed as withheld with the reason."],
+                ["Where did the PIK go (PIK ledger)", "The PIK booked since the window start, allocated to loans by their disclosed PIK rates and followed to today. Still in the book (performing, impaired, or PIK status unknown) is observed. Collected (loans that left at 97¢ or better or were refinanced at par) is an estimate, compared with the BDCs that report their PIK collections. Lost is estimated from the last mark before exit, not from sale proceeds."],
+                ["Forward queue (implied non-accrual formation)", "Each loan not yet on non-accrual is scored on warning signals (mark below 90¢, mark drop, cash → PIK switch, modification, another holder already on non-accrual). The score was fitted on older data and tested on later quarters it had not seen; each score bucket's hit rate there (share going non-accrual within two quarters) is applied to the BDC's scored book. Test labels count an unknown future status as no non-accrual, so hit rates are lower bounds; a signal that cannot be checked counts as absent, so a BDC's figure is a lower bound where its signal coverage is below 100%."],
                 ["Cross-BDC mark dispersion", "For borrowers held by ≥3 BDCs, the spread between max and min mark across holders in the same quarter."],
               ].map(([metric, desc]) => (
                 <tr key={metric} style={{ borderBottom: "1px solid #1a1a28" }}>
@@ -249,14 +252,15 @@ export default function MethodologyPage() {
             <li>
               <span className="text-white">MFIC non-accrual disclosure.</span>{" "}
               The issuer NA rate comes from a separate filing disclosure; per-position NA identity
-              is unavailable. It is excluded from the industry cost-weighted denominator until
-              a matching disclosure scope is established. PIK observations are tracked separately.
+              is unavailable, so loan-level measures (default rates, non-accrual events) leave MFIC
+              out. Whether MFIC is in the industry non-accrual line in a given quarter is shown under
+              that chart. PIK observations are tracked separately.
             </li>
             <li>
               <span className="text-white">FSK denominator scope.</span>{" "}
               Portfolio totals include disclosed unfunded-commitment adjustments. PIK stock percentages
-              retain the gross-position basis and must not be applied to net portfolio totals. FSK
-              non-accrual percentages are withheld until the funded numerator is reconciled.
+              retain the gross-position basis and must not be applied to net portfolio totals. When an
+              FSK non-accrual rate is unknown for a quarter, the site says so and gives the reason.
             </li>
             <li>
               <span className="text-white">DERA long-tail cleanup.</span>{" "}
@@ -272,9 +276,12 @@ export default function MethodologyPage() {
               loan-level detail yet.
             </li>
             <li>
-              <span className="text-white">Exit outcomes are unresolved.</span>{" "}
-              The final reported valuation is not a sale price. The holding-cohort view does not
-              estimate realized losses or assign defaults from disappearance.
+              <span className="text-white">Exit outcomes are proxies.</span>{" "}
+              A loan leaving the schedule does not say why. Where the site shows an exit-based figure —
+              distress exits and the realized-loss proxy on /sponsors, the distressed-exit leg of the
+              default rate, &quot;collected&quot; and &quot;lost&quot; in the PIK ledger — it is inferred
+              from the last reported mark, not from sale proceeds, and labelled as such. The
+              holding-cohort view does not assign exit outcomes.
             </li>
           </ul>
         </div>
