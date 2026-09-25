@@ -7,7 +7,6 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { vintageExposure, vintageDatingCoverage } from "@/data/vintage_exposure";
-import { disclosedCoverage } from "@/data/vintage_disclosed";
 import CsvDownloadButton from "./CsvDownloadButton";
 
 // Vintages before this are long-tail equity stubs and pre-panel loans; they
@@ -37,8 +36,7 @@ const panel = { background: "#111118", borderColor: "#1e1e2e" };
 export function VintageDatingCoverageTable() {
   const rows = [...vintageDatingCoverage].sort((a, b) =>
     a.ticker === "industry" ? 1 : b.ticker === "industry" ? -1 : a.ticker.localeCompare(b.ticker));
-  const strict = new Map(disclosedCoverage.map((c) => [c.ticker, c.latest_funded_cost_b > 0 ? (100 * c.acquisition_dated_cost_b) / c.latest_funded_cost_b : null]));
-  const csvRows = rows.map((r) => [r.ticker, r.period_end, r.debt_cost_b.toFixed(3), r.pct_own_disclosed.toFixed(1), r.pct_peer_disclosed.toFixed(1), r.pct_estimated.toFixed(1), r.pct_undated.toFixed(1), r.pct_high_conf.toFixed(1)]);
+  const csvRows = rows.map((r) => [r.ticker, r.period_end, r.debt_cost_b.toFixed(3), r.pct_own_disclosed.toFixed(1), r.pct_peer_disclosed.toFixed(1), r.pct_estimated.toFixed(1), r.pct_undated.toFixed(1), r.pct_high_conf.toFixed(1), r.pct_disclosed_only == null ? "" : r.pct_disclosed_only.toFixed(1)]);
   return (
     <div className="rounded-xl border overflow-hidden mb-6" style={panel}>
       <div className="px-4 py-3 border-b flex items-start justify-between gap-3 flex-wrap" style={{ borderColor: "#1e1e2e" }}>
@@ -55,7 +53,7 @@ export function VintageDatingCoverageTable() {
           </p>
         </div>
         <CsvDownloadButton filename="vintage-dating-coverage"
-          columns={["ticker", "period_end", "debt_cost_b", "own_disclosed_pct", "peer_same_tranche_pct", "estimated_pct", "undated_pct", "high_conf_pct"]}
+          columns={["ticker", "period_end", "debt_cost_b", "own_disclosed_pct", "peer_same_tranche_pct", "estimated_pct", "undated_pct", "high_conf_pct", "disclosed_only_view_pct"]}
           rows={csvRows} />
       </div>
       <div className="overflow-x-auto">
@@ -69,7 +67,7 @@ export function VintageDatingCoverageTable() {
           </thead>
           <tbody>
             {rows.map((r, i) => {
-              const s = strict.get(r.ticker);
+              const s = r.pct_disclosed_only;
               const isInd = r.ticker === "industry";
               return (
                 <tr key={r.ticker} data-ticker={r.ticker} style={{ background: isInd ? "#12121c" : i % 2 === 0 ? "#111118" : "#0f0f16", borderTop: isInd ? "2px solid #2d2d45" : undefined }}>

@@ -22,6 +22,7 @@ export interface VintageDatingCoverage {
   ticker: string; period_end: string; debt_cost_b: number; n_positions: number;
   pct_own_disclosed: number; pct_peer_disclosed: number; pct_estimated: number;
   pct_undated: number; pct_high_conf: number;
+  pct_disclosed_only: number | null;  // same book in the stricter disclosed-dates-only view
 }
 
 export const vintageExposure: VintageExposureRow[] = [
@@ -293,23 +294,23 @@ export const vintageExposure: VintageExposureRow[] = [
 ];
 
 export const vintageDatingCoverage: VintageDatingCoverage[] = [
-  {"ticker": "ADS", "period_end": "2026-06-30", "debt_cost_b": 25.9814, "n_positions": 644, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 32.95, "pct_estimated": 63.13, "pct_undated": 3.91, "pct_high_conf": 26.66},
-  {"ticker": "ARCC", "period_end": "2026-06-30", "debt_cost_b": 25.022, "n_positions": 1068, "pct_own_disclosed": 83.63, "pct_peer_disclosed": 9.57, "pct_estimated": 6.8, "pct_undated": 0.0, "pct_high_conf": 63.19},
-  {"ticker": "ASIF", "period_end": "2026-06-30", "debt_cost_b": 20.959, "n_positions": 1100, "pct_own_disclosed": 1.3, "pct_peer_disclosed": 71.47, "pct_estimated": 27.23, "pct_undated": 0.0, "pct_high_conf": 61.7},
-  {"ticker": "BBDC", "period_end": "2026-06-30", "debt_cost_b": 2.0312, "n_positions": 448, "pct_own_disclosed": 98.49, "pct_peer_disclosed": 1.51, "pct_estimated": 0.0, "pct_undated": 0.0, "pct_high_conf": 89.08},
-  {"ticker": "BCRED", "period_end": "2026-06-30", "debt_cost_b": 76.5917, "n_positions": 1156, "pct_own_disclosed": 79.2, "pct_peer_disclosed": 11.28, "pct_estimated": 9.44, "pct_undated": 0.07, "pct_high_conf": 60.34},
-  {"ticker": "BXSL", "period_end": "2026-06-30", "debt_cost_b": 13.7186, "n_positions": 636, "pct_own_disclosed": 84.63, "pct_peer_disclosed": 9.85, "pct_estimated": 5.47, "pct_undated": 0.05, "pct_high_conf": 59.14},
-  {"ticker": "CCAP", "period_end": "2026-06-30", "debt_cost_b": 1.5042, "n_positions": 450, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 16.26, "pct_estimated": 83.63, "pct_undated": 0.11, "pct_high_conf": 9.99},
-  {"ticker": "CGBD", "period_end": "2026-06-30", "debt_cost_b": 2.3317, "n_positions": 220, "pct_own_disclosed": 93.34, "pct_peer_disclosed": 6.66, "pct_estimated": 0.0, "pct_undated": 0.0, "pct_high_conf": 69.39},
-  {"ticker": "FSK", "period_end": "2026-06-30", "debt_cost_b": 10.2776, "n_positions": 285, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 24.37, "pct_estimated": 55.1, "pct_undated": 20.53, "pct_high_conf": 16.33},
-  {"ticker": "GBDC", "period_end": "2026-06-30", "debt_cost_b": 7.7306, "n_positions": 1215, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 14.74, "pct_estimated": 85.26, "pct_undated": 0.0, "pct_high_conf": 7.9},
-  {"ticker": "HTGC", "period_end": "2026-06-30", "debt_cost_b": 4.3916, "n_positions": 148, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 0.56, "pct_estimated": 99.44, "pct_undated": 0.0, "pct_high_conf": 0.56},
-  {"ticker": "MAIN", "period_end": "2026-06-30", "debt_cost_b": 4.1438, "n_positions": 367, "pct_own_disclosed": 92.92, "pct_peer_disclosed": 6.79, "pct_estimated": 0.29, "pct_undated": 0.0, "pct_high_conf": 73.84},
-  {"ticker": "NMFC", "period_end": "2026-06-30", "debt_cost_b": 2.0926, "n_positions": 233, "pct_own_disclosed": 91.07, "pct_peer_disclosed": 8.93, "pct_estimated": 0.0, "pct_undated": 0.0, "pct_high_conf": 50.79},
-  {"ticker": "OBDC", "period_end": "2026-06-30", "debt_cost_b": 12.6765, "n_positions": 278, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 31.33, "pct_estimated": 67.9, "pct_undated": 0.77, "pct_high_conf": 23.29},
-  {"ticker": "OCIC", "period_end": "2026-06-30", "debt_cost_b": 33.6074, "n_positions": 437, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 44.0, "pct_estimated": 47.96, "pct_undated": 8.03, "pct_high_conf": 28.38},
-  {"ticker": "OCSL", "period_end": "2026-06-30", "debt_cost_b": 2.7958, "n_positions": 264, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 31.76, "pct_estimated": 65.27, "pct_undated": 2.97, "pct_high_conf": 21.38},
-  {"ticker": "OTF", "period_end": "2026-06-30", "debt_cost_b": 12.7773, "n_positions": 212, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 45.8, "pct_estimated": 54.2, "pct_undated": 0.0, "pct_high_conf": 31.46},
-  {"ticker": "TSLX", "period_end": "2026-06-30", "debt_cost_b": 3.1128, "n_positions": 166, "pct_own_disclosed": 99.98, "pct_peer_disclosed": 0.02, "pct_estimated": 0.0, "pct_undated": 0.0, "pct_high_conf": 92.82},
-  {"ticker": "industry", "period_end": "2026-06-30", "debt_cost_b": 261.7457, "n_positions": 9327, "pct_own_disclosed": 40.69, "pct_peer_disclosed": 25.21, "pct_estimated": 31.77, "pct_undated": 2.32, "pct_high_conf": 45.85}
+  {"ticker": "ADS", "period_end": "2026-06-30", "debt_cost_b": 25.9814, "n_positions": 644, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 32.95, "pct_estimated": 63.13, "pct_undated": 3.91, "pct_high_conf": 26.66, "pct_disclosed_only": 0.0},
+  {"ticker": "ARCC", "period_end": "2026-06-30", "debt_cost_b": 25.022, "n_positions": 1068, "pct_own_disclosed": 83.63, "pct_peer_disclosed": 9.57, "pct_estimated": 6.8, "pct_undated": 0.0, "pct_high_conf": 63.19, "pct_disclosed_only": 70.13},
+  {"ticker": "ASIF", "period_end": "2026-06-30", "debt_cost_b": 20.959, "n_positions": 1100, "pct_own_disclosed": 1.3, "pct_peer_disclosed": 71.47, "pct_estimated": 27.23, "pct_undated": 0.0, "pct_high_conf": 61.7, "pct_disclosed_only": 0.09},
+  {"ticker": "BBDC", "period_end": "2026-06-30", "debt_cost_b": 2.0312, "n_positions": 448, "pct_own_disclosed": 98.49, "pct_peer_disclosed": 1.51, "pct_estimated": 0.0, "pct_undated": 0.0, "pct_high_conf": 89.08, "pct_disclosed_only": 93.94},
+  {"ticker": "BCRED", "period_end": "2026-06-30", "debt_cost_b": 76.5917, "n_positions": 1156, "pct_own_disclosed": 79.2, "pct_peer_disclosed": 11.28, "pct_estimated": 9.44, "pct_undated": 0.07, "pct_high_conf": 60.34, "pct_disclosed_only": 61.93},
+  {"ticker": "BXSL", "period_end": "2026-06-30", "debt_cost_b": 13.7186, "n_positions": 636, "pct_own_disclosed": 84.63, "pct_peer_disclosed": 9.85, "pct_estimated": 5.47, "pct_undated": 0.05, "pct_high_conf": 59.14, "pct_disclosed_only": 65.52},
+  {"ticker": "CCAP", "period_end": "2026-06-30", "debt_cost_b": 1.5042, "n_positions": 450, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 16.26, "pct_estimated": 83.63, "pct_undated": 0.11, "pct_high_conf": 9.99, "pct_disclosed_only": 0.0},
+  {"ticker": "CGBD", "period_end": "2026-06-30", "debt_cost_b": 2.3317, "n_positions": 220, "pct_own_disclosed": 93.34, "pct_peer_disclosed": 6.66, "pct_estimated": 0.0, "pct_undated": 0.0, "pct_high_conf": 69.39, "pct_disclosed_only": 85.95},
+  {"ticker": "FSK", "period_end": "2026-06-30", "debt_cost_b": 10.2776, "n_positions": 285, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 24.37, "pct_estimated": 55.1, "pct_undated": 20.53, "pct_high_conf": 16.33, "pct_disclosed_only": 0.0},
+  {"ticker": "GBDC", "period_end": "2026-06-30", "debt_cost_b": 7.7306, "n_positions": 1215, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 14.74, "pct_estimated": 85.26, "pct_undated": 0.0, "pct_high_conf": 7.9, "pct_disclosed_only": 0.0},
+  {"ticker": "HTGC", "period_end": "2026-06-30", "debt_cost_b": 4.3916, "n_positions": 148, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 0.56, "pct_estimated": 99.44, "pct_undated": 0.0, "pct_high_conf": 0.56, "pct_disclosed_only": 0.0},
+  {"ticker": "MAIN", "period_end": "2026-06-30", "debt_cost_b": 4.1438, "n_positions": 367, "pct_own_disclosed": 92.92, "pct_peer_disclosed": 6.79, "pct_estimated": 0.29, "pct_undated": 0.0, "pct_high_conf": 73.84, "pct_disclosed_only": 65.67},
+  {"ticker": "NMFC", "period_end": "2026-06-30", "debt_cost_b": 2.0926, "n_positions": 233, "pct_own_disclosed": 91.07, "pct_peer_disclosed": 8.93, "pct_estimated": 0.0, "pct_undated": 0.0, "pct_high_conf": 50.79, "pct_disclosed_only": 63.29},
+  {"ticker": "OBDC", "period_end": "2026-06-30", "debt_cost_b": 12.6765, "n_positions": 278, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 31.33, "pct_estimated": 67.9, "pct_undated": 0.77, "pct_high_conf": 23.29, "pct_disclosed_only": 0.0},
+  {"ticker": "OCIC", "period_end": "2026-06-30", "debt_cost_b": 33.6074, "n_positions": 437, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 44.0, "pct_estimated": 47.96, "pct_undated": 8.03, "pct_high_conf": 28.38, "pct_disclosed_only": 0.0},
+  {"ticker": "OCSL", "period_end": "2026-06-30", "debt_cost_b": 2.7958, "n_positions": 264, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 31.76, "pct_estimated": 65.27, "pct_undated": 2.97, "pct_high_conf": 21.38, "pct_disclosed_only": 0.0},
+  {"ticker": "OTF", "period_end": "2026-06-30", "debt_cost_b": 12.7773, "n_positions": 212, "pct_own_disclosed": 0.0, "pct_peer_disclosed": 45.8, "pct_estimated": 54.2, "pct_undated": 0.0, "pct_high_conf": 31.46, "pct_disclosed_only": 0.0},
+  {"ticker": "TSLX", "period_end": "2026-06-30", "debt_cost_b": 3.1128, "n_positions": 166, "pct_own_disclosed": 99.98, "pct_peer_disclosed": 0.02, "pct_estimated": 0.0, "pct_undated": 0.0, "pct_high_conf": 92.82, "pct_disclosed_only": 96.71},
+  {"ticker": "industry", "period_end": "2026-06-30", "debt_cost_b": 261.7457, "n_positions": 9327, "pct_own_disclosed": 40.69, "pct_peer_disclosed": 25.21, "pct_estimated": 31.77, "pct_undated": 2.32, "pct_high_conf": 45.85, "pct_disclosed_only": 32.17}
 ];

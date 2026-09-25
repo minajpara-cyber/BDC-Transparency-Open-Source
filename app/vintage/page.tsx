@@ -7,8 +7,15 @@ import { vintageRows, VintageRow } from "@/data/vintage_analysis";
 import { vintageLGD } from "@/data/vintage_lgd";
 import { vintageGolden } from "@/data/vintage_golden";
 import VintageExposureTable, { VintageDatingCoverageTable } from "@/components/VintageExposureTable";
-import VintageDisclosedView from "@/components/VintageDisclosedView";
+import dynamic from "next/dynamic";
 import { fullySeasonedRow, lowTierShare, MOSTLY_ESTIMATED_PCT } from "@/lib/vintage";
+
+// The disclosed-dates-only tab carries its own ~4MB dataset; load it only
+// when the tab is opened so the main view stays light.
+const VintageDisclosedView = dynamic(() => import("@/components/VintageDisclosedView"), {
+  ssr: false,
+  loading: () => <p className="text-sm text-gray-400">Loading the disclosed-dates-only view…</p>,
+});
 
 type Metric = "pct_ever_default" | "pct_ever_modified" | "pct_ever_na" | "pct_ever_b80" | "pct_b90_alive";
 
