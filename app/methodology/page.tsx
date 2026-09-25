@@ -165,7 +165,11 @@ export default function MethodologyPage() {
           </table>
         </div>
         <p className="text-xs mt-3 leading-relaxed" style={{ color: "#9ca3af" }}>
-          Quarterly modifications use the shared definition <code>inferred_debt_modifications_v2</code>.
+          Quarterly modifications use the shared definition <code>inferred_debt_modifications_v3</code>.
+          Each signal is counted only over loans where its own inputs could be read: a missing
+          spread or par no longer removes a cash → PIK change from the PIK rate, a fixed-rate loan
+          cannot have a spread cut, and a loan&apos;s first quarter has nothing to compare with. A rate
+          covering under half of a BDC&apos;s funded debt is labelled low coverage.
           The narrow PIK rate and severity totals reconcile to named PIK events. The broad ledger
           also includes maturity extensions of at least six indexed months, stressed par reductions
           greater than 15%, contractual-spread cuts greater than 50bps and lien downgrades. Event

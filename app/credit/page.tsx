@@ -194,12 +194,17 @@ function buildIndustrySeries(field: NumericKeys): IndustryPoint[] {
  *  scoped to payment-structure changes only.
  */
 function buildModCellMap() {
-  const m = new Map<string, { value: number | null; reliable?: boolean }>();
+  const m = new Map<string, { value: number | null; reliable?: boolean; note?: string }>();
   for (const r of modificationRate) {
     if (!isQuarterEnd(r.period_end)) continue;
+    // A rate that covers under half of the BDC's funded debt is muted and labelled.
+    const lowCoverage = r.coverage_status === "low_coverage";
     m.set(`${r.ticker}|${r.period_end}`, {
       value: r.pct_new_cost,
-      reliable: isReliable(r.ticker, r.period_end, "pik"),
+      reliable: isReliable(r.ticker, r.period_end, "pik") && !lowCoverage,
+      note: lowCoverage
+        ? `low coverage: rate covers ${r.coverage_pct == null ? "an unknown share" : `${r.coverage_pct.toFixed(0)}%`} of this BDC's funded debt`
+        : undefined,
     });
   }
   return m;

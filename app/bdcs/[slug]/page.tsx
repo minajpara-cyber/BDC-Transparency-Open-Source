@@ -209,6 +209,10 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const repayLatest = repayRows[repayRows.length - 1];
   const repayNetAvg = repayRows.length
     ? repayRows.reduce((s, r) => s + (r.deployed - r.repaid - r.distressed), 0) / repayRows.length : 0;
+  // Latest quarter's rate may cover only part of the funded debt book (e.g.
+  // CGBD rows without an instrument label cannot be confirmed as debt).
+  const modRateLatest = modRateRows[modRateRows.length - 1];
+  const modRateLowCoverage = modRateLatest?.coverage_status === "low_coverage";
   const modRateCmp   = modRateRows.map((r) => ({
     period_end: r.period_end,
     bdc: r.pct_new_cost,
@@ -432,6 +436,14 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
                 <div className="text-sm font-semibold text-white mb-1">Cash → PIK modification rate vs industry</div>
                 <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>% of eligible-loan cost that flipped from cash-pay to PIK this quarter.</p>
+                {modRateLowCoverage && (
+                  <p className="text-xs mb-2" style={{ color: "#fbbf24" }}>
+                    Low coverage: in {modRateLatest.period_end} this rate covers only{" "}
+                    {modRateLatest.coverage_pct == null ? "part" : `${modRateLatest.coverage_pct.toFixed(0)}%`} of{" "}
+                    {bdc.ticker}&apos;s funded debt, because most of its rows carry no instrument label and
+                    cannot be confirmed as debt. Treat it as indicative.
+                  </p>
+                )}
                 <ComparisonChart data={modRateCmp} yLabel="% modified (cost)" unit="%" bdcLabel={bdc.ticker} bdcColor="#a855f7" />
               </div>
             )}
