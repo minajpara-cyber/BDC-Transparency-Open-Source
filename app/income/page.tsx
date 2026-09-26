@@ -18,6 +18,7 @@ import StatCard from "@/components/StatCard";
 import CreditHeatmap from "@/components/CreditHeatmap";
 import IncomeTrendChart from "@/components/IncomeTrendChart";
 import DividendCoverageTable from "@/components/DividendCoverageTable";
+import SeverePikTypeTable from "@/components/SeverePikTypeTable";
 import IncomeMixChart from "@/components/IncomeMixChart";
 import { incomeTtm, incomeQuarterly, incomeUniverse, incomeMeta, type IncomeTtmRow } from "@/data/income_coverage";
 import DefaultRateChart from "@/components/DefaultRateChart";
@@ -322,6 +323,14 @@ export default function IncomePage() {
         </div>
       </section>
 
+      <section id="severe-pik" className="mb-12 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Severe PIK, by type{" "}
+          <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· why the coupon is paid in kind, latest quarter</span>
+        </h2>
+        <SeverePikTypeTable rows={latest} />
+      </section>
+
       <section id="coverage" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           Can the dividend be covered in cash?{" "}
@@ -445,8 +454,10 @@ export default function IncomePage() {
             &quot;Where did the PIK go?&quot; section above follows every PIK loan since {windowYear}{" "}to estimate how
             much came back. Cash coverage below 1.0x means NII excluding PIK is below declared distributions: the
             dividend relies on income that will arrive later — or not at all if the borrower fails. It does not by
-            itself predict a dividend cut. The stress slider and the severe-PIK column put numbers on that risk;
-            severe PIK is PIK making up more than half a loan&apos;s coupon, or all of it.
+            itself predict a dividend cut. The stress slider and the severe-PIK stress put numbers on that risk.
+            Severe PIK is PIK making up more than half a position&apos;s coupon, or all of it; the stress takes
+            out only severe PIK on debt — first the debt that switched from cash to PIK while held, then also
+            debt already PIK when first seen — and never PIK dividends on preferred stock or equity.
           </p>
           <p className="mb-2">
             <span className="text-white">PIK net of recapture.</span>{" "}A mature book recycles PIK: loans with

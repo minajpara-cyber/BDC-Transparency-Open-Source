@@ -1,6 +1,21 @@
 import Link from "next/link";
 import { ArrowLeft, Database, FileText, GitBranch, AlertTriangle } from "lucide-react";
 import { vintageGolden } from "@/data/vintage_golden";
+import { creditQuality } from "@/data/credit_quality";
+import { dividendSupportMeta } from "@/data/dividend_support";
+import { PIK_ORIGINS, PIK_ORIGIN_EXPLAIN, PIK_ORIGIN_LABEL, severePikTypePoint, pikOriginPhrase } from "@/lib/pikOrigin";
+
+// Latest industry split of severe PIK by type, and the back-test behind the
+// dividend-support PIK sign — both read from the exported data.
+const SEVERE_INDUSTRY = creditQuality
+  .filter((r) => r.ticker === "industry")
+  .sort((a, b) => a.period_end.localeCompare(b.period_end))
+  .map(severePikTypePoint)
+  .pop();
+const SEVERE_TOTAL = SEVERE_INDUSTRY ? PIK_ORIGINS.reduce((sum, o) => sum + SEVERE_INDUSTRY[o], 0) : 0;
+const FLAG = dividendSupportMeta.switched_pik_flag_evidence;
+const pc = (v: number | null | undefined, d = 1) => (v == null ? "—" : `${v.toFixed(d)}%`);
+const signed = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(1)}%`);
 
 export default function MethodologyPage() {
   return (
@@ -30,6 +45,7 @@ export default function MethodologyPage() {
           ["#parsing", "Parsing"],
           ["#position-tracking", "Position tracking"],
           ["#metrics", "Metrics"],
+          ["#severe-pik", "Severe PIK"],
           ["#vintage", "Vintage dating"],
           ["#caveats", "Caveats"],
           ["#glossary", "Glossary"],
@@ -144,6 +160,7 @@ export default function MethodologyPage() {
                 ["% non-accrual", "Amortized cost of positions flagged non-accrual ÷ amortized cost of all positions in the filing's schedule (debt and equity alike), when every position's flag can be read. Cash, money-market funds and unfunded commitments are left out of both sides. Where a BDC reports only a total, its reported rate is shown; where the filing states that nothing was on non-accrual on that date, 0.00% is shown with the quoted sentence as its source. A quarter whose flags are incomplete or on hold shows as unknown, never as zero. The industry line on /credit is dollar-weighted across the BDCs with a usable rate that quarter; it shows how many BDCs each point pools and which were left out of the latest one, and plots quarters with at least 5."],
                 ["% below 95¢ / 90¢ / 80¢ of par", "Cost of debt positions where fair value / par is below the threshold, divided by debt cost. Equity positions are excluded (par is meaningless for equity)."],
                 ["% PIK", "Cost of positions known to pay any PIK ÷ cost of all positions in the schedule. Preferred stock paying its dividend in kind counts as PIK. Where some positions' PIK status is unknown, an upper figure counts them all as PIK. One number (the known share) is shown unless the two differ by more than 1pp, in which case the range is shown; otherwise the range is in the hover text. A figure is called 'bounded' only when the two differ by at least 0.1pp, and a quarter-on-quarter change is shown when both quarters differ by under 0.25pp. Coverage is the share of cost whose PIK status is known. This is a stock measure, unlike the quarterly cash → PIK flow below."],
+                ["Severe PIK, by type", "Severe PIK is PIK making up more than half of a position's coupon, or all of it. Each severe position is typed by why it pays in kind: preferred stock, equity and convertible notes (PIK by design); debt already paying PIK the first time it appears in our data; debt that switched from cash to PIK while held; or debt whose history is unclear. The four add up to severe PIK. See Severe PIK below."],
                 ["Inferred cash → PIK modification rate", "Current USD cost of material-rule PIK events / eligible debt cost. A loan is eligible when it is funded, identified debt and its PIK status was read at both adjacent calendar quarter-ends; an event also needs two earlier cash-pay quarters. Only PIK status is needed: a missing spread, par or maturity does not remove a loan or an event from this rate (those inputs have their own denominators in the broad measure). Next-quarter persistence may be provisional. Zero-event issuers and unknown severity remain in totals. A BDC-quarter from an era whose PIK marks could not be read reliably shows no rate (a gap, not 0%). This does not confirm a disclosed amendment or rule out refinancing."],
                 ["Weighted-avg spread (bps)", "Parsed from the SOI's reference-rate text (e.g. 'SOFR + 5.75%' → 575 bps). Cost-weighted across positions. Floating-rate loans give a clean read; fixed-rate notes fall through to coupon as a proxy."],
                 ["Cumulative default exposure (vintage)", "Entry cost of loans ever flagged non-accrual OR that left the book in distress, as % of the vintage cohort's entry cost. Each age adds the new defaults at that age among the loans old enough to have reached it (leaving out loans whose non-accrual status is unknown then), so the cumulative rate never falls when fewer loans are old enough at a cohort's oldest ages. Directionally comparable to Raymond James's 'cumulative 1L default exposure' (our headline spans all instruments; the first-lien toggle gives the strictly comparable view: loans labelled first lien, one stop, unitranche or senior secured)."],
@@ -177,6 +194,78 @@ export default function MethodologyPage() {
           issuer quarters with material PIK event cost of 30% or more. The data retains provisional
           persistence and unknown severity; none of these rules establishes a disclosed amendment.
         </p>
+      </section>
+
+      {/* 4a. Severe PIK — how much vs why */}
+      <section id="severe-pik" className="mb-10 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3">Severe PIK — how much is paid in kind, and why</h2>
+        <div className="rounded-xl border p-5 text-sm space-y-3" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#d1d5db" }}>
+          <p>
+            A position&apos;s PIK <span className="text-white">severity</span>{" "}is the share of its coupon paid in
+            kind: minimal under 20%, moderate 20–50%, severe more than half or all of it. It is read straight off
+            each filing, but it only says how much. Whether severe PIK is a warning depends on why the coupon is
+            paid in kind, so every severe position also gets one of four types:
+          </p>
+          <ul className="list-disc list-inside space-y-1.5">
+            {PIK_ORIGINS.map((o) => (
+              <li key={o}><span className="text-white">{PIK_ORIGIN_LABEL[o]}.</span>{" "}{PIK_ORIGIN_EXPLAIN[o]}</li>
+            ))}
+          </ul>
+          {SEVERE_INDUSTRY && SEVERE_TOTAL > 0 && (
+            <p>
+              At {SEVERE_INDUSTRY.period_end.slice(0, 7)}{" "}severe PIK was {pc(SEVERE_TOTAL)}{" "}of the covered BDCs&apos;
+              combined book at cost:{" "}
+              {PIK_ORIGINS.map((o) => `${pikOriginPhrase(o)} ${pc(SEVERE_INDUSTRY[o])}`).join(", ")}.
+              Only the switched debt shows a borrower that stopped paying cash interest while the BDC held the loan.
+            </p>
+          )}
+          <p>
+            <span className="text-white">How the type is decided.</span>{" "}The instrument comes from the schedule&apos;s
+            own description: preferred, equity or convertible wording, or — for filers that leave the instrument
+            column blank — a suffix such as &quot;, Preferred Stock&quot; on the borrower&apos;s name (a name like
+            &quot;… Preferred Holdings, Inc.&quot; is not an instrument). Ordinary unsecured notes stay debt. For
+            debt, the loan&apos;s own history decides: it is &quot;switched&quot; when the same loan paid cash for at
+            least two quarters and then paid at least a fifth of its coupon in kind, still PIK at the next filing;
+            &quot;first seen&quot; when its first quarter in our data was already PIK. Our data starts with each
+            BDC&apos;s first filing on file, so a loan restructured into PIK before then counts as first seen, not
+            switched. A loan that went PIK after a single cash quarter, or whose PIK crept up from a small share,
+            is &quot;history unclear&quot; rather than guessed.
+          </p>
+          <p>
+            <span className="text-white">&quot;If severe PIK is lost&quot; on /income.</span>{" "}The base case takes the
+            PIK of debt that switched from cash to PIK out of NII; the wider case also takes out severe PIK on debt
+            already PIK when first seen. Neither removes PIK dividends on preferred stock or equity, PIK on
+            convertible notes, or severe debt whose history is unclear. The year&apos;s PIK from the cash-flow
+            statement is shared out loan by loan by PIK rate × principal, with loans on non-accrual at zero (they
+            book no income) — the same allocation as the PIK ledger — because severe loans carry far more PIK per
+            dollar than lightly-PIK ones, so a split by cost would misstate them.
+          </p>
+          {FLAG && (
+            <p data-switched-pik-flag={FLAG.threshold_pct_nii}>
+              <span className="text-white">The PIK warning sign on dividend support.</span>{" "}One of the six signs
+              is severe PIK on switched debt above {FLAG.threshold_pct_nii}% of NII over the last four quarters. It
+              replaced &quot;PIK over 15% of NII with most of the PIK book severe&quot;, which counted preferred
+              dividends and loans written with PIK. The threshold is back-tested on {FLAG.n_bdc_quarters}{" "}BDC-quarters
+              ({FLAG.n_bdcs}{" "}BDCs, {FLAG.from.slice(0, 7)}{" "}to {FLAG.to.slice(0, 7)}): the median BDC-quarter took{" "}
+              {pc(FLAG.median_pct_nii)}{" "}of its NII from this source and {pc(FLAG.pct_bdc_quarters_flagged, 0)}{" "}were
+              above {FLAG.threshold_pct_nii}%. Over the following twelve months those above it saw NAV per share
+              change {signed(FLAG.flagged.fwd_nav_mean)}{" "}on average (median {signed(FLAG.flagged.fwd_nav_median)}) against{" "}
+              {signed(FLAG.rest.fwd_nav_mean)}{" "}(median {signed(FLAG.rest.fwd_nav_median)}) for the rest, and a hard
+              default rate of {pc(FLAG.flagged.fwd_hard_mean)}{" "}against {pc(FLAG.rest.fwd_hard_mean)}. The old sign
+              separated nothing on the same quarters: {signed(FLAG.old_flagged.fwd_nav_mean)}{" "}against{" "}
+              {signed(FLAG.old_rest.fwd_nav_mean)}, and {pc(FLAG.old_flagged.fwd_hard_mean)}{" "}against{" "}
+              {pc(FLAG.old_rest.fwd_hard_mean)}{" "}hard defaults. When the threshold was set (September 2026, data to
+              June 2026), every threshold from 3% to 6% separated the two groups and 4% separated them most. Treat it
+              as a pointer, not a proof: only {FLAG.flagged.n}{" "}BDC-quarters at{" "}
+              {FLAG.flagged.n_bdcs}{" "}BDCs were above the line with a known outcome
+              {FLAG.weakest_leave_one_out
+                ? `, and without ${FLAG.weakest_leave_one_out.without} the gap shrinks to ${signed(FLAG.weakest_leave_one_out.flagged.fwd_nav_mean)} against ${signed(FLAG.weakest_leave_one_out.rest.fwd_nav_mean)} on average (medians ${signed(FLAG.weakest_leave_one_out.flagged.fwd_nav_median)} against ${signed(FLAG.weakest_leave_one_out.rest.fwd_nav_median)})`
+                : ""}.
+              It tells BDCs apart rather than timing one BDC, and the switch test looks one filing ahead to confirm
+              that PIK persisted, so the back-test carries a quarter of hindsight at each switch.
+            </p>
+          )}
+        </div>
       </section>
 
       {/* 4b. Vintage dating */}

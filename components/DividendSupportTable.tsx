@@ -2,7 +2,8 @@
 
 // Dividend support per BDC: the coverage ratios plus the things that decide
 // whether a shortfall matters — spillover cushion, NAV per share trend, NAV
-// total return against the payout, defaults, severe PIK — rolled into a
+// total return against the payout, defaults, PIK on debt that switched from
+// cash to PIK — rolled into a
 // transparent count of warning signs (lib/dividendPressure.ts). The shadow
 // default sign counts only where that BDC's default-rate window is fully
 // observed.
@@ -10,7 +11,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { DividendSupportRow } from "@/data/dividend_support";
 import type { DefaultWindowLike } from "@/lib/defaultRatePublication";
-import { gateDividendSupport, SHADOW_DEFAULT_FLAG_PCT } from "@/lib/dividendPressure";
+import { gateDividendSupport, SHADOW_DEFAULT_FLAG_PCT, SWITCHED_PIK_FLAG_PCT_NII } from "@/lib/dividendPressure";
 import CsvDownloadButton from "./CsvDownloadButton";
 
 const PRESSURE: Record<string, { color: string; bg: string; label: string }> = {
@@ -24,7 +25,7 @@ const p1 = (v: number | null, sign = false) =>
   v == null ? "—" : `${sign && v > 0 ? "+" : ""}${v.toFixed(1)}%`;
 
 type Key = "ticker" | "gated_n_flags" | "nii_cov" | "cov_ex_pik" | "spillover_q" | "nav_chg_1y" | "nav_chg_3y"
-  | "nav_tr_1y" | "shadow_default_observed";
+  | "nav_tr_1y" | "shadow_default_observed" | "switched_pik_pct_nii";
 
 export default function DividendSupportTable({ rows, defaultWindows }: {
   rows: DividendSupportRow[];
@@ -45,15 +46,17 @@ export default function DividendSupportTable({ rows, defaultWindows }: {
     ["ticker", "BDC"], ["gated_n_flags", "Pressure"], ["nii_cov", "Reported cov."], ["cov_ex_pik", "Cash cov."],
     ["spillover_q", "Spillover (qtrs)"], ["nav_chg_1y", "NAV/sh 1y"], ["nav_chg_3y", "NAV/sh 3y"],
     ["nav_tr_1y", "NAV total return 1y"], ["shadow_default_observed", "Shadow default"],
+    ["switched_pik_pct_nii", "Switched-debt PIK % NII"],
   ];
   const csvCols = ["ticker", "as_of", "pressure", "n_flags", "flags", "reported_coverage", "cash_coverage_ex_pik",
     "pik_pct_nii", "pik_collected_pct", "spillover_m", "spillover_fy", "spillover_quarters", "nav_ps",
     "nav_chg_1y_pct", "nav_chg_3y_pct", "dividend_yield_on_nav_pct", "nav_total_return_1y_pct",
-    "shadow_default_pct", "hard_default_pct", "default_rate_note", "severe_share_of_pik_pct"];
+    "shadow_default_pct", "hard_default_pct", "default_rate_note", "switched_debt_severe_pik_pct_nii",
+    "switched_debt_severe_pik_pct_book"];
   const csvRows = sorted.map((r) => [r.ticker, r.period_end, r.gated_pressure, r.gated_n_flags, r.gated_flags.join("; "),
     r.nii_cov, r.cov_ex_pik, r.pik_pct_nii, r.pik_collected_pct, r.spillover_m, r.spillover_fy, r.spillover_q,
     r.nav_ps, r.nav_chg_1y, r.nav_chg_3y, r.div_yield_nav, r.nav_tr_1y, r.shadow_default_observed,
-    r.hard_default_observed, r.shadow_default_note, r.severe_pik_share]);
+    r.hard_default_observed, r.shadow_default_note, r.switched_pik_pct_nii, r.switched_pct_book]);
 
   return (
     <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
@@ -121,6 +124,11 @@ export default function DividendSupportTable({ rows, defaultWindows }: {
                     {p1(r.shadow_default_observed)}
                     {r.shadow_default_observed == null && <span className="text-[10px] ml-1">withheld</span>}
                   </td>
+                  <td className="px-3 py-2 text-right tabular-nums"
+                    style={{ color: (r.switched_pik_pct_nii ?? 0) > SWITCHED_PIK_FLAG_PCT_NII ? "#fca5a5" : r.switched_pik_pct_nii == null ? "#6b6b88" : "#9ca3af" }}
+                    title={r.switched_pct_book != null ? `That debt is ${r.switched_pct_book.toFixed(1)}% of the book at cost` : undefined}>
+                    {p1(r.switched_pik_pct_nii)}
+                  </td>
                 </tr>
               );
             })}
@@ -130,8 +138,12 @@ export default function DividendSupportTable({ rows, defaultWindows }: {
       <div className="px-4 py-3 border-t text-xs" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
         Warning signs (one point each): reported NII below 95% of the dividend · NII ex-PIK below 80% of it ·
         under-covered with less than a quarter of spillover · NAV per share down more than 5% in a year · shadow
-        default rate above {SHADOW_DEFAULT_FLAG_PCT}% · PIK over 15% of NII with most of the PIK book severe. 0–1 = low,
-        2–3 = elevated, 4+ = high. All but the shadow default sign are read straight off the filings. The shadow
+        default rate above {SHADOW_DEFAULT_FLAG_PCT}% · severe PIK on debt that switched from cash to PIK while the BDC
+        held it above {SWITCHED_PIK_FLAG_PCT_NII}% of NII (last four quarters; PIK dividends on preferred stock and
+        loans written with PIK from the start do not count). 0–1 = low, 2–3 = elevated, 4+ = high. The first four
+        signs are read straight off the filings. The switched-PIK sign is inferred: which loans switched comes from
+        each loan&apos;s history across filings, and the year&apos;s PIK is shared out by each loan&apos;s PIK rate
+        (see the coverage table above). The shadow
         default sign uses the figure in the default-rate table above and counts only where that BDC&apos;s
         twelve-month window is fully observed ({nShadowCounted} of {gated.length}{" "}BDCs this quarter); elsewhere the
         column shows &quot;withheld&quot; and the sign is not counted. Hover a withheld cell for the reason.

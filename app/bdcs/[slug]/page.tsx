@@ -5,6 +5,7 @@ import AlertBadge from "@/components/AlertBadge";
 import StatCard from "@/components/StatCard";
 import AssetCompositionChart from "@/components/AssetCompositionChart";
 import SeverityStackedBars from "@/components/SeverityStackedBars";
+import { PIK_ORIGINS, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, pikOriginPhrase } from "@/lib/pikOrigin";
 import ComparisonChart, { ComparisonPoint } from "@/components/ComparisonChart";
 import BDCTimelineChart from "@/components/BDCTimelineChart";
 import BDCHoldingsTable from "@/components/BDCHoldingsTable";
@@ -242,6 +243,12 @@ export default async function BDCDetailPage({ params }: PageProps) {
     moderate: r.pct_new_moderate_cost,
     severe: r.pct_new_severe_cost,
   }));
+
+  // Severe PIK held in the book, by type (credit_quality, last 12 quarters):
+  // why the severe PIK is paid in kind. The four types add up to severe PIK.
+  const sevTypeSeries = cqRows.slice(-12).map(severePikTypePoint);
+  const sevTypeLatest = sevTypeSeries[sevTypeSeries.length - 1];
+  const sevTypeTotal = sevTypeLatest ? PIK_ORIGINS.reduce((sum, o) => sum + sevTypeLatest[o], 0) : 0;
 
   // Helpers
   const fmtDelta = (curr?: number | null, prev?: number | null, decimals = 2) => {
@@ -505,7 +512,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
           </div>
 
           {/* Two-up: asset composition + modifications by severity */}
-          {(compositionLine.length > 0 || sevSeries.length > 0) && (
+          {(compositionLine.length > 0 || sevSeries.length > 0 || sevTypeTotal > 0) && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-4">
               {compositionLine.length > 0 && (
                 <AssetCompositionChart
@@ -519,8 +526,25 @@ export default async function BDCDetailPage({ params }: PageProps) {
                   <div className="text-sm font-semibold text-white mb-1">Modifications by severity (last 12 quarters)</div>
                   <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
                     Cost of new cash → PIK flips each quarter as % of eligible-loan cost, bucketed by PIK severity.
+                    Every bar is debt switching from cash to PIK while held.
                   </p>
                   <SeverityStackedBars data={sevSeries} yLabel="% of eligible cost" unit="%" />
+                </div>
+              )}
+              {sevTypeLatest && sevTypeTotal > 0 && (
+                <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}
+                  data-severe-pik-types={bdc.ticker}>
+                  <div className="text-sm font-semibold text-white mb-1">Severe PIK held, by type (last 12 quarters)</div>
+                  <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
+                    Severe PIK — more than half of a position&apos;s coupon paid in kind, or all of it — as % of the
+                    book at cost, split by why. At {sevTypeLatest.period_end.slice(0, 7)}{" "}it was{" "}
+                    {sevTypeTotal.toFixed(1)}% of {bdc.ticker}&apos;s book:{" "}
+                    {PIK_ORIGINS.map((o) => `${pikOriginPhrase(o)} ${sevTypeLatest[o].toFixed(1)}%`).join(", ")}.
+                    Only the red layer — debt that switched from cash to PIK while held — shows a borrower that stopped
+                    paying cash interest; preferred and convertible PIK is built into the instrument, and &quot;first
+                    seen&quot; debt was already PIK when it first appeared in our data.
+                  </p>
+                  <SeverityStackedBars data={sevTypeSeries} yLabel="% of book at cost" unit="%" series={SEVERE_PIK_TYPE_SERIES} />
                 </div>
               )}
             </div>

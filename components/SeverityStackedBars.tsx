@@ -19,14 +19,32 @@ export interface SeverityBarPoint {
   unknown: number;
 }
 
+export interface StackSeries {
+  key: string;
+  name: string;
+  color: string;
+}
+
+// PIK severity: the PIK share of the coupon (the default series).
+export const PIK_SEVERITY_SERIES: StackSeries[] = [
+  { key: "minimal", name: "Minimal (<20% PIK share)", color: "#fde68a" },
+  { key: "moderate", name: "Moderate (20–50%)", color: "#f97316" },
+  { key: "severe", name: "Severe (≥50% or all-PIK)", color: "#dc2626" },
+  { key: "unknown", name: "Severity unknown", color: "#94a3b8" },
+];
+
 interface Props {
-  data: SeverityBarPoint[];
+  /** One point per quarter: period_end plus one number per series key. */
+  data: Array<{ period_end: string }>;
   yLabel?: string;
   /** "%" for cost-percent display, "" for raw counts. Defaults to "". */
   unit?: string;
+  /** Stack layers; defaults to PIK severity. lib/pikOrigin's
+   *  SEVERE_PIK_TYPE_SERIES stacks severe PIK by type instead. */
+  series?: StackSeries[];
 }
 
-export default function SeverityStackedBars({ data, yLabel = "# inferred PIK changes", unit = "" }: Props) {
+export default function SeverityStackedBars({ data, yLabel = "# inferred PIK changes", unit = "", series = PIK_SEVERITY_SERIES }: Props) {
   const fmtTick = (v: number) =>
     unit === "%" ? `${v.toFixed(1)}%` : Number(v).toLocaleString();
   const fmtTooltip = (value: unknown) => {
@@ -61,11 +79,12 @@ export default function SeverityStackedBars({ data, yLabel = "# inferred PIK cha
             labelStyle={{ color: "#d1d5db" }}
             formatter={fmtTooltip}
           />
-          <Legend wrapperStyle={{ fontSize: 11, color: "#8b8ba8" }} />
-          <Bar dataKey="minimal"  name="Minimal (<20% PIK share)" stackId="a" fill="#fde68a" />
-          <Bar dataKey="moderate" name="Moderate (20–50%)"        stackId="a" fill="#f97316" />
-          <Bar dataKey="severe"   name="Severe (≥50% or all-PIK)"  stackId="a" fill="#dc2626" />
-          <Bar dataKey="unknown"  name="Severity unknown"          stackId="a" fill="#94a3b8" />
+          {/* legend in stack order (recharts sorts by label by default) */}
+          <Legend wrapperStyle={{ fontSize: 11, color: "#8b8ba8" }}
+            itemSorter={(item) => series.findIndex((s) => s.name === item.value)} />
+          {series.map((s) => (
+            <Bar key={s.key} dataKey={s.key} name={s.name} stackId="a" fill={s.color} />
+          ))}
         </BarChart>
       </ResponsiveContainer>
     </div>

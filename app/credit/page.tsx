@@ -27,6 +27,7 @@ import { sectorCredit } from "@/data/sector_credit";
 import { macroContext } from "@/data/macro_context";
 import { sponsors } from "@/data/sponsors_index";
 import { creditPikPublication, formatPikPublication, pikRangeText, sponsorPikPublication } from "@/lib/pikPublication";
+import { PIK_ORIGINS, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, pikOriginPhrase } from "@/lib/pikOrigin";
 import { joinList } from "@/lib/joinList";
 
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
@@ -550,6 +551,19 @@ export default function CreditPage() {
       moderate: r.pct_new_moderate_cost, severe: r.pct_new_severe_cost,
       unknown: r.pct_new_unknown_cost }));
 
+  // Severe PIK held in the book by type (a stock, not the flow above): the
+  // industry row of credit_quality, last 12 quarter-ends — after every PIK
+  // parse caveat era, and late enough that "first seen" is not just the start
+  // of a BDC's coverage.
+  const severeTypeIndustry = creditQuality
+    .filter((r) => r.ticker === "industry" && isQuarterEnd(r.period_end))
+    .sort((a, b) => a.period_end.localeCompare(b.period_end))
+    .slice(-12)
+    .map(severePikTypePoint);
+  const severeTypeLatest = severeTypeIndustry[severeTypeIndustry.length - 1];
+  const severeTypeTotal = severeTypeLatest
+    ? PIK_ORIGINS.reduce((sum, o) => sum + severeTypeLatest[o], 0) : 0;
+
   // Per-(ticker, period) severity rows for the recent table (latest 8 quarters).
   const recentPeriods = Array.from(new Set(pikModifications.map((r) => r.period_end)))
     .filter(isQuarterEnd)
@@ -857,11 +871,30 @@ export default function CreditPage() {
             <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
               The same event population and denominator as the headline. Severity is the PIK share
               of total coupon: minimal &lt;20%, moderate 20–50%, severe ≥50% or all-PIK, or unknown.
-              Newest observations can still have provisional persistence.
+              Newest observations can still have provisional persistence. Every bar here is debt switching
+              from cash to PIK while held; PIK dividends on preferred stock and loans already PIK when first
+              seen are never counted as events.
             </p>
             <SeverityStackedBars data={severityIndustry} yLabel="% of eligible cost" unit="%" />
           </div>
         </div>
+        {severeTypeLatest && severeTypeTotal > 0 && (
+          <div className="rounded-xl border p-4 mt-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}
+            data-severe-pik-types="industry">
+            <div className="text-sm font-semibold text-white mb-1">Severe PIK held in the book, by type (industry, % of cost)</div>
+            <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
+              The charts above count new switches; this is the stock of severe PIK at each quarter end — PIK making up
+              more than half of a position&apos;s coupon, or all of it — split by why it is paid in kind. Only the red
+              layer is debt that switched from cash to PIK while the BDC held it. At{" "}
+              {severeTypeLatest.period_end.slice(0, 7)}, severe PIK was {severeTypeTotal.toFixed(1)}% of the book:{" "}
+              {PIK_ORIGINS.map((o) => `${pikOriginPhrase(o)} ${severeTypeLatest[o].toFixed(1)}%`).join(", ")}.
+              &quot;First seen&quot; means already PIK the first time the loan appears in our data, which can include
+              a loan restructured before our coverage began. Per BDC:{" "}
+              <Link href="/income#severe-pik" className="underline" style={{ color: "#a5b4fc" }}>PIK &amp; dividends</Link>.
+            </p>
+            <SeverityStackedBars data={severeTypeIndustry} yLabel="% of book at cost" unit="%" series={SEVERE_PIK_TYPE_SERIES} />
+          </div>
+        )}
 
         {/* Recent severity table */}
         <div

@@ -2,7 +2,10 @@
 
 // Latest trailing-four-quarter dividend coverage per BDC, from reported NII
 // down to cash-only income, with a PIK stress slider: "suppose X% of the PIK
-// income booked over the last year is never collected".
+// income booked over the last year is never collected", and a severe-PIK
+// stress by type: base case = the PIK on debt that switched from cash to PIK
+// while held; wider case = also debt already PIK when first seen. Preferred,
+// equity and convertible PIK (PIK by design) is in neither case.
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { IncomeTtmRow } from "@/data/income_coverage";
@@ -12,7 +15,7 @@ import CsvDownloadButton from "./CsvDownloadButton";
 
 type Key =
   | "ticker" | "nii_m" | "dist_m" | "pik_pct_nii" | "nii_cov" | "cov_ex_pik" | "recapture_shown" | "cov_ex_net_pik_shown"
-  | "cov_strict" | "pik_cushion_pct" | "severe_share" | "cov_ex_severe" | "stressed";
+  | "cov_strict" | "pik_cushion_pct" | "switched_pik_pct_nii" | "cov_ex_switched" | "cov_ex_severe_debt" | "stressed";
 
 function covColor(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "transparent";
@@ -72,8 +75,9 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
     ["cov_ex_net_pik_shown", "Cash cov. net of recapture", "right"],
     ["cov_strict", "Ex-PIK & accretion", "right"],
     ["pik_cushion_pct", "PIK cushion", "right"],
-    ["severe_share", "Severe share of PIK book", "right"],
-    ["cov_ex_severe", "If severe PIK lost", "right"],
+    ["switched_pik_pct_nii", "Switched-debt PIK % of NII", "right"],
+    ["cov_ex_switched", "If switched-debt PIK lost", "right"],
+    ["cov_ex_severe_debt", "Wider: + first-seen debt", "right"],
     ["stressed", `If ${haircut}% of PIK lost`, "right"],
   ];
   const onSort = (k: Key) => {
@@ -84,13 +88,16 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
   const csvColumns = ["ticker", "ttm_to", "nii_m", "distributions_m", "pik_m", "accretion_m", "pik_pct_nii",
     "reported_coverage", "cash_coverage_ex_pik", "pik_recaptured_m", "recapture_basis", "recapture_pct_of_pik",
     "net_pik_pct_nii", "cash_coverage_net_of_recapture", "coverage_ex_pik_and_accretion", "pik_cushion_pct",
-    "severe_share_of_pik_book", "coverage_if_severe_pik_lost", `coverage_if_${haircut}pct_pik_lost`, "pik_basis"];
+    "switched_debt_severe_pik_pct_nii", "coverage_if_switched_debt_severe_pik_lost",
+    "coverage_if_switched_and_first_seen_debt_severe_pik_lost", "unclear_history_share_of_pik_income",
+    `coverage_if_${haircut}pct_pik_lost`, "pik_basis"];
   const csvRows = sorted.map((r) => [r.ticker, r.period_end, r.nii_m, r.dist_m, r.pik_m, r.acc_m, r.pik_pct_nii,
     r.nii_cov, r.cov_ex_pik, r.recap.recapturePct == null ? null : r.pik_recaptured_m,
     r.recapture_src === "estimated" ? (r.recap.estimate ? "estimate" : "estimate not shown") : r.recapture_src,
     r.recap.recapturePct, r.recap.netPikPctNii, r.recap.covExNetPik,
     r.cov_strict, r.pik_cushion_pct,
-    r.severe_share == null ? null : +(100 * r.severe_share).toFixed(1), r.cov_ex_severe,
+    r.switched_pik_pct_nii, r.cov_ex_switched, r.cov_ex_severe_debt,
+    r.unknown_share == null ? null : +(100 * r.unknown_share).toFixed(1),
     r.stressed == null ? null : +r.stressed.toFixed(3), r.basis]);
 
   return (
@@ -111,6 +118,16 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
               not come back. The <span className="text-white">PIK cushion</span>{" "}is the share of the year&apos;s
               PIK that could prove uncollectible before reported NII stops covering the dividend (negative =
               already uncovered on reported NII).
+            </p>
+            <p className="text-xs mt-2" style={{ color: "#8b8ba8" }}>
+              <span className="text-white">If severe PIK is lost</span>{" "}— severe PIK is more than half of a
+              coupon paid in kind. The <span className="text-white">base case</span>{" "}takes out the year&apos;s PIK
+              from debt that switched from cash to PIK while the BDC held it — the loans that got into trouble.
+              The <span className="text-white">wider case</span>{" "}also takes out severe PIK on debt that was already
+              PIK when first seen in our data. Neither takes out PIK dividends on preferred stock, equity or
+              convertible notes, where paying in kind is built into the instrument, nor severe debt whose history is
+              unclear (hover the wider-case cell). The year&apos;s PIK is shared out by each loan&apos;s PIK rate ×
+              principal, with loans on non-accrual at zero — the same allocation as the PIK ledger below.
             </p>
           </div>
           <CsvDownloadButton filename="dividend-coverage-ttm" columns={csvColumns} rows={csvRows} />
@@ -178,10 +195,15 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
                   style={{ color: (r.pik_cushion_pct ?? -1) < 0 ? "#ef4444" : (r.pik_cushion_pct ?? 0) < 25 ? "#f59e0b" : "#22c55e" }}>
                   {r.pik_cushion_pct == null ? "—" : r.pik_cushion_pct < 0 ? "uncovered" : r.pik_cushion_pct > 100 ? ">100%" : pct(r.pik_cushion_pct, 0)}
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#9ca3af" }}>
-                  {r.severe_share == null ? "—" : `${(100 * r.severe_share).toFixed(0)}%`}
+                <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#9ca3af" }}
+                  title={r.switched_pik_m == null ? undefined : `$${r.switched_pik_m.toFixed(1)}m of the year's $${r.pik_m.toFixed(0)}m PIK`}>
+                  {pct(r.switched_pik_pct_nii)}
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums" style={{ background: covColor(r.cov_ex_severe), color: "#e5e7eb" }}>{x2(r.cov_ex_severe)}</td>
+                <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ background: covColor(r.cov_ex_switched), color: "#fafafa" }}>{x2(r.cov_ex_switched)}</td>
+                <td className="px-3 py-2 text-right tabular-nums" style={{ background: covColor(r.cov_ex_severe_debt), color: "#e5e7eb" }}
+                  title={r.unknown_share ? `Not in either case: ${(100 * r.unknown_share).toFixed(0)}% of the PIK income is severe debt whose history is unclear` : undefined}>
+                  {x2(r.cov_ex_severe_debt)}
+                </td>
                 <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ background: covColor(r.stressed), color: "#fafafa" }}>{x2(r.stressed)}</td>
               </tr>
             ))}

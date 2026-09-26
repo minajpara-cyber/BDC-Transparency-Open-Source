@@ -1,8 +1,12 @@
 // Dividend-support pressure badge. data/dividend_support.ts (scripts/93)
-// counts six warning signs per BDC. Five are read straight off the filings:
+// counts six warning signs per BDC. Four are read straight off the filings:
 // reported NII below 95% of the dividend, NII ex-PIK below 80% of it,
-// under-covered with under a quarter of spillover, NAV per share down more
-// than 5% in a year, and PIK over 15% of NII with most of the PIK book severe.
+// under-covered with under a quarter of spillover, and NAV per share down more
+// than 5% in a year. The fifth, severe PIK on debt that switched from cash to
+// PIK while held above SWITCHED_PIK_FLAG_PCT_NII % of NII, is inferred from
+// each loan's history and PIK rate (until 2026-09-26 it was PIK over 15% of NII
+// with most of the PIK book severe, which counted preferred dividends and loans
+// written with PIK and separated nothing — scripts/93).
 // The sixth — a shadow default rate above 7% — depends on the default-rate
 // estimate, so here it is re-derived from data/default_rate.ts and counted
 // only when that BDC's twelve-month window for the same quarter is fully
@@ -12,6 +16,8 @@ import { isFullyObserved, withheldReason, type DefaultWindowLike } from "./defau
 export type Pressure = "low" | "elevated" | "high";
 
 export const SHADOW_DEFAULT_FLAG_PCT = 7;
+/** Must equal scripts/93 SWITCHED_PIK_FLAG_PCT_NII (dividendSupportMeta). */
+export const SWITCHED_PIK_FLAG_PCT_NII = 4;
 export const SHADOW_DEFAULT_FLAG = `shadow default rate above ${SHADOW_DEFAULT_FLAG_PCT}%`;
 const SHADOW_FLAG_PATTERN = /shadow default/i;
 
