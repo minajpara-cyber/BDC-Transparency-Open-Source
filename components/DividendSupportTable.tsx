@@ -133,7 +133,7 @@ export default function DividendSupportTable({ rows, defaultWindows }: {
         default rate above {SHADOW_DEFAULT_FLAG_PCT}% · PIK over 15% of NII with most of the PIK book severe. 0–1 = low,
         2–3 = elevated, 4+ = high. All but the shadow default sign are read straight off the filings. The shadow
         default sign uses the figure in the default-rate table above and counts only where that BDC&apos;s
-        twelve-month window is fully observed ({nShadowCounted} of {gated.length} BDCs this quarter); elsewhere the
+        twelve-month window is fully observed ({nShadowCounted} of {gated.length}{" "}BDCs this quarter); elsewhere the
         column shows &quot;withheld&quot; and the sign is not counted. Hover a withheld cell for the reason.
       </div>
     </div>

@@ -211,7 +211,7 @@ export default function ModificationEventsTable({ events }: { events: PublishedM
       </div>
       {rows.length > MAX_ROWS && (
         <div className="px-5 py-2.5 text-xs border-t" style={{ color: "#6b6b88", borderColor: "#1e1e2e" }}>
-          Showing top {MAX_ROWS} of {rows.length} by cost. Refine with the filters above.
+          Showing top {MAX_ROWS} of {rows.length}{" "}by cost. Refine with the filters above.
         </div>
       )}
     </div>

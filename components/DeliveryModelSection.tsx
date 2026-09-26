@@ -28,10 +28,10 @@ export default function DeliveryModelSection() {
       <h2 className="font-semibold text-white mb-1">Delivery model × end-market (LLM dual-axis)</h2>
       <p className="text-sm mb-4" style={{ color: "#9ca3af" }}>
         BDC filings give one muddy &quot;industry&quot; per loan. We add the axis they never provide — what the
-        company <span className="text-white">is</span> (software vs services vs provider) — layered on the
+        company <span className="text-white">is</span>{" "}(software vs services vs provider) — layered on the
         parser-cleaned end-market. The payoff: <span className="text-white">{fmtB(vertical)}</span>{" "}of what looks
-        like &quot;software&quot; is actually <span className="text-white">vertical</span> software selling into a
-        specific industry — including <span className="text-white">{fmtB(healthSW)}</span> of healthcare software
+        like &quot;software&quot; is actually <span className="text-white">vertical</span>{" "}software selling into a
+        specific industry — including <span className="text-white">{fmtB(healthSW)}</span>{" "}of healthcare software
         (Inovalon, Symplr, ModMed, HealthEdge…), distinct from healthcare <em>providers</em>. As of {deliveryModelAsOf}.
       </p>
 

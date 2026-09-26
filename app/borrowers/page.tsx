@@ -23,7 +23,7 @@ export default function BorrowersIndexPage() {
         className="inline-flex items-center gap-1.5 text-sm mb-6 hover:text-white transition-colors"
         style={{ color: "#8b8ba8" }}
       >
-        <ArrowLeft size={14} /> Back to home
+        <ArrowLeft size={14} />{" "}Back to home
       </Link>
 
       <div className="mb-6">
@@ -75,7 +75,7 @@ export default function BorrowersIndexPage() {
           <div>
             <h2 className="font-semibold text-white">Borrower index</h2>
             <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              Sorted by latest aggregate fair value across holders. {profiledCount} borrower{profiledCount === 1 ? "" : "s"} carry a
+              Sorted by latest aggregate fair value across holders. {profiledCount} borrower{profiledCount === 1 ? "" : "s"}{" "}carry a
               curated sector profile (sector · sub-sector shown where available).
             </p>
           </div>
@@ -151,8 +151,8 @@ export default function BorrowersIndexPage() {
       </div>
 
       <p className="text-xs mt-6" style={{ color: "#6b6b88" }}>
-        Showing all {crossHeld.length} cross-held borrowers plus the top 400 single-holder borrowers
-        by latest fair value (~{fmtUSD(rows.filter((r) => r.n_holders === 1).reduce((s, r) => s + r.total_fv, 0))} of single-holder FV captured).
+        Showing all {crossHeld.length}{" "}cross-held borrowers plus the top 400 single-holder borrowers
+        by latest fair value (~{fmtUSD(rows.filter((r) => r.n_holders === 1).reduce((s, r) => s + r.total_fv, 0))}{" "}of single-holder FV captured).
         The remaining single-holder tail (~11,200 borrowers) is in our database but not currently indexed
         in the dashboard.
       </p>

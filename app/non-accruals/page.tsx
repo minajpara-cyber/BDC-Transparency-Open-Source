@@ -176,7 +176,7 @@ export default function NonAccrualsPage() {
       <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#7f1d1d" }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: "#7f1d1d", background: "#1a0505" }}>
           <h2 className="font-semibold" style={{ color: "#ef4444" }}>
-            Currently Non-Accrual ({filteredCurrent.length} positions)
+            Currently Non-Accrual ({filteredCurrent.length}{" "}positions)
           </h2>
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
             One row per position. Click ticker to drill into the BDC; click borrower to open its

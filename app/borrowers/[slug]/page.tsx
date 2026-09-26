@@ -85,7 +85,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
         className="inline-flex items-center gap-1.5 text-sm mb-6 hover:text-white transition-colors"
         style={{ color: "#8b8ba8" }}
       >
-        <ArrowLeft size={14} /> Back to borrowers
+        <ArrowLeft size={14} />{" "}Back to borrowers
       </Link>
 
       <div className="mb-6">
@@ -103,7 +103,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
               background: "rgba(239,68,68,0.08)",
               borderColor: "rgba(239,68,68,0.25)",
             }}>
-              Cross-held · {b.n_holders} BDCs
+              Cross-held · {b.n_holders}{" "}BDCs
             </span>
           )}
           {b.category && (
@@ -160,7 +160,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
           </div>
         )}
         <p className="text-sm" style={{ color: "#9ca3af" }}>
-          {tickers.length} holder{tickers.length === 1 ? "" : "s"} · {periods.length} quarter{periods.length === 1 ? "" : "s"} of history
+          {tickers.length} holder{tickers.length === 1 ? "" : "s"} · {periods.length} quarter{periods.length === 1 ? "" : "s"}{" "}of history
           · {periods[0]} → {periods[periods.length - 1]}
         </p>
         {(() => {

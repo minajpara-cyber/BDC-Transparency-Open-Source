@@ -296,7 +296,7 @@ export default function WatchlistPage() {
           </span>
         </div>
         <p className="text-sm max-w-3xl" style={{ color: "#9ca3af" }}>
-          Loans that are <span className="text-white">showing stress but are not yet on non-accrual</span> — the
+          Loans that are <span className="text-white">showing stress but are not yet on non-accrual</span>{" "}— the
           leading edge of credit problems. Each loan gets a screen score from its mark and how fast it is falling,
           a switch from cash to PIK interest, heavy PIK, amend-and-extends and non-accrual at another BDC, and is
           then ranked by reported fair value. Tiers rank risk; they are not default probabilities. Loans tagged
@@ -362,7 +362,7 @@ export default function WatchlistPage() {
                   <> (how much more often loans with each signal went non-accrual than the average:{" "}
                     {multipliers.map(([k, m]) => `${signalLabel(k)} ${m}×`).join(", ")})</>
                 )}
-                , then tested on {oosWindow ? `${oosWindow.from} to ${oosWindow.to}` : "later"} data the fit never saw.
+                , then tested on {oosWindow ? `${oosWindow.from} to ${oosWindow.to}` : "later"}{" "}data the fit never saw.
                 Share that went on non-accrual within two quarters, by score:{" "}
                 {(ewsInfo.validation_buckets ?? []).map((b) => `score ${bucketLabel(b.bucket)}: ${b.hit_rate_pct}%`).join(" · ")}.
                 {ewsInfo.precision_at_50_pct != null && (
@@ -374,7 +374,7 @@ export default function WatchlistPage() {
                     `${signalLabel(w.key)} (${w.multiplier}×${w.points != null ? `, ${w.points} point${w.points === 1 ? "" : "s"}` : ""})`).join("; ")}.</>
                 )}
                 {unmeasured.length > 0 && (
-                  <> Too few loans in the fitting period carried {unmeasured.map(signalLabel).join(" or ")} to
+                  <> Too few loans in the fitting period carried {unmeasured.map(signalLabel).join(" or ")}{" "}to
                     measure {unmeasured.length === 1 ? "it" : "them"}, so {unmeasured.length === 1 ? "it scores" : "they score"} no points.</>
                 )}
               </p>
@@ -491,7 +491,7 @@ export default function WatchlistPage() {
         <h2 className="text-lg font-semibold text-white mb-1">Where is the stress building — by manager</h2>
         <p className="text-sm mb-4" style={{ color: "#9ca3af" }}>
           Watchlist dollars rolled up to each platform&apos;s parent. Absolute $ favors the biggest books, so the
-          <span className="text-white"> % of book</span> column is the like-for-like read across managers.
+          <span className="text-white"> % of book</span>{" "}column is the like-for-like read across managers.
         </p>
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Summary table */}
@@ -624,10 +624,10 @@ export default function WatchlistPage() {
             className="px-2.5 py-1 rounded text-xs flex-1 min-w-[160px]"
             style={{ background: "#12121c", color: "#c7c7e0", border: "1px solid #1e1e2e" }} />
           <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "#9ca3af" }}>
-            <input type="checkbox" checked={newOnly} onChange={(e) => setNewOnly(e.target.checked)} /> New only
+            <input type="checkbox" checked={newOnly} onChange={(e) => setNewOnly(e.target.checked)} />{" "}New only
           </label>
           <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "#9ca3af" }}>
-            <input type="checkbox" checked={hideStructured} onChange={(e) => setHideStructured(e.target.checked)} /> Hide JV/structured
+            <input type="checkbox" checked={hideStructured} onChange={(e) => setHideStructured(e.target.checked)} />{" "}Hide JV/structured
           </label>
           <CsvDownloadButton filename={`watchlist_${latest}`}
             columns={["tier", "score", "score_observation_status", "company", "ticker", "manager", "parent", "industry",

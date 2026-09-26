@@ -44,12 +44,14 @@ export function VintageDatingCoverageTable() {
           <h2 className="font-semibold text-white">How each book is dated — % of debt cost</h2>
           <p className="text-xs mt-0.5 max-w-4xl" style={{ color: "#8b8ba8" }}>
             Latest debt book of each BDC (every position that is not equity), split by where its vintage dates come from.
-            <span className="text-white"> Own disclosed</span> = the BDC prints an acquisition date.
-            <span className="text-white"> Peer, same tranche</span> = another BDC holding the same facility (same lien, maturity within two years) prints one.
-            <span className="text-white"> Estimated</span> = a labelled inference (graded LOW).
-            <span className="text-white"> Undated</span> = no evidence, left out of the curves.
-            The last column is the stricter &ldquo;disclosed dates only&rdquo; view (own date, consistent across filings, no estimates),
-            which is 0% for BDCs that never print acquisition dates.
+            <span className="text-white"> Own disclosed</span>{" "}= the BDC prints an acquisition date.
+            <span className="text-white"> Peer, same tranche</span>{" "}= another BDC holding the same facility (same lien, maturity within two years) prints one.
+            <span className="text-white"> Estimated</span>{" "}= a labelled inference (graded LOW).
+            <span className="text-white"> Undated</span>{" "}= no evidence, left out of the curves.
+            <span className="text-white"> Hi-conf</span>{" "}= cost with a HIGH or MED date (a disclosed date that stayed stable across
+            quarters and holders). The last column is the separate &ldquo;disclosed dates only&rdquo; view: it takes each BDC&apos;s own
+            printed date without the stability grading, so it can date more cost than Hi-conf, but it never uses a peer&apos;s date or an
+            estimate (0% for BDCs that never print acquisition dates).
           </p>
         </div>
         <CsvDownloadButton filename="vintage-dating-coverage"
@@ -188,10 +190,10 @@ export default function VintageExposureTable() {
             <h2 className="font-semibold text-white">Vintage Exposure — where each book sits</h2>
             <p className="text-xs mt-0.5 max-w-4xl" style={{ color: "#8b8ba8" }}>
               Share of each BDC&apos;s <span className="text-white">cost</span> by vintage year, as of {asOf}. Rows sum to 100%,
-              including an <span className="text-white">Undated</span> column for loans with no evidence to date them. This is
+              including an <span className="text-white">Undated</span>{" "}column for loans with no evidence to date them. This is
               composition, not performance — a large 2024 cohort is not itself a problem, but it tells you whose results the
-              2021-22 vintages still drive. <span className="text-white">Italic</span> cells are mostly dated by estimate (hover for
-              the split). Switch to <span className="text-white">vs industry</span> for percentage-point over/under-weights.
+              2021-22 vintages still drive. <span className="text-white">Italic</span>{" "}cells are mostly dated by estimate (hover for
+              the split). Switch to <span className="text-white">vs industry</span>{" "}for percentage-point over/under-weights.
             </p>
           </div>
           <CsvDownloadButton filename="vintage-exposure" columns={csvColumns} rows={csvRows} />
@@ -271,7 +273,7 @@ export default function VintageExposureTable() {
       <p className="text-xs px-4 py-3" style={{ color: "#6b6b88" }}>
         Vintage dates come from the waterfall in the methodology note (own disclosed date, then the same tranche at a peer, then a
         labelled estimate), so a BDC that discloses acquisition dates is dated more precisely than one that doesn&apos;t — see the
-        &ldquo;How each book is dated&rdquo; table. {OLD_LABEL} pools everything older. Weighted vintage is the cost-weighted mean
+        &ldquo;How each book is dated&rdquo; table. {OLD_LABEL}{" "}pools everything older. Weighted vintage is the cost-weighted mean
         vintage year of the dated cost: higher means a younger book.
       </p>
     </div>

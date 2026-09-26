@@ -10,7 +10,7 @@ export default function MethodologyPage() {
         className="inline-flex items-center gap-1.5 text-sm mb-6 hover:text-white transition-colors"
         style={{ color: "#8b8ba8" }}
       >
-        <ArrowLeft size={14} /> Back to home
+        <ArrowLeft size={14} />{" "}Back to home
       </Link>
 
       <div className="mb-8">
@@ -48,7 +48,7 @@ export default function MethodologyPage() {
       {/* 1. Data source */}
       <section id="data-source" className="mb-10 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-          <Database size={18} /> Data source
+          <Database size={18} />{" "}Data source
         </h2>
         <div className="rounded-xl border p-5 text-sm space-y-3" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#d1d5db" }}>
           <p>
@@ -57,13 +57,13 @@ export default function MethodologyPage() {
             long-tail BDCs) and parse the Schedule of Investments (SOI) table out of each one.
           </p>
           <p>
-            <span className="text-white">In-house coverage:</span> ARCC, BXSL, FSK, MAIN, OBDC,
+            <span className="text-white">In-house coverage:</span>{" "}ARCC, BXSL, FSK, MAIN, OBDC,
             MFIC, OCSL, GBDC, CCAP, HTGC, BBDC, NMFC, BCRED, ASIF, ADS, OCIC, OTF, CGBD, TSLX.
             These get the full per-position treatment — non-accrual flags, PIK structure, mark-at-par,
             asset composition, spread.
           </p>
           <p>
-            <span className="text-white">Long-tail coverage:</span> SEC DERA bulk SOI extracts for
+            <span className="text-white">Long-tail coverage:</span>{" "}SEC DERA bulk SOI extracts for
             an additional ~160 BDC-like funds. DERA covers mark-based metrics (below 95¢ / 90¢)
             but lacks per-position non-accrual and PIK tagging, so those metrics use in-house data
             only.
@@ -74,7 +74,7 @@ export default function MethodologyPage() {
       {/* 2. Parsing */}
       <section id="parsing" className="mb-10 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-          <FileText size={18} /> Parsing
+          <FileText size={18} />{" "}Parsing
         </h2>
         <div className="rounded-xl border p-5 text-sm space-y-3" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#d1d5db" }}>
           <p>
@@ -91,7 +91,7 @@ export default function MethodologyPage() {
             <li>Links observed borrower/instrument positions using identity and terms. Quarterly modification flows require adjacent calendar observations.</li>
           </ol>
           <p className="text-xs" style={{ color: "#9ca3af" }}>
-            Parser code lives in the <code className="px-1 rounded" style={{ background: "#0f0f16", color: "#a5b4fc" }}>bdc_inventory/scripts</code> repo
+            Parser code lives in the <code className="px-1 rounded" style={{ background: "#0f0f16", color: "#a5b4fc" }}>bdc_inventory/scripts</code>{" "}repo
             (not yet public — open-sourcing is on the roadmap).
           </p>
         </div>
@@ -100,7 +100,7 @@ export default function MethodologyPage() {
       {/* 3. Position tracking */}
       <section id="position-tracking" className="mb-10 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-          <GitBranch size={18} /> Position tracking
+          <GitBranch size={18} />{" "}Position tracking
         </h2>
         <div className="rounded-xl border p-5 text-sm space-y-3" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#d1d5db" }}>
           <p>
@@ -111,7 +111,7 @@ export default function MethodologyPage() {
             events retain both source-row locations so the comparison can be reviewed.
           </p>
           <p>
-            <span className="text-white">Vintage assignment:</span> each loan gets a vintage date from
+            <span className="text-white">Vintage assignment:</span>{" "}each loan gets a vintage date from
             the best evidence available — the BDC&apos;s own disclosed acquisition date, else the same
             tranche&apos;s date at a peer BDC, else a labelled estimate — and a HIGH / MED / LOW
             confidence tier (see <a href="#vintage" className="text-indigo-400 hover:underline">Vintage
@@ -119,8 +119,8 @@ export default function MethodologyPage() {
             /vintage page defaults to HIGH+MED dates only.
           </p>
           <p>
-            <span className="text-white">Loan exits:</span> when a loan stops appearing in a BDC&apos;s
-            schedule we tag it as exited. We can&apos;t tell <em>why</em> — refinancing, paydown, sale or
+            <span className="text-white">Loan exits:</span>{" "}when a loan stops appearing in a BDC&apos;s
+            schedule we tag it as exited. We can&apos;t tell <em>why</em>{" "}— refinancing, paydown, sale or
             write-off — but we flag <em>distress exits</em>: a last mark below 85¢, or any non-accrual or
             sub-80¢ mark before the loan left. Those count toward cumulative default on /vintage, and
             the last mark before exit gives the mark-based loss proxy (not realized loss).
@@ -144,11 +144,11 @@ export default function MethodologyPage() {
                 ["% non-accrual", "Amortized cost of positions flagged non-accrual ÷ amortized cost of all positions in the filing's schedule (debt and equity alike), when every position's flag can be read. Cash, money-market funds and unfunded commitments are left out of both sides. Where a BDC reports only a total, its reported rate is shown; where the filing states that nothing was on non-accrual on that date, 0.00% is shown with the quoted sentence as its source. A quarter whose flags are incomplete or on hold shows as unknown, never as zero. The industry line on /credit is dollar-weighted across the BDCs with a usable rate that quarter; it shows how many BDCs each point pools and which were left out of the latest one, and plots quarters with at least 5."],
                 ["% below 95¢ / 90¢ / 80¢ of par", "Cost of debt positions where fair value / par is below the threshold, divided by debt cost. Equity positions are excluded (par is meaningless for equity)."],
                 ["% PIK", "Cost of positions known to pay any PIK ÷ cost of all positions in the schedule. Preferred stock paying its dividend in kind counts as PIK. Where some positions' PIK status is unknown, an upper figure counts them all as PIK. One number (the known share) is shown unless the two differ by more than 1pp, in which case the range is shown; otherwise the range is in the hover text. A figure is called 'bounded' only when the two differ by at least 0.1pp, and a quarter-on-quarter change is shown when both quarters differ by under 0.25pp. Coverage is the share of cost whose PIK status is known. This is a stock measure, unlike the quarterly cash → PIK flow below."],
-                ["Inferred cash → PIK modification rate", "Current USD cost of material-rule PIK events / eligible debt cost. Rate eligibility requires funded, identified debt with all comparison inputs observed in adjacent calendar quarters; events require two prior cash quarters. A supported positive event remains in the named ledger when an unrelated comparison input is missing, but is labeled incomplete and excluded from the rate. Next-quarter persistence may be provisional. Zero-event issuers and unknown severity remain in totals. This does not confirm a disclosed amendment or rule out refinancing."],
+                ["Inferred cash → PIK modification rate", "Current USD cost of material-rule PIK events / eligible debt cost. A loan is eligible when it is funded, identified debt and its PIK status was read at both adjacent calendar quarter-ends; an event also needs two earlier cash-pay quarters. Only PIK status is needed: a missing spread, par or maturity does not remove a loan or an event from this rate (those inputs have their own denominators in the broad measure). Next-quarter persistence may be provisional. Zero-event issuers and unknown severity remain in totals. A BDC-quarter from an era whose PIK marks could not be read reliably shows no rate (a gap, not 0%). This does not confirm a disclosed amendment or rule out refinancing."],
                 ["Weighted-avg spread (bps)", "Parsed from the SOI's reference-rate text (e.g. 'SOFR + 5.75%' → 575 bps). Cost-weighted across positions. Floating-rate loans give a clean read; fixed-rate notes fall through to coupon as a proxy."],
-                ["Cumulative default exposure (vintage)", "Entry cost of loans ever flagged non-accrual OR that left the book in distress, as % of the vintage cohort's entry cost — counting at each age only loans old enough to have reached it, and leaving out loans whose non-accrual status is unknown at that age. Directionally comparable to Raymond James's 'cumulative 1L default exposure' (our headline spans all instruments; the first-lien toggle gives the strictly comparable view)."],
-                ["Mark-based loss proxy (vintage)", "For distress exits: last reported fair value − last reported cost, as % of last cost. Filings don't disclose sale prices, so this is the final markdown, not realized loss-given-default."],
-                ["% of cohort still on book", "Share of a vintage's entry cost (loans old enough to reach age T) whose loan still appears on a BDC's schedule at age T or later. Cannot exceed 100%."],
+                ["Cumulative default exposure (vintage)", "Entry cost of loans ever flagged non-accrual OR that left the book in distress, as % of the vintage cohort's entry cost. Each age adds the new defaults at that age among the loans old enough to have reached it (leaving out loans whose non-accrual status is unknown then), so the cumulative rate never falls when fewer loans are old enough at a cohort's oldest ages. Directionally comparable to Raymond James's 'cumulative 1L default exposure' (our headline spans all instruments; the first-lien toggle gives the strictly comparable view: loans labelled first lien, one stop, unitranche or senior secured)."],
+                ["Mark-based loss proxy (vintage)", "For distress exits: last reported fair value − last reported cost, as % of last cost. Filings don't disclose sale prices, so this is the final markdown, not realized loss-given-default. Shown only for vintages with at least 10 distress exits; a net markup shows as 0%, never as a negative loss."],
+                ["% of cohort still on book", "Share of a vintage's entry cost still on a BDC's schedule at age T, chained age by age (at each age, the share of the old-enough loans on the book at the previous age that are still there). Cannot exceed 100% and never rises."],
                 ["Disclosed-dates-only NA bounds", "The stricter cross-check tab on /vintage: fixed initial-cost share of holding groups (dated only by the holder's own acquisition date or first observation) with any observed quarter-end non-accrual (lower), plus groups with unresolved past status, including every exit (upper). Not default rates."],
                 ["PIK cascade", "For every loan tranche that switched from cash interest to PIK, where it was a year later: back to cash-pay, still PIK (split by mark: 90¢ or more, 80–90¢, under 80¢, or mark unknown), or gone from the book while the BDC was still filing. 'Left the book' does not say whether the loan was repaid, refinanced, sold or written off. Follow-ups that have not happened yet are 'not yet seasoned', and a switch whose later filing is missing or unreadable is 'status unknown' rather than any outcome, so each year adds to 100%."],
                 ["Default rate (hard / shadow)", "Of the debt that was performing twelve months earlier, the share whose borrower defaulted during the year, counted once at its first event. Hard = new non-accrual (observed) or a distressed exit (inferred from the exit mark: left below 85¢, or after a mark below 80¢, without going non-accrual). Shadow adds restructurings and PIK amendments inferred from term changes. Published only for BDC windows where every loan's non-accrual status is known at the start and in every quarter; others are listed as withheld with the reason."],
@@ -185,7 +185,7 @@ export default function MethodologyPage() {
         <div className="rounded-xl border p-5 text-sm space-y-3" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#d1d5db" }}>
           <p>
             The schedule&apos;s disclosed &ldquo;acquisition date&rdquo; is when the BDC acquired the{" "}
-            <em>security</em> — a refinancing legally creates a new security, so the date can reset, and
+            <em>security</em>{" "}— a refinancing legally creates a new security, so the date can reset, and
             several BDCs print it only for some positions or not at all. So a loan&apos;s vintage is an
             acquisition or first-seen date, not a proven origination date. It comes from a waterfall, in
             order of trust:
@@ -196,7 +196,7 @@ export default function MethodologyPage() {
             <li><span className="text-white">Estimates (graded LOW)</span> — a long-tail fund&apos;s date for the same borrower name, a sibling facility&apos;s date, the borrower&apos;s first appearance in SEC bulk data, maturity minus a typical tenor (first lien ≈ 6y, calibrated on stable disclosed loans), or the first quarter we saw the loan when the quarter before was reliably parsed.</li>
           </ol>
           <p>
-            <span className="text-white">A loan can&apos;t be dated after we saw it.</span> If a candidate date is
+            <span className="text-white">A loan can&apos;t be dated after we saw it.</span>{" "}If a candidate date is
             more than two quarters after the first filing that shows the loan (typically an amendment
             re-dating the loan, or a peer&apos;s date for a later facility), it is rejected and the next
             source is used. A BDC&apos;s own re-dated date replaced by the same tranche&apos;s peer date or a
@@ -204,44 +204,57 @@ export default function MethodologyPage() {
             disclosure is across quarters and holders (HIGH ≤90 days of drift, MED ≤12 months); the
             default view uses HIGH+MED only. Refinancings that extend maturity are stitched to the
             original loan, and loans are keyed on the entity matcher&apos;s borrower id, so a renamed
-            borrower stays one loan.
+            borrower stays one loan. When a filer starts printing a maturity it used to put only in the
+            description (ARCC before 2022-09 &ldquo;… due 05/2029&rdquo;, OCSL before 2023), the description&apos;s
+            date is used, so the loan is not split in two at the format change.
           </p>
           <p>
-            <span className="text-white">Weights and pieces.</span> Each loan is weighted by its cost in the
+            <span className="text-white">Weights and pieces.</span>{" "}Each loan is weighted by its cost in the
             first quarter we saw it, summing every piece of the facility that quarter (for example a
             USD term loan, a GBP tranche and an add-on). Only a filing row read twice is dropped as a
             duplicate. Unfunded commitments are left out.
           </p>
           <p>
-            <span className="text-white">Old enough to count.</span> At age T a cohort only counts loans
+            <span className="text-white">Old enough to count.</span>{" "}At age T a cohort only counts loans
             whose vintage date is at least T before their BDC&apos;s latest filing, so every loan counted has
             had the full T years to default. Points with fewer than 20 such loans (30 for a single BDC),
             or with under a quarter of the cohort&apos;s cost old enough, are not published, and
-            BDC-vs-industry comparisons use the oldest age every loan in the cohort has reached. Because the
-            counted set shrinks at the oldest ages, a curve can dip at its tail without any cure.
+            BDC-vs-industry comparisons use the oldest age every loan in the cohort has reached. Each age adds
+            only the new events among the loans old enough to reach it (earlier ages keep the rate measured on
+            the larger group), so a cumulative curve never dips just because fewer loans are old enough at its tail.
           </p>
           <p>
-            <span className="text-white">Unknown non-accrual flags.</span> Where a BDC&apos;s non-accrual marks were
+            <span className="text-white">Unknown non-accrual flags.</span>{" "}Where a BDC&apos;s non-accrual marks were
             not captured for a quarter, loans whose latest status is unknown are left out of that
             point rather than counted as performing; points where unknown history touches at least 5%
-            of the counted cost are marked partial.
+            of the counted cost are marked partial. The same applies to &ldquo;ever modified&rdquo;: a loan whose
+            modification inputs could not be read in some quarter is left out from then on, never counted as
+            unmodified, and &ldquo;ever below 80¢&rdquo; leaves out loans with no price mark (no par, such as equity).
+          </p>
+          <p>
+            <span className="text-white">High-confidence figures.</span>{" "}A cohort gets a HIGH+MED-only figure only
+            when those loans number at least 15 and carry at least a quarter of its counted cost; otherwise the
+            all-dated figure is shown, untagged, and the BDC is not ranked on the HIGH+MED view. &ldquo;Mostly
+            estimated&rdquo; means more than half of a cohort&apos;s entry cost is dated by an estimate rather than a
+            disclosed date. MFIC joins the curves from 2022-03-31, the first quarter its schedule marks each
+            non-accrual loan.
           </p>
           <p>
             <span className="text-white">Dating check:</span>{" "}
             {vintageGolden.overall.n > 0 ? (
               <>
-                against a small reference set of {vintageGolden.n_reference_financings_matched} publicly documented
+                against a small reference set of {vintageGolden.n_reference_financings_matched}{" "}publicly documented
                 financings ({vintageGolden.overall.n.toLocaleString()} matched loan-tranches; scored {vintageGolden.scored_on}),{" "}
                 {vintageGolden.overall.pct_within_1y?.toFixed(0)}% of assigned vintage years are within ±1 year and the
-                mean absolute error is {vintageGolden.overall.mae_years?.toFixed(2)} years
+                mean absolute error is {vintageGolden.overall.mae_years?.toFixed(2)}{" "}years
                 {vintageGolden.by_bucket.borrowed?.mae_years != null && <> (peer same-tranche dates {vintageGolden.by_bucket.borrowed.mae_years.toFixed(2)}y on {vintageGolden.by_bucket.borrowed.n} tranches; own disclosed dates {vintageGolden.by_bucket.disclosed?.mae_years?.toFixed(2)}y on {vintageGolden.by_bucket.disclosed?.n})</>}.
                 {vintageGolden.n_conflicting_loans_excluded > 0 && <> {vintageGolden.n_conflicting_loans_excluded} loans matched by reference rows that disagree on the year are left out.</>}{" "}
-                {vintageGolden.caveat} It is a regression check, not a measure of accuracy across the whole book.
+                {vintageGolden.caveat}{" "}It is a regression check, not a measure of accuracy across the whole book.
               </>
             ) : "not available for this release."}
           </p>
           <p>
-            <span className="text-white">Disclosed dates only.</span> A second tab on /vintage keeps a stricter
+            <span className="text-white">Disclosed dates only.</span>{" "}A second tab on /vintage keeps a stricter
             view: holdings dated only by the BDC&apos;s own disclosed acquisition date (or the first quarter
             we saw them), no peer dates, no estimates, fixed follow-up horizons, and lower/upper bounds on
             observed non-accrual in which every exit stays unresolved. BDCs that never disclose
@@ -253,7 +266,7 @@ export default function MethodologyPage() {
       {/* 5. Caveats */}
       <section id="caveats" className="mb-10 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-          <AlertTriangle size={18} /> Known caveats
+          <AlertTriangle size={18} />{" "}Known caveats
         </h2>
         <div className="rounded-xl border p-5 text-sm space-y-3" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#d1d5db" }}>
           <ul className="list-disc list-inside space-y-2">
@@ -273,10 +286,11 @@ export default function MethodologyPage() {
               disclosed figure is shown instead. Mark-based metrics from the same filings are reliable.
             </li>
             <li>
-              <span className="text-white">CCAP / OCSL pre-XBRL.</span>{" "}
+              <span className="text-white">CCAP pre-XBRL.</span>{" "}
               CCAP&apos;s pre-XBRL parser extracted financial-statement summary rows instead of
-              SOI positions. OCSL is missing par data across many pre-XBRL quarters. Both fully
-              muted until XBRL kicks in.
+              SOI positions, so those quarters are fully muted until XBRL kicks in. OCSL&apos;s older
+              schedules (to 2022-12-31) print each loan&apos;s rate terms and maturity inside its
+              description; those are now read from the description, so OCSL is no longer muted.
             </li>
             <li>
               <span className="text-white">Cross-check against each BDC&apos;s own figure.</span>{" "}

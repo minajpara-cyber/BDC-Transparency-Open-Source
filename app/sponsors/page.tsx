@@ -104,7 +104,7 @@ export default function SponsorsIndexPage() {
         className="inline-flex items-center gap-1.5 text-sm mb-6 hover:text-white transition-colors"
         style={{ color: "#8b8ba8" }}
       >
-        <ArrowLeft size={14} /> Back to home
+        <ArrowLeft size={14} />{" "}Back to home
       </Link>
 
       <div className="mb-6">
@@ -164,7 +164,7 @@ export default function SponsorsIndexPage() {
           />
         </div>
         <div className="text-xs self-center" style={{ color: "#6b6b88" }}>
-          {rows.length} of {sponsors.length} sponsors · position-count weighted
+          {rows.length} of {sponsors.length}{" "}sponsors · position-count weighted
         </div>
       </div>
 
@@ -377,7 +377,7 @@ export default function SponsorsIndexPage() {
         fewer than 3 exits are greyed out.
       </p>
       <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-        <span style={{ color: "#8b8ba8" }}>*</span> Italicized / muted rows have fewer than {THIN_COVERAGE} attributed
+        <span style={{ color: "#8b8ba8" }}>*</span> Italicized / muted rows have fewer than {THIN_COVERAGE}{" "}attributed
         borrowers in our scope — headline metrics may reflect a single concentrated holding
         (e.g. Nordic Capital&apos;s Inovalon) rather than a sponsor-franchise pattern. Treat as
         directional only.

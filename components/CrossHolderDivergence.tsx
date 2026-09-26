@@ -67,8 +67,8 @@ export default function CrossHolderDivergence() {
     <section className="mb-8">
       <h2 className="text-lg font-semibold text-white mb-1">Cross-holder non-accrual divergence</h2>
       <p className="text-sm max-w-3xl mb-4" style={{ color: "#9ca3af" }}>
-        Credits that at least one BDC has put on <span style={{ color: "#ef4444" }}>non-accrual</span> while at least one other
-        holder <span className="text-white">still accrues</span> them. When peers have already stopped accruing a loan, the
+        Credits that at least one BDC has put on <span style={{ color: "#ef4444" }}>non-accrual</span>{" "}while at least one other
+        holder <span className="text-white">still accrues</span>{" "}them. When peers have already stopped accruing a loan, the
         holdout is the likely next mover — and the dollars it still carries are the catch-up-writedown risk. A holdout marking the
         loan well below par is quietly agreeing; one still near par is genuinely disagreeing.
       </p>

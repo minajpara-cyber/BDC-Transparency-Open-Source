@@ -74,7 +74,7 @@ export default function VintageDisclosedView() {
     <div>
       <p className="text-sm text-gray-400 max-w-5xl">A stricter cross-check on the main curves. Each BDC&apos;s holdings are dated only by that BDC&apos;s own disclosed acquisition date, or by the start of our observation window; nothing is borrowed from peers or estimated, so BDCs that never disclose acquisition dates drop out of the acquisition view. Neither date establishes a loan&apos;s original origination.</p>
       <div className="rounded-xl border p-4 mt-4 text-sm text-gray-300" style={panel}>
-        <strong className="text-white">How to read the bounds.</strong> The solid line is the share of initial holding-group cost with any observed quarter-end non-accrual through that age. The dashed line also includes groups with unresolved quarter-end status, including every loan that left the book (a repayment is not proof of no default). Bands are therefore wide. These are bounds on observed quarter-end status, not default rates, confidence intervals or survival probabilities.
+        <strong className="text-white">How to read the bounds.</strong>{" "}The solid line is the share of initial holding-group cost with any observed quarter-end non-accrual through that age. The dashed line also includes groups with unresolved quarter-end status, including every loan that left the book (a repayment is not proof of no default). Bands are therefore wide. These are bounds on observed quarter-end status, not default rates, confidence intervals or survival probabilities.
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 my-6">
         <label className="text-xs text-gray-400">Cohort date basis

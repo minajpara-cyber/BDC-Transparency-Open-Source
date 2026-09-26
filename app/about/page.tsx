@@ -169,7 +169,7 @@ export default function AboutPage() {
         {release.verified && release.releaseId && (
           <p className="text-xs mt-4" style={{ color: "#6b6b88" }}>
             Release {release.releaseId}. For technical readers, the{" "}
-            <a href={dataReleaseManifestPath} className="underline">release file</a> lists every data file&apos;s
+            <a href={dataReleaseManifestPath} className="underline">release file</a>{" "}lists every data file&apos;s
             version and checksum.
           </p>
         )}
@@ -227,12 +227,14 @@ export default function AboutPage() {
           James&apos;s &ldquo;cumulative 1L default exposure&rdquo; (our headline spans all instruments; a first-lien
           toggle gives the comparable view). A loan&apos;s vintage is the BDC&apos;s own disclosed acquisition date,
           else the same tranche&apos;s date at a peer BDC, else a labelled estimate; the default view uses
-          high-confidence dates only. At each age only loans old enough to have reached it are counted, and
-          loans whose non-accrual status is unknown are left out rather than counted as performing.
+          high-confidence dates only, and a cohort gets a high-confidence figure only when those loans carry at least
+          a quarter of its cost. Each age adds the new defaults among the loans old enough to have reached it, so
+          the cumulative rate never falls at a cohort&apos;s oldest ages, and loans whose non-accrual status is
+          unknown are left out rather than counted as performing.
         </p>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          A stricter &ldquo;disclosed dates only&rdquo; tab keeps Codex&apos;s holding cohorts: only the holder&apos;s own
-          acquisition date or first observation, no peer dates or estimates, and lower/upper bounds on observed
+          A stricter &ldquo;disclosed dates only&rdquo; tab groups holdings by the holder&apos;s own acquisition date
+          or first observation only, with no peer dates or estimates, and shows lower/upper bounds on observed
           quarter-end non-accrual in which every exit stays unresolved.
         </p>
 
@@ -278,7 +280,7 @@ export default function AboutPage() {
           The largest ~180 borrowers also carry a model-curated profile (canonical sector, sub-sector,
           one-line business description), shown on the borrower pages and the{" "}
           <Link href="/companies" className="text-indigo-400 hover:underline">watchlist</Link>.
-          <span className="text-white"> No revenue, EBITDA or sponsor figures are model-generated</span> —
+          <span className="text-white"> No revenue, EBITDA or sponsor figures are model-generated</span>{" "}—
           only checkable classification fields, with cryptic shell-entity names left blank rather than
           guessed. Sponsor attribution links borrowers to PE firms via the entity matcher plus a curated
           sponsor map.
@@ -286,7 +288,7 @@ export default function AboutPage() {
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Coverage caveats</h3>
         <ul className="text-xs leading-relaxed pl-5 list-disc" style={{ color: "#9ca3af" }}>
-          <li>Vintage rollups exclude loans whose holders&apos; filing coverage started after their vintage year (survivor bias), and vintages where fewer than 60% of BDCs were yet in our data are marked thin.</li>
+          <li>The industry vintage rollup leaves out a loan when none of the BDCs holding its borrower was yet in our data by the end of its vintage year (such cohorts would count only the loans that survived until coverage began), and vintages where fewer than 60% of BDCs were yet in our data are marked thin.</li>
           <li>Matching a loan across quarters can mistake a refinancing or a relabelled loan for an amendment, and the rules can&apos;t confirm legal terms or promise to catch every modification.</li>
           <li>Acquisition disclosures can refer to purchases, amendments or new securities, so a disclosed date can reset after a refinancing. Dates later than our first sighting of a loan are rejected, and estimated dates are graded LOW. The dating check on /vintage uses a small reference set of public financings; it is not a representative accuracy benchmark.</li>
           <li>Several BDCs never disclose acquisition dates; their vintages rest on peer dates or estimates (see &ldquo;How each book is dated&rdquo; on /vintage).</li>

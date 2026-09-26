@@ -71,7 +71,7 @@ export default function BDCVintageMix({ ticker, asOf, rows }: { ticker: string; 
         How much of {ticker}&apos;s current book comes from each vintage year (by amortized cost), and how that vintage has performed.
         Vintage = the BDC&apos;s own disclosed acquisition date, else the same tranche&apos;s date at a peer BDC, else a labelled estimate.
         Performance is read at the oldest age every loan in {ticker}&apos;s cohort has reached and compared with the industry at that age;
-        see <a href="/vintage" className="text-indigo-400 hover:underline">/vintage</a> for the curves and method.
+        see <a href="/vintage" className="text-indigo-400 hover:underline">/vintage</a>{" "}for the curves and method.
       </p>
 
       <div className="flex items-center gap-1.5 mb-4 text-xs">

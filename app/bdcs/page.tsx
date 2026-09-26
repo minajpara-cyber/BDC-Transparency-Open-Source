@@ -96,7 +96,7 @@ export default function BDCsPage() {
       <div className="mb-7">
         <h1 className="text-2xl font-bold text-white mb-2">Business Development Companies</h1>
         <p className="text-sm" style={{ color: "#8b8ba8" }}>
-          {bdcs.length} BDCs tracked · {parsedCount} with fair value, non-accrual and PIK read from their own SEC filings
+          {bdcs.length} BDCs tracked · {parsedCount}{" "}with fair value, non-accrual and PIK read from their own SEC filings
           {latestParsed && ` (latest ${latestParsed})`}
           {bdcs.length > parsedCount && ` · the other ${bdcs.length - parsedCount} show catalog estimates as of ${CATALOG_AS_OF_LABEL}`}
         </p>

@@ -278,7 +278,7 @@ export default function BDCComparePanel({
         <h3 className="font-semibold text-white text-sm">Compare BDCs</h3>
         <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
           Overlay quarterly history for any mix of BDCs and metrics — color identifies the
-          BDC, line style the metric, up to {MAX_SERIES} lines. Add <span className="text-white">Industry</span> as
+          BDC, line style the metric, up to {MAX_SERIES} lines. Add <span className="text-white">Industry</span>{" "}as
           a benchmark. Caveat-flagged (BDC, metric) combos and sub-30-position stub quarters
           are excluded automatically.
         </p>
@@ -309,7 +309,7 @@ export default function BDCComparePanel({
           <div className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#8b8ba8" }}>
             BDCs ({selectedBdcs.length} / {SERIES_COLORS.length}) ·{" "}
             <span style={{ color: seriesCount > MAX_SERIES - 1 ? "#f59e0b" : "#6b6b88" }}>
-              {seriesCount} / {MAX_SERIES} lines
+              {seriesCount} / {MAX_SERIES}{" "}lines
             </span>
           </div>
           <div className="flex flex-wrap gap-1.5 items-center">
@@ -467,12 +467,12 @@ export default function BDCComparePanel({
 
         {selectedMetrics.some((m) => METRIC_META[m].group === "watchlist") && (
           <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
-            Watchlist tiers score positions that are <span className="text-white">not yet on non-accrual</span> for
+            Watchlist tiers score positions that are <span className="text-white">not yet on non-accrual</span>{" "}for
             pre-default stress (mark level and trajectory, cash→PIK flips, par cuts), shown as a share of
             debt at amortized cost. Each line is &quot;at this severity <span className="text-white">or worse</span>&quot;:{" "}
             <span className="text-white">Watch+</span> is Watch plus Elevated plus High,{" "}
             <span className="text-white">Elevated+</span> is Elevated plus High, and{" "}
-            <span className="text-white">High</span> is High alone. A position sits in exactly one tier, so
+            <span className="text-white">High</span>{" "}is High alone. A position sits in exactly one tier, so
             nothing is double-counted, and the gap between two lines is the band between them.
           </p>
         )}

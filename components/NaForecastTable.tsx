@@ -140,7 +140,7 @@ export default function NaForecastTable() {
               {counts.standard} BDCs have standard-confidence projections.{" "}
               {counts.lower > 0 && (
                 <>
-                  {counts.lower} are <span style={{ color: "#fbbf24" }}>lower confidence</span> because
+                  {counts.lower} are <span style={{ color: "#fbbf24" }}>lower confidence</span>{" "}because
                   {coverageFloorPct != null
                     ? ` less than ${floorText()} of their model inputs (weighted by cost) could be observed`
                     : " fewer of their model inputs could be observed"}
@@ -164,7 +164,7 @@ export default function NaForecastTable() {
             color: showRate ? "#a5b4fc" : "#9ca3af",
           }}
         >
-          {showRate ? "Hide" : "Show"} next-quarter rate columns
+          {showRate ? "Hide" : "Show"}{" "}next-quarter rate columns
         </button>
       </div>
 
@@ -301,7 +301,7 @@ export default function NaForecastTable() {
           <p className="text-xs" style={{ color: "#6b6b88" }}>No back-test results are in this data release.</p>
         )}
         <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-          <span className="text-white">The test.</span> We re-ran the model at past quarter-ends and compared
+          <span className="text-white">The test.</span>{" "}We re-ran the model at past quarter-ends and compared
           each forecast with what then happened. Each past forecast was fitted only on loans whose
           {embargoQ != null ? ` ${embargoQ}-quarter` : ""}{" "}outcome was already known on that date, so the
           test has no look-ahead (the outcome window is embargoed). Loans whose later status is unknown are left
@@ -324,7 +324,7 @@ export default function NaForecastTable() {
         )}
         {(nextQuarterMeta?.mean_abs != null || directionMeta?.auc != null) && (
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-            <span className="text-white">Next-quarter columns.</span> These come from a simpler model of the
+            <span className="text-white">Next-quarter columns.</span>{" "}These come from a simpler model of the
             non-accrual rate itself.
             {nextQuarterMeta?.mean_abs != null && nextQuarterMeta.naive_mean_abs != null &&
               ` Its average miss is ${nextQuarterMeta.mean_abs.toFixed(2)}pp against ${nextQuarterMeta.naive_mean_abs.toFixed(2)}pp for simply carrying today's rate forward${nextQuarterMeta.n != null ? ` (${nextQuarterMeta.n} BDC-quarters)` : ""}.`}
@@ -334,7 +334,7 @@ export default function NaForecastTable() {
         )}
         {signals.length > 0 && (
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-            <span className="text-white">What drives it.</span> Borrower-level signals, each weighted by
+            <span className="text-white">What drives it.</span>{" "}Borrower-level signals, each weighted by
             cost: {signals.join("; ")}. When a signal can&apos;t be observed for a loan, the model records
             that it is missing instead of assuming &ldquo;no&rdquo;; the confidence column shows how much of
             each BDC&apos;s book had its inputs observed. A borrower counts as performing only if we can see it

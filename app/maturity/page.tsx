@@ -140,7 +140,7 @@ export default function MaturityPage() {
             <h2 className="text-lg font-semibold text-white mb-1">The space-wide wall</h2>
             <p className="text-sm" style={{ color: "#9ca3af" }}>
               Every covered BDC&apos;s loan book, stacked by the year each loan matures (when borrowers repay).{" "}
-              {`${asOfYear}–${asOfYear + 1}`} highlighted.
+              {`${asOfYear}–${asOfYear + 1}`}{" "}highlighted.
             </p>
           </div>
           <div className="flex rounded-lg overflow-hidden border text-xs" style={{ borderColor: "#2d2d50" }}>

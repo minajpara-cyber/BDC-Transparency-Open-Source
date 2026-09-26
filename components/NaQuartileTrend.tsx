@@ -116,7 +116,7 @@ export default function NaQuartileTrend() {
                 color: showActual ? "#a5b4fc" : "#9ca3af",
               }}
             >
-              {showActual ? "Hide" : "Show"} what actually happened
+              {showActual ? "Hide" : "Show"}{" "}what actually happened
             </button>
           )}
           {firstSpread != null && latestSpread != null && (

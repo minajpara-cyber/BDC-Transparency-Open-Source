@@ -66,8 +66,9 @@ export default function BDCTimelineChart({ rows, modRows, ticker, hideCreditPane
   const modByPeriod = new Map(modRows.map((m) => [m.period_end, m]));
   const modData = rows.map((r) => {
     const m = modByPeriod.get(r.period_end);
-    // Absence of an eligible matched cohort is unknown, not zero activity.
-    const eligible = m != null && m.total_cost > 0;
+    // Absence of an eligible matched cohort is unknown, not zero activity; so
+    // is an era whose PIK marks could not be read (pik_decode_caveat).
+    const eligible = m != null && m.total_cost > 0 && !m.pik_decode_caveat;
     const pctCured = eligible ? (100 * m.cured_cost) / m.total_cost : null;
     const pctNewTotal = eligible ? (100 * m.new_mods_cost) / m.total_cost : null;
     return {

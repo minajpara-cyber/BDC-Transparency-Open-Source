@@ -8,7 +8,7 @@ import { vintageLGD } from "@/data/vintage_lgd";
 import { vintageGolden } from "@/data/vintage_golden";
 import VintageExposureTable, { VintageDatingCoverageTable } from "@/components/VintageExposureTable";
 import dynamic from "next/dynamic";
-import { fullySeasonedRow, lowTierShare, MOSTLY_ESTIMATED_PCT } from "@/lib/vintage";
+import { fullySeasonedRow, estimatedShare, MOSTLY_ESTIMATED_PCT, MIN_HC_COST_PCT, thinVintageRange } from "@/lib/vintage";
 
 // The disclosed-dates-only tab carries its own ~4MB dataset; load it only
 // when the tab is opened so the main view stays light.
@@ -22,12 +22,12 @@ type Metric = "pct_ever_default" | "pct_ever_modified" | "pct_ever_na" | "pct_ev
 const METRIC_META: Record<Metric, { label: string; sub: string; color: string }> = {
   pct_ever_default: {
     label: "% Cost Ever Defaulted (cumulative default exposure)",
-    sub: "Cumulative — share of vintage cost ever flagged non-accrual OR that left the book in distress (write-off, distressed sale, debt-for-equity). Directionally comparable to Raymond James's 'cumulative 1L default exposure' (ours spans all instruments unless First-lien only is ticked). Loans whose non-accrual status is unknown at an age are left out of that point, never counted as performing.",
+    sub: "Cumulative — share of vintage cost ever flagged non-accrual OR that left the book in distress (last marked below 85¢, or after a non-accrual or sub-80¢ mark; filings do not say whether it ended in a write-off, a distressed sale or a debt-for-equity swap). Directionally comparable to Raymond James's 'cumulative 1L default exposure' (ours spans all instruments unless First-lien only is ticked). Loans whose non-accrual status is unknown at an age are left out of that point, never counted as performing.",
     color: "#dc2626",
   },
   pct_ever_modified: {
     label: "% Cost Ever Modified (multi-signal)",
-    sub: "Cumulative — share of vintage cost with ANY modification event by age T: a material cash→PIK flip, a maturity extension (>6 months), a par haircut at a stressed mark, a spread cut (>50bps of spread), or a lien downgrade. Broader than non-accrual.",
+    sub: "Cumulative — share of vintage cost with ANY modification event by age T: a material cash→PIK flip, a maturity extension (>6 months), a par haircut at a stressed mark, a spread cut (>50bps of spread), or a lien downgrade. Broader than non-accrual. A loan whose modification history could not be judged (a quarter where one of those inputs, such as the spread, was missing) is left out from then on, never counted as unmodified; a hollow dot marks points where such loans are 5% or more of the cost.",
     color: "#a855f7",
   },
   pct_ever_na: {
@@ -37,7 +37,7 @@ const METRIC_META: Record<Metric, { label: string; sub: string; color: string }>
   },
   pct_ever_b80: {
     label: "% Cost Ever Marked < 80¢",
-    sub: "Cumulative — share of vintage cost ever marked below 80¢ on the dollar by age T.",
+    sub: "Cumulative — share of vintage cost ever marked below 80¢ on the dollar by age T, among loans with a price mark (loans without a par amount, such as equity, are left out).",
     color: "#f97316",
   },
   pct_b90_alive: {
@@ -62,8 +62,12 @@ function resolveMetricKey(metric: Metric, hcOnly: boolean, l1Only: boolean): key
   return metric;
 }
 
-// NA-based metrics carry the "status partly unknown" flag.
+// NA-based metrics carry the "status partly unknown" flag; the modification
+// metrics carry their own.
 const NA_KEYS = new Set<keyof VintageRow>(["pct_ever_default", "pct_ever_default_hc", "pct_ever_default_1l", "pct_ever_na"]);
+const MOD_KEYS = new Set<keyof VintageRow>(["pct_ever_modified", "pct_ever_modified_hc"]);
+const partialFor = (key: keyof VintageRow, r: VintageRow) =>
+  NA_KEYS.has(key) ? r.na_partial : MOD_KEYS.has(key) ? r.mod_partial : false;
 
 function buildSeries(rows: VintageRow[], key: keyof VintageRow): VintageSeries[] {
   const byVintage = new Map<number, VintageRow[]>();
@@ -84,20 +88,23 @@ function buildSeries(rows: VintageRow[], key: keyof VintageRow): VintageSeries[]
           alive_cost_b: r.alive_cost_b,
           pct_eligible: r.pct_eligible,
           n_eligible: r.n_loans_eligible,
-          partial: NA_KEYS.has(key) ? r.na_partial : false,
+          partial: partialFor(key, r),
         })),
     };
   });
 }
 
-// Latest published point per vintage — what the summary table shows.
-function latestPerVintage(rows: VintageRow[]) {
-  const byV = new Map<number, VintageRow>();
-  for (const r of rows) {
-    const prev = byV.get(r.vintage_year);
-    if (!prev || r.age_quarters > prev.age_quarters) byV.set(r.vintage_year, r);
-  }
-  return Array.from(byV.values()).sort((a, b) => a.vintage_year - b.vintage_year);
+// Per vintage: the oldest age EVERY loan has reached (what the summary table
+// and the BDC matrix read), and the oldest published age (where the curve
+// ends, counting only the loans old enough).
+function seasonedPerVintage(rows: VintageRow[]) {
+  const byV = new Map<number, VintageRow[]>();
+  for (const r of rows) byV.set(r.vintage_year, [...(byV.get(r.vintage_year) ?? []), r]);
+  return Array.from(byV.entries()).sort((a, b) => a[0] - b[0]).flatMap(([, list]) => {
+    const seasoned = fullySeasonedRow(list);
+    const tail = list.reduce((a, r) => (r.age_quarters > a.age_quarters ? r : a), list[0]);
+    return seasoned ? [{ row: seasoned, tail }] : [];
+  });
 }
 
 function rowAtAge(rows: VintageRow[], vintage: number, ageYears: number): VintageRow | undefined {
@@ -114,6 +121,7 @@ interface MatrixCell {
   cohort_b: number;
   n_loans: number;
   estimated_pct: number;
+  hc_share: number | null;
   partial: boolean;
 }
 
@@ -124,6 +132,7 @@ interface MatrixData {
   bdcTotal: Map<string, number>;
   industryByVintage: Map<number, { v: number; age: number }>;
   industryTotal: number;
+  dropped: { ticker: string; reason: string }[];
 }
 
 function buildMatrix(bdcRows: VintageRow[], industryRows: VintageRow[], metric: Metric, hcOnly: boolean): MatrixData {
@@ -145,12 +154,15 @@ function buildMatrix(bdcRows: VintageRow[], industryRows: VintageRow[], metric: 
     if (!indR) continue;
     const bdcVal = bdcR[mKey] as number | null;
     const indVal = indR[mKey] as number | null;
+    // A null HC value means the HIGH+MED loans carry too little of the cohort
+    // (under 15 loans or under MIN_HC_COST_PCT% of its cost): no cell, no rank.
     if (bdcVal == null || indVal == null) continue;
     cells.set(`${bdcR.ticker}|${bdcR.vintage_year}`, {
       bdcVal, indVal, delta: bdcVal - indVal, age_years: bdcR.age_years,
       cohort_b: bdcR.cohort_entry_cost_b, n_loans: bdcR.n_loans_cohort,
-      estimated_pct: lowTierShare(bdcR),
-      partial: NA_KEYS.has(mKey) && bdcR.na_partial,
+      estimated_pct: estimatedShare(bdcR),
+      hc_share: mKey.endsWith("_hc") ? bdcR.hc_cost_share : null,
+      partial: partialFor(mKey, bdcR),
     });
     tickerSet.add(bdcR.ticker);
     vintageSet.add(bdcR.vintage_year);
@@ -177,11 +189,25 @@ function buildMatrix(bdcRows: VintageRow[], industryRows: VintageRow[], metric: 
       indDen += r.cohort_entry_cost_b;
     }
   }
+  // BDCs with vintage rows but no cell, and why (never silently absent).
+  const dropped: { ticker: string; reason: string }[] = [];
+  for (const t of Array.from(new Set(bdcRows.map((r) => r.ticker))).sort()) {
+    if (tickerSet.has(t)) continue;
+    const own = bdcRows.filter((r) => r.ticker === t);
+    const full = own.filter((r) => !r.is_partial);
+    let reason = "no cohort with an industry comparison at a fully seasoned age";
+    if (full.length === 0) reason = "every cohort predates our coverage of this BDC";
+    else if (mKey.endsWith("_hc") && full.some((r) => r[metric] != null && r[mKey] == null))
+      reason = `high-confidence dates cover under ${MIN_HC_COST_PCT}% of its cohorts' cost (or under 15 loans)`;
+    else if (full.every((r) => r[mKey] == null)) reason = "this measure is not published for its cohorts";
+    dropped.push({ ticker: t, reason });
+  }
   return {
     tickers: Array.from(tickerSet).sort(),
     vintages: Array.from(vintageSet).sort(),
     cells, bdcTotal, industryByVintage,
     industryTotal: indDen > 0 ? (indNum / indDen) * 100 : 0,
+    dropped,
   };
 }
 
@@ -256,7 +282,21 @@ export default function VintagePage() {
   const b80Series = useMemo(() => buildSeries(visibleRows, "pct_ever_b80"), [visibleRows]);
   const b90Series = useMemo(() => buildSeries(visibleRows, "pct_b90_alive"), [visibleRows]);
   const survivalSeries = useMemo(() => buildSeries(visibleRows, "pct_surviving"), [visibleRows]);
-  const tableRows = useMemo(() => latestPerVintage(visibleRows), [visibleRows]);
+  const tableRows = useMemo(() => seasonedPerVintage(visibleRows), [visibleRows]);
+  const thinRange = useMemo(() => thinVintageRange(vintageRows), []);
+  // First-lien share of each BDC's dated cohort cost (all vintages, entry cost).
+  const l1Share = useMemo(() => {
+    const acc = new Map<string, { l1: number; all: number }>();
+    for (const r of vintageRows) {
+      if (r.age_quarters !== 0 || r.is_partial) continue;
+      const a = acc.get(r.ticker) ?? { l1: 0, all: 0 };
+      a.l1 += r.cohort_1l_b; a.all += r.cohort_entry_cost_b;
+      acc.set(r.ticker, a);
+    }
+    return Array.from(acc.entries()).filter(([, a]) => a.all > 0)
+      .map(([t, a]) => ({ ticker: t, pct: (100 * a.l1) / a.all }))
+      .sort((a, b) => (a.ticker === "industry" ? -1 : b.ticker === "industry" ? 1 : a.ticker.localeCompare(b.ticker)));
+  }, []);
   const matrix = useMemo(() => buildMatrix(bdcRows, industryRows, matrixMetric, hcOnly), [bdcRows, industryRows, matrixMetric, hcOnly]);
 
   const sortedTickers = useMemo(() => {
@@ -285,7 +325,7 @@ export default function VintagePage() {
       <td className="px-3 py-2.5 text-center font-semibold tabular-nums"
           style={{ background: bg, color: fg, fontSize: "0.95rem", fontStyle: mostlyEstimated ? "italic" : undefined }}
           data-estimated={mostlyEstimated ? "true" : undefined}
-          title={`At age ${cell.age_years.toFixed(2)}y (the oldest age every loan in this cohort has reached) · cohort ${cell.n_loans} loans / $${cell.cohort_b.toFixed(2)}B · industry ${cell.indVal.toFixed(2)}% · ${cell.estimated_pct.toFixed(0)}% of cohort cost dated by estimate${mostlyEstimated ? " (greyed: mostly estimated dates)" : ""}${cell.partial ? " · NA status partly unknown" : ""}`}>
+          title={`At age ${cell.age_years.toFixed(2)}y (the oldest age every loan in this cohort has reached) · cohort ${cell.n_loans} loans / $${cell.cohort_b.toFixed(2)}B · industry ${cell.indVal.toFixed(2)}%${cell.hc_share != null ? ` · high-confidence dates cover ${cell.hc_share.toFixed(0)}% of the counted cost` : ""} · ${cell.estimated_pct.toFixed(0)}% of cohort cost dated by an estimate rather than a disclosed date${mostlyEstimated ? " (greyed: mostly estimated dates)" : ""}${cell.partial ? " · status partly unknown" : ""}`}>
         {displayed}{cell.partial ? "*" : ""}
       </td>
     );
@@ -301,11 +341,12 @@ export default function VintagePage() {
         <h1 className="text-2xl font-bold text-white mb-2">Vintage Analysis</h1>
         <p className="text-sm" style={{ color: "#8b8ba8" }}>
           Cumulative credit performance by vintage year. A loan&apos;s vintage is the date it came onto a BDC&apos;s
-          book as best we can document it: <span className="text-white">the BDC&apos;s own disclosed acquisition date</span> when
+          book as best we can document it: <span className="text-white">the BDC&apos;s own disclosed acquisition date</span>{" "}when
           the filing shows one, otherwise <span className="text-white">the same tranche&apos;s date at a peer BDC</span>, otherwise a
-          <span className="text-white"> labelled estimate</span> (graded LOW). These are acquisition / first-seen dates, not proven
-          origination dates. All metrics are <span className="text-white">cost-weighted</span>. MFIC is excluded — its schedule
-          doesn&apos;t flag non-accrual per position.
+          <span className="text-white"> labelled estimate</span>{" "}(graded LOW). These are acquisition / first-seen dates, not proven
+          origination dates. All metrics are <span className="text-white">cost-weighted</span>. MFIC counts from 2022-03-31,
+          the first quarter its schedule marks each non-accrual loan; its earlier books are partial and are left out of this
+          main view (the Disclosed dates only tab uses each BDC&apos;s own disclosed dates, so its universe differs).
         </p>
       </div>
 
@@ -326,18 +367,19 @@ export default function VintagePage() {
       <>
       <div className="rounded-lg border p-3 text-xs mb-4" style={{ background: "rgba(99,102,241,0.05)", borderColor: "rgba(99,102,241,0.2)", color: "#9ca3af" }}>
         <span className="text-white font-semibold">How to read this page.</span>{" "}
-        The primary metric is <span className="text-white">% Cost Ever Defaulted</span> (on-book non-accrual or a distressed exit).
+        The primary metric is <span className="text-white">% Cost Ever Defaulted</span>{" "}(on-book non-accrual or a distressed exit).
         A point at age T only counts loans whose vintage date is at least T old at their BDC&apos;s latest filing, so every loan
         counted has had the full T years to go wrong; younger loans are left out and a curve stops when too few loans are old
-        enough. Hover a point for how much of the cohort it counts. Because the counted set shrinks at the oldest ages, a curve
-        can dip at its tail: that is a smaller, earlier-dated part of the cohort, not a cure. A <span className="text-white">hollow dot</span> means the
-        BDC&apos;s non-accrual marks were not captured for at least 5% of that cost in some quarter; loans whose status is unknown
+        enough. Hover a point for how much of the cohort it counts. Each age adds only the new events among the loans old
+        enough to reach it, so a cumulative curve never falls just because fewer loans are old enough at its tail. A{" "}
+        <span className="text-white">hollow dot</span>{" "}means the BDC&apos;s non-accrual marks (or, on the modification
+        chart, a loan&apos;s modification inputs) were not captured for at least 5% of that cost; loans whose status is unknown
         are left out rather than counted as performing.{" "}
         {g.n > 0 && (
           <span data-golden-caveat>
-            Dating check: on a <span className="text-white">small reference set of {vintageGolden.n_reference_financings_matched} publicly
+            Dating check: on a <span className="text-white">small reference set of {vintageGolden.n_reference_financings_matched}{" "}publicly
             documented financings ({g.n.toLocaleString()} matched loan-tranches)</span>, {g.pct_within_1y?.toFixed(0)}% of assigned vintage
-            years land within ±1 year (mean error {g.mae_years?.toFixed(1)}y). {vintageGolden.caveat}{" "}
+            years land within ±1 year (mean absolute error {g.mae_years?.toFixed(1)}y). {vintageGolden.caveat}{" "}
           </span>
         )}
         <Link href="/methodology#vintage" className="text-indigo-400 hover:text-indigo-300">Full vintage methodology →</Link>
@@ -345,15 +387,23 @@ export default function VintagePage() {
       <div className="flex flex-wrap items-center gap-4 mb-6">
         <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
           <input type="checkbox" checked={hcOnly} onChange={(e) => setHcOnly(e.target.checked)} className="cursor-pointer" />
-          <span>High-confidence dates only <span style={{ color: "#6b6b88" }}>(HIGH+MED tier: disclosed dates that stay stable across quarters and holders; default on)</span></span>
+          <span>High-confidence dates only <span style={{ color: "#6b6b88" }}>(HIGH+MED tier: disclosed dates that stay stable across quarters and holders; default on. A cohort gets a high-confidence figure only when those loans carry at least {MIN_HC_COST_PCT}% of its counted cost)</span></span>
         </label>
         <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
           <input type="checkbox" checked={l1Only} onChange={(e) => setL1Only(e.target.checked)} className="cursor-pointer" />
-          <span>First-lien only <span style={{ color: "#6b6b88" }}>(the Raymond James-comparable universe; applies to the default metric and overrides the high-confidence filter for it)</span></span>
+          <span>First-lien only <span style={{ color: "#6b6b88" }}>(loans labelled first lien, one stop, unitranche or senior secured — the Raymond James-comparable universe; applies to the default metric and overrides the high-confidence filter for it. MAIN&apos;s &ldquo;secured debt&rdquo; does not state its lien and is left out)</span></span>
         </label>
+        {l1Only && l1Share.length > 0 && (
+          <div className="w-full text-[11px] leading-relaxed" style={{ color: "#6b6b88" }} data-l1-share>
+            First-lien share of dated cohort cost:{" "}
+            {l1Share.map((x, i) => (
+              <span key={x.ticker}>{i > 0 ? " · " : ""}<span style={{ color: x.pct < 50 ? "#eab308" : "#9ca3af" }}>{x.ticker === "industry" ? "Industry" : x.ticker} {x.pct.toFixed(0)}%</span></span>
+            ))}
+          </div>
+        )}
         <label className="flex items-center gap-2 text-xs cursor-pointer select-none" style={{ color: "#9ca3af" }}>
           <input type="checkbox" checked={includePartial} onChange={(e) => setIncludePartial(e.target.checked)} className="cursor-pointer" />
-          <span>Include thin-coverage early vintages <span style={{ color: "#6b6b88" }}>(2018&ndash;2020: fewer than 60% of BDCs were yet in our data, so those cohorts over-weight survivors)</span></span>
+          <span>Include thin-coverage early vintages <span style={{ color: "#6b6b88" }}>({thinRange ?? "none at present"}: fewer than 60% of BDCs were yet in our data, so those cohorts over-weight survivors)</span></span>
         </label>
       </div>
 
@@ -389,8 +439,9 @@ export default function VintagePage() {
           <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
             For loans that left the book in distress (the same exits the default curve counts), how far below cost were they
             marked at the last filing before they disappeared? <b>Loss proxy % = −(last fair value − last cost) / last cost</b>.
-            Filings don&apos;t disclose sale prices or recoveries, so this is the final markdown, not an audited loss. Industry rollup,
-            all figures in US$.
+            Filings don&apos;t disclose sale prices or recoveries, so this is the final markdown, not an audited loss. A vintage whose
+            distress exits were marked above cost in total shows 0% (no markdown), never a negative loss. Industry rollup, all
+            figures in US$.
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -417,6 +468,7 @@ export default function VintagePage() {
                     <td className="px-4 py-2.5 text-sm font-mono tabular-nums" style={{ color: r.mark_loss_b < 0 ? "#fca5a5" : "#86efac" }}>{r.mark_loss_b.toFixed(2)}</td>
                     <td className="px-4 py-2.5 text-sm font-semibold tabular-nums" style={{ color: small ? "#6b6b88" : (r.mark_loss_pct ?? 0) >= 30 ? "#ef4444" : (r.mark_loss_pct ?? 0) >= 15 ? "#f97316" : "#9ca3af" }}>
                       {r.mark_loss_pct == null ? "—" : `${r.mark_loss_pct.toFixed(1)}%`}
+                      {r.mark_loss_pct === 0 && r.mark_loss_b >= 0 && <span className="ml-1 text-[10px] font-normal" style={{ color: "#6b6b88" }}>(marked at or above cost)</span>}
                     </td>
                   </tr>
                 );
@@ -425,7 +477,7 @@ export default function VintagePage() {
           </table>
         </div>
         <div className="px-5 py-3 text-xs border-t" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
-          Vintages with fewer than 10 distress exits are greyed: one or two loans drive their percentage.
+          Vintages with fewer than 10 distress exits are greyed and get no loss proxy (&mdash;): one or two loans would drive it.
         </div>
       </div>
 
@@ -436,28 +488,29 @@ export default function VintagePage() {
         <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
           <h2 className="font-semibold text-white">Vintage Summary — Industry</h2>
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-            Latest published point per vintage ({basisLabel} for the default column). &ldquo;Counted&rdquo; is the share of the
-            cohort old enough to reach that age; the rest is too young and left out. NA% and Below-80% are cumulative through age;
-            Below-90% is point-in-time among loans still on the book.
+            Each vintage at the <span className="text-white">oldest age every loan in it has reached</span>{" "}({basisLabel}{" "}for the
+            default column) — the same age the BDC × Vintage matrix reads, so every figure counts the whole cohort. &ldquo;Curve
+            reaches&rdquo; is where the chart line ends, counting only the loans old enough. NA% and Below-80% are cumulative through
+            age; Below-90% is point-in-time among loans still on the book.
           </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                {["Vintage", "Loans", "Hi-Conf", "Dating", "Cohort Size", "Latest Age", "Counted", l1Only ? "Cum. Default % (1L)" : "Cum. Default %", "Ever Modified %", "On-book NA %", "Ever <80¢ %", "Current <90¢ %", "NA status", "Coverage"].map((h) => (
+                {["Vintage", "Loans", "Hi-Conf", "Dating", "Cohort Size", "Age", "Curve reaches", l1Only ? "Cum. Default % (1L)" : "Cum. Default %", "Ever Modified %", "On-book NA %", "Ever <80¢ %", "Current <90¢ %", "NA status", "Coverage"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: "#8b8ba8" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {tableRows.map((r, i) => {
+              {tableRows.map(({ row: r, tail }, i) => {
                 const defValue = r[defaultMetricKey] as number | null;
                 const modValue = hcOnly ? r.pct_ever_modified_hc : r.pct_ever_modified;
                 const defColor = defValue == null ? "#444" : defValue >= 8 ? "#dc2626" : defValue >= 4 ? "#f97316" : "#22c55e";
                 const modColor = modValue == null ? "#444" : modValue >= 12 ? "#a855f7" : modValue >= 6 ? "#c084fc" : "#9ca3af";
                 const naColor = r.pct_ever_na == null ? "#444" : r.pct_ever_na >= 3 ? "#ef4444" : r.pct_ever_na >= 1 ? "#f97316" : "#22c55e";
-                const b80Color = r.pct_ever_b80 >= 5 ? "#ef4444" : r.pct_ever_b80 >= 2 ? "#f97316" : "#22c55e";
+                const b80Color = r.pct_ever_b80 == null ? "#444" : r.pct_ever_b80 >= 5 ? "#ef4444" : r.pct_ever_b80 >= 2 ? "#f97316" : "#22c55e";
                 const b90Color = r.pct_b90_alive >= 10 ? "#ef4444" : r.pct_b90_alive >= 5 ? "#f97316" : "#22c55e";
                 const discPct = pctOf(r.cohort_high_conf_b ?? 0, r.cohort_entry_cost_b);
                 const discColor = discPct >= 75 ? "#22c55e" : discPct >= 50 ? "#eab308" : "#ef4444";
@@ -477,7 +530,7 @@ export default function VintagePage() {
                       {r.n_loans_high_conf.toLocaleString()}
                       <span className="ml-1 text-xs" style={{ color: "#6b6b88" }}>({Math.round(pctOf(r.n_loans_high_conf, r.n_loans_cohort))}%)</span>
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: discColor }} title="Share of cohort $ with a HIGH or MED confidence date. Low = this vintage's metrics rest mostly on estimated dates.">
+                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: discColor }} title="Share of cohort $ with a HIGH or MED confidence date. Low = this vintage rests mostly on estimated dates or on disclosed dates that drifted between quarters or holders.">
                       {discPct.toFixed(0)}%
                       {err != null && (
                         <span className="ml-1 text-xs font-normal" style={{ color: "#6b6b88" }} title={`Rough dating error for this cohort: its source mix weighted by each source's mean error on the small reference set (${vintageGolden.overall.n} loan-tranches). Not a representative accuracy benchmark.`}>
@@ -495,8 +548,8 @@ export default function VintagePage() {
                     </td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}>${r.cohort_entry_cost_b.toFixed(1)}B</td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }}>{r.age_years.toFixed(2)}y</td>
-                    <td className="px-4 py-3 text-sm" style={{ color: r.pct_eligible < 50 ? "#eab308" : "#9ca3af" }} title={`${r.n_loans_eligible} of ${r.n_loans_cohort} loans ($${r.eligible_cost_b.toFixed(1)}B) are old enough to reach this age.`}>
-                      {r.pct_eligible.toFixed(0)}%
+                    <td className="px-4 py-3 text-sm" style={{ color: "#9ca3af" }} title={`The curve ends at ${tail.age_years.toFixed(2)}y, where ${tail.n_loans_eligible} of ${tail.n_loans_cohort} loans ($${tail.eligible_cost_b.toFixed(1)}B, ${tail.pct_eligible.toFixed(0)}% of the cohort's cost) are old enough to count.`}>
+                      {tail.age_years.toFixed(2)}y <span className="text-xs" style={{ color: tail.pct_eligible < 50 ? "#eab308" : "#6b6b88" }}>({tail.pct_eligible.toFixed(0)}% counted)</span>
                     </td>
                     <td className="px-4 py-3 text-sm font-bold" style={{ color: defColor }}>
                       {defValue == null ? "—" : `${defValue.toFixed(2)}%`}
@@ -506,9 +559,12 @@ export default function VintagePage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: modColor }}>{modValue == null ? "—" : `${modValue.toFixed(2)}%`}</td>
+                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: modColor }}
+                        title={`Loans whose modification history could not be judged, left out: ${r.pct_mod_unknown.toFixed(1)}% of the cost`}>
+                      {modValue == null ? "—" : `${modValue.toFixed(2)}%${r.mod_partial ? "*" : ""}`}
+                    </td>
                     <td className="px-4 py-3 text-sm" style={{ color: naColor }}>{r.pct_ever_na == null ? "—" : `${r.pct_ever_na.toFixed(2)}%`}</td>
-                    <td className="px-4 py-3 text-sm" style={{ color: b80Color }}>{r.pct_ever_b80.toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-sm" style={{ color: b80Color }}>{r.pct_ever_b80 == null ? "—" : `${r.pct_ever_b80.toFixed(2)}%`}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: b90Color }}>{r.pct_b90_alive.toFixed(2)}%</td>
                     <td className="px-4 py-3 text-xs" title={`Left out (status unknown now): ${r.pct_na_unknown.toFixed(1)}% · counted but with an earlier unknown quarter: ${r.pct_na_history_gap.toFixed(1)}%`}>
                       {r.na_partial
@@ -547,7 +603,7 @@ export default function VintagePage() {
               </tr>
             </thead>
             <tbody>
-              {tableRows.map((r, i) => (
+              {tableRows.map(({ row: r }, i) => (
                 <tr key={r.vintage_year} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
                   <td className="px-4 py-3 font-semibold text-white">{r.vintage_year}</td>
                   {[1, 2, 3, 4, 5, 6].map((yr) => {
@@ -580,8 +636,9 @@ export default function VintagePage() {
             Rows = BDCs, columns = vintage years. Each cell is the BDC&apos;s metric at the <span className="text-white">oldest age every
             loan in its cohort has reached</span>, next to the industry at that same age — so a cell never rests on the early-dated
             part of a cohort only. <span className="text-white">Greyed italic</span> cells: more than {ESTIMATED_GREY_PCT}% of the
-            cohort&apos;s cost is dated by estimate (BDCs that do not disclose acquisition dates). * = NA status partly unknown.
-            Cohorts below 30 loans are not shown.
+            cohort&apos;s cost is dated by an estimate rather than a disclosed date. * = status partly unknown. With high-confidence
+            dates only, a cell appears only when HIGH+MED loans carry at least {MIN_HC_COST_PCT}% of the cohort&apos;s counted cost, so no
+            BDC is ranked on a sliver of its loans. Cohorts below 30 loans are not shown; BDCs without a cell are listed under the table.
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3 text-xs">
             <div className="flex items-center gap-1.5">
@@ -670,8 +727,16 @@ export default function VintagePage() {
           </table>
         </div>
         <div className="px-5 py-3 text-xs border-t" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
-          Hover any cell for its age, cohort size and dating mix. {sortedTickers.length} BDCs · {matrix.vintages.length} vintages. Each BDC cell
+          Hover any cell for its age, cohort size and dating mix. {sortedTickers.length} BDCs · {matrix.vintages.length}{" "}vintages. Each BDC cell
           is compared with the industry at the BDC cohort&apos;s own fully-seasoned age; the Industry row shows the industry cohort at its own.
+          {matrix.dropped.length > 0 && (
+            <div className="mt-1.5" data-matrix-dropped>
+              Not shown for this measure:{" "}
+              {matrix.dropped.map((d, i) => (
+                <span key={d.ticker}>{i > 0 ? "; " : ""}<span className="text-white">{d.ticker}</span> — {d.reason}</span>
+              ))}.
+            </div>
+          )}
         </div>
       </div>
 

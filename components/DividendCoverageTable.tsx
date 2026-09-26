@@ -122,7 +122,7 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
           <input id="pik-haircut" type="range" min={0} max={100} step={5} value={haircut}
             onChange={(e) => setHaircut(Number(e.target.value))} className="w-56" />
           <span className="text-xs" style={{ color: nBelow > nBelowReported ? "#f59e0b" : "#9ca3af" }}>
-            {nBelow} of {enriched.length} BDCs below 1.0x (vs {nBelowReported} on reported NII)
+            {nBelow} of {enriched.length} BDCs below 1.0x (vs {nBelowReported}{" "}on reported NII)
           </span>
         </div>
       </div>

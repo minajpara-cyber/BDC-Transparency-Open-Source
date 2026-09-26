@@ -156,7 +156,7 @@ export default function HomePage() {
       </div>
 
       <p className="text-xs" style={{ color: "#8b8ba8" }}>
-        Industry non-accrual is the cost-weighted rate across the {stats.naNow?.na_covered_bdcs ?? 0} BDCs we can
+        Industry non-accrual is the cost-weighted rate across the {stats.naNow?.na_covered_bdcs ?? 0}{" "}BDCs we can
         pool on the same basis ({stats.naNow ? fmtB(stats.naNow.na_eligible_cost_b) : "—"} of cost);{" "}
         {naPoolExclusionText(industryNaPool(creditQuality))}. &ldquo;—&rdquo; means unknown; 0.00% means a confirmed zero.
       </p>
@@ -192,8 +192,8 @@ export default function HomePage() {
             </p>
           )}
           <p className="text-xs mt-2" style={{ color: "#8b8ba8" }}>
-            Also this quarter: {stats.firstObserved} first seen already on non-accrual · {stats.removedUnknown} left
-            the filing with the outcome unknown · {stats.unknownStatus} with status unclear. A loan that simply
+            Also this quarter: {stats.firstObserved} first seen already on non-accrual · {stats.removedUnknown}{" "}left
+            the filing with the outcome unknown · {stats.unknownStatus}{" "}with status unclear. A loan that simply
             disappears from a filing is not counted as a cure.
           </p>
         </Section>

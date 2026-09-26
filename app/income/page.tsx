@@ -405,7 +405,7 @@ export default function IncomePage() {
               ? `Of the PIK booked in ${seasonedYear}, an estimated ${(seasoned.collected_pct ?? 0).toFixed(0)}% has been collected and ${(seasoned.lost_pct ?? 0).toFixed(0)}% lost, and ${((seasoned.in_book_performing_pct ?? 0) + (seasoned.in_book_impaired_pct ?? 0) + (seasoned.in_book_unknown_pct ?? 0)).toFixed(0)}% is still in the book six years later. `
               : ""}
             The newest PIK is almost all still in the book, which is expected; the question is whether the older
-            years keep converting. PIK booked before {windowYear} is not tracked, so the uncollected stock is a
+            years keep converting. PIK booked before {windowYear}{" "}is not tracked, so the uncollected stock is a
             floor in each BDC&apos;s early years. NMFC (†) prints only a broader non-cash income line, so its
             loan-level dollars are used as they are; OCSL&apos;s statement PIK is net of cash collected.
           </p>
@@ -440,7 +440,7 @@ export default function IncomePage() {
             {arcc && arcc.pik_collected_m != null
               ? ` (ARCC reported $${arcc.pik_collected_m.toFixed(0)}m collected against $${arcc.pik_m.toFixed(0)}m accrued over the last four quarters)`
               : ""}; these are flows for the period and need not relate to the same loans or years. The
-            &quot;Where did the PIK go?&quot; section above follows every PIK loan since {windowYear} to estimate how
+            &quot;Where did the PIK go?&quot; section above follows every PIK loan since {windowYear}{" "}to estimate how
             much came back. Cash coverage below 1.0x means NII excluding PIK is below declared distributions: the
             dividend relies on income that will arrive later — or not at all if the borrower fails. It does not by
             itself predict a dividend cut. The stress slider and the severe-PIK column put numbers on that risk;
@@ -476,7 +476,7 @@ export default function IncomePage() {
             net of cash collected (&quot;net&quot;, which understates gross PIK), and NMFC prints only a
             broader non-cash investment income line (&quot;broad&quot;). Values are as first reported in
             each quarter&apos;s own filing. Coverage runs from 2014, or a BDC&apos;s first filing, to{" "}
-            {incomeMeta.latest_period}; {incomeMeta.n_bdcs} BDCs.
+            {incomeMeta.latest_period}; {incomeMeta.n_bdcs}{" "}BDCs.
           </p>
         </div>
       </section>

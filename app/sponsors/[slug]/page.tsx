@@ -64,7 +64,7 @@ export default async function SponsorDetailPage({ params }: PageProps) {
         className="inline-flex items-center gap-1.5 text-sm mb-6 hover:text-white transition-colors"
         style={{ color: "#8b8ba8" }}
       >
-        <ArrowLeft size={14} /> Back to sponsors
+        <ArrowLeft size={14} />{" "}Back to sponsors
       </Link>
 
       <div className="mb-6">
@@ -82,13 +82,13 @@ export default async function SponsorDetailPage({ params }: PageProps) {
               color: "#fbbf24",
               border: "1px solid rgba(251,191,36,0.3)",
             }}>
-              <AlertTriangle size={11} /> Thin coverage
+              <AlertTriangle size={11} />{" "}Thin coverage
             </span>
           )}
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{s.sponsor}</h1>
         <p className="text-sm" style={{ color: "#9ca3af" }}>
-          {attributed.length} portfolio companies in our index funded by BDCs we cover.
+          {attributed.length}{" "}portfolio companies in our index funded by BDCs we cover.
         </p>
       </div>
 
@@ -99,10 +99,10 @@ export default async function SponsorDetailPage({ params }: PageProps) {
           color: "#fbbf24",
         }}>
           <div className="font-medium mb-1 flex items-center gap-1.5">
-            <AlertTriangle size={14} /> Small attributable footprint
+            <AlertTriangle size={14} />{" "}Small attributable footprint
           </div>
           <div className="text-xs leading-relaxed" style={{ color: "#d4b86a" }}>
-            Only {s.n_companies} borrower{s.n_companies === 1 ? "" : "s"} in our parsed-BDC
+            Only {s.n_companies} borrower{s.n_companies === 1 ? "" : "s"}{" "}in our parsed-BDC
             scope map to {s.sponsor}. Headline credit metrics for this sponsor (mark below
             95¢, non-accrual %, PIK %) likely reflect one or two concentrated holdings rather
             than the sponsor&apos;s full franchise. Use as directional context, not as

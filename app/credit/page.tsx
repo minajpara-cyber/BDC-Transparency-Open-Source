@@ -50,10 +50,11 @@ const COVERAGE_CAVEATS: Array<{
   // every metric is unreliable.
   { ticker: "CCAP", until: "2022-02-28", metrics: ALL_FAMILIES,
     reason: "Pre-XBRL CCAP filings parsed financial-statement summary rows instead of SOI positions" },
-  // OCSL pre-XBRL is patchy — par_amount missing for many quarters so the
-  // mark-based metrics show as 0%. Keep all metrics flagged until XBRL kicks in.
-  { ticker: "OCSL", until: "2022-12-31", metrics: ALL_FAMILIES,
-    reason: "Pre-XBRL OCSL SOI extraction is patchy; par missing for many quarters" },
+  // OCSL's legacy schedules (books to 2022-12-31) are parsed with par, cost,
+  // fair value, maturity and PIK read from each loan's description
+  // (scripts/26, 2026-09-25), so no OCSL caveat remains. Its non-accrual
+  // status before 2021 is unknown where the flags could not be matched to
+  // OCSL's own figure; those quarters show "—" through the NA rules, not here.
   // FSK mark-based metrics parse cleanly back to 2013. Its non-accrual rate is
   // on the funded basis (unfunded commitments out of both sides); filings before
   // 2022-06-30 don't tag unfunded commitments, so those rates are approximate and
@@ -638,7 +639,7 @@ export default function CreditPage() {
         className="inline-flex items-center gap-1.5 text-sm mb-6 hover:text-white transition-colors"
         style={{ color: "#8b8ba8" }}
       >
-        <ArrowLeft size={14} /> Back to home
+        <ArrowLeft size={14} />{" "}Back to home
       </Link>
 
       <div className="mb-8">
@@ -708,14 +709,14 @@ export default function CreditPage() {
           <span className="font-semibold">Partial coverage:</span>{" "}
           Caveats now apply per metric family rather than per BDC-quarter as a whole — mark-based
           data (below 95¢ / 90¢, asset mix, spread) surfaces back to 2013 for FSK and 2016 for OBDC
-          because those parsers capture par / cost / fv cleanly even pre-XBRL. CCAP and OCSL
-          pre-XBRL remain fully muted (parser was extracting summary rows / par missing). FSK&apos;s
+          because those parsers capture par / cost / fv cleanly even pre-XBRL. CCAP pre-XBRL remains
+          fully muted (its parser extracted financial-statement summary rows). FSK&apos;s
           non-accrual before mid-2022 is muted as approximate: those filings don&apos;t mark unfunded
           commitments, so the rate can drift from FSK&apos;s own figure, and a quarter joins the industry
           line only when it is within 1pp of what FSK disclosed. A BDC&apos;s non-accrual rate is shown as unknown (&quot;—&quot;), never as zero,
           when its position flags are incomplete or its figures are on hold; those quarters are also left out
           of the industry non-accrual line, which shows how many BDCs each point pools.
-          BDC-quarters with fewer than {MIN_POSITIONS_FOR_RELIABLE} parsed positions are also
+          BDC-quarters with fewer than {MIN_POSITIONS_FOR_RELIABLE}{" "}parsed positions are also
           flagged. Only calendar quarter-ends shown.
         </div>
       </div>
@@ -756,7 +757,7 @@ export default function CreditPage() {
               {naThin.length > 0
                 ? ` ${naThin.length} quarter${naThin.length === 1 ? "" : "s"} (${naThin[0].period_end.slice(0, 7)}${naThin.length > 1 ? ` to ${naThin[naThin.length - 1].period_end.slice(0, 7)}` : ""}) pool fewer than ${MIN_BDCS_FOR_INDUSTRY} BDCs, so read them as indicative.`
                 : ""}
-              {" "}Quarters with fewer than {MIN_BDCS_FOR_NA_HISTORY} BDCs are not plotted.
+              {" "}Quarters with fewer than {MIN_BDCS_FOR_NA_HISTORY}{" "}BDCs are not plotted.
               {naLeftOut.length > 0
                 ? ` Not in the ${naLast.period_end.slice(0, 7)} pool: ${naLeftOut.map((r) => `${r.ticker} (${plainNaReason(r.na_publication_status)})`).join(", ")}.`
                 : ""}
@@ -973,7 +974,7 @@ export default function CreditPage() {
             {ewsMeta.validated.replace("..", " to ")}, which it had not seen: of the loans in each score bucket,{" "}
             {ewsMeta.validation_buckets.map((b) => `${b.hit_rate_pct}% (score ${b.bucket.replace("-+", "+")})`).join(", ")}{" "}
             went on non-accrual within two quarters, against {ewsMeta.validation_base_rate_pct}% overall.{" "}
-            {ewsLabelText} Each BDC&apos;s implied figure applies those hit rates to its own scored loans; where a
+            {ewsLabelText}{" "}Each BDC&apos;s implied figure applies those hit rates to its own scored loans; where a
             warning signal can&apos;t be observed it counts as not firing, so a BDC with signal coverage below 100% has
             a lower-bound figure. Per-loan queue on the{" "}
             <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Watchlist</Link>; the separate
@@ -1035,7 +1036,7 @@ export default function CreditPage() {
                   <p className="text-xs pt-2" style={{ color: "#6b6b88" }}>
                     Industry reference: {ind.implied_na_2q_pct.toFixed(2)}% of the eligible (not yet
                     non-accrual) book, ${(ind.implied_na_2q_m / 1000).toFixed(1)}B implied across{" "}
-                    {ind.n_scored.toLocaleString()} positions
+                    {ind.n_scored.toLocaleString()}{" "}positions
                     {covOf(ind) != null ? `, with signals seen on ${covOf(ind)!.toFixed(0)}% of it` : ""}. Bars are % of
                     each BDC&apos;s own eligible debt book — red ≥1.25× industry, amber ≥ industry. &quot;Signals
                     seen&quot; is the share of the scored book whose signals could all be checked. A signal that
@@ -1153,7 +1154,7 @@ export default function CreditPage() {
       <section id="stressed-loans" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           Top stressed loans <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            · {stressedLatestPeriod} · biggest absolute write-downs across the industry
+            · {stressedLatestPeriod}{" "}· biggest absolute write-downs across the industry
           </span>
         </h2>
         <SortableTable
@@ -1222,7 +1223,7 @@ export default function CreditPage() {
       <section id="sectors" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           Credit metrics by sector <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            · {sectorCredit[0]?.period_end ?? ""} · industry-wide
+            · {sectorCredit[0]?.period_end ?? ""}{" "}· industry-wide
           </span>
         </h2>
         <SortableTable
@@ -1238,7 +1239,7 @@ export default function CreditPage() {
                 (par ≈ cost). &quot;Unclassified&quot; is positions whose SOI didn&apos;t carry
                 an industry tag; &quot;Other&quot; is industry tags that didn&apos;t match any
                 canonical sector. PIK is the known-positive lower bound because this legacy
-                sector rollup does not yet publish an unknown-exposure upper bound. See <Link href="/methodology" className="hover:text-white underline" style={{ color: "#a5b4fc" }}>methodology</Link> for the mapping.
+                sector rollup does not yet publish an unknown-exposure upper bound. See <Link href="/methodology" className="hover:text-white underline" style={{ color: "#a5b4fc" }}>methodology</Link>{" "}for the mapping.
               </p>
               <CsvDownloadButton
                 filename={`credit-by-sector-${sectorCredit[0]?.period_end ?? "latest"}`}
@@ -1447,7 +1448,7 @@ export default function CreditPage() {
       <section id="dispersion" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           Cross-BDC mark dispersion <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            · {dispersionLatest} · same loan, different BDCs, different marks
+            · {dispersionLatest}{" "}· same loan, different BDCs, different marks
           </span>
         </h2>
         <SortableTable
@@ -1542,7 +1543,7 @@ export default function CreditPage() {
                   : null}
                 {cascadeHasPending
                   ? <> <b>Not yet seasoned</b>{" "}means the four quarters have not passed yet; rows that are mostly unseasoned are dimmed.</>
-                  : <> For switches in {cascadeIncompleteYears.length ? joinList(cascadeIncompleteYears) : "the latest year"} the year of follow-up has
+                  : <> For switches in {cascadeIncompleteYears.length ? joinList(cascadeIncompleteYears) : "the latest year"}{" "}the year of follow-up has
                     not passed for every loan, so &quot;left the book&quot; there also includes loans not yet followed up;
                     those rows are dimmed.</>}{" "}
                 Years with fewer than 10 switches are omitted.

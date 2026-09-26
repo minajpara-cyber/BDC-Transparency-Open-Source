@@ -122,8 +122,8 @@ export default function ValuationPage() {
           Where every listed BDC trades against its own book value — most recent
           reported NAV per share under each day&apos;s closing price. Premiums to NAV are
           the sector&apos;s equity-issuance currency: a BDC above NAV can sell new shares
-          accretively, below NAV it needs shareholder approval. Covers {stats.count} listed
-          BDCs — the {pnavSnapshots.filter((s) => s.src === "core").length} we parse in
+          accretively, below NAV it needs shareholder approval. Covers {stats.count}{" "}listed
+          BDCs — the {pnavSnapshots.filter((s) => s.src === "core").length}{" "}we parse in
           depth plus the long tail.
         </p>
       </div>
@@ -147,7 +147,7 @@ export default function ValuationPage() {
             <h2 className="text-lg font-semibold text-white mb-1">P/NAV through time</h2>
             <p className="text-sm max-w-3xl" style={{ color: "#9ca3af" }}>
               Weekly history (daily for the last six months), point-in-time: each day uses
-              the last NAV that had been <span className="text-white">filed</span> by that
+              the last NAV that had been <span className="text-white">filed</span>{" "}by that
               day. Add individual BDCs to compare against the space.
             </p>
           </div>
@@ -167,7 +167,7 @@ export default function ValuationPage() {
               className="px-2 py-1 rounded text-xs font-mono font-semibold"
               style={{ background: "#1a1a28", border: "1px solid #2d2d50", color: PALETTE[picked.indexOf(t) % PALETTE.length] }}
               title="remove from chart">
-              {t} ✕
+              {t}{" "}✕
             </button>
           ))}
           <select value="" onChange={(e) => { if (e.target.value) setPicked([...picked, e.target.value]); }}
@@ -380,8 +380,8 @@ export default function ValuationPage() {
               by what its premium can actually support: an empirical curve fitted across
               every BDC-quarter we hold shows median quarterly issuance of{" "}
               <span className="text-white">~0% of net assets below NAV</span> versus{" "}
-              <span className="text-white">2.3–3.7% above it</span> — the 1940 Act
-              shareholder-approval cliff, visible in the data. {q1Label} additionally uses the
+              <span className="text-white">2.3–3.7% above it</span>{" "}— the 1940 Act
+              shareholder-approval cliff, visible in the data. {q1Label}{" "}additionally uses the
               premium actually observed so far this quarter, and for the six issuers whose
               latest 10-Q cover page post-dates quarter-start (marked{" "}
               <span style={{ color: "#22c55e" }}>◆</span>), the share growth already reported
@@ -456,7 +456,7 @@ export default function ValuationPage() {
           </table>
         </div>
         <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
-          Top 20 of {issuerModel.length} shown, ranked by score. TTM issued prefers cash
+          Top 20 of {issuerModel.length}{" "}shown, ranked by score. TTM issued prefers cash
           proceeds from common-stock issuance; where a filer only tags the equity
           roll-forward, that value is used instead. These are scenarios, not guidance.
           The quarterly model is chosen by walk-forward backtest over 248 BDC-quarters
@@ -481,7 +481,7 @@ export default function ValuationPage() {
           basis automatically. The P/NAV series is point-in-time — each day divides by the
           last NAV actually on file that day, and a NAV more than ~14 months stale ends the
           series. Universe: every BDC with a current NYSE/Nasdaq listing, BDC-style
-          financials and at least $200M of net assets ({pnavSnapshots.length} today) —
+          financials and at least $200M of net assets ({pnavSnapshots.length}{" "}today) —
           sub-$200M microcaps, non-traded BDCs, venture-equity vehicles and names that
           converted away from the BDC structure are excluded. Where a BDC has filed its
           latest 10-Q but SEC&apos;s aggregated XBRL feed hasn&apos;t ingested it yet, NAV is read

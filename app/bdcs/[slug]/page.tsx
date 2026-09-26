@@ -28,7 +28,7 @@ import SpreadLifecycleChart from "@/components/SpreadLifecycleChart";
 import RepaymentChart from "@/components/RepaymentChart";
 import { vintageExposure } from "@/data/vintage_exposure";
 import { vintageRows } from "@/data/vintage_analysis";
-import { fullySeasonedRow, lowTierShare, MOSTLY_ESTIMATED_PCT } from "@/lib/vintage";
+import { fullySeasonedRow, estimatedShare, MOSTLY_ESTIMATED_PCT, MIN_HC_COST_PCT } from "@/lib/vintage";
 import { bdcSponsorExposure } from "@/data/bdc_sponsor_exposure";
 import { bdcSectorExposure } from "@/data/bdc_sector_exposure";
 import { maturityByBdc, maturityMeta } from "@/data/maturity";
@@ -213,11 +213,14 @@ export default async function BDCDetailPage({ params }: PageProps) {
   // CGBD rows without an instrument label cannot be confirmed as debt).
   const modRateLatest = modRateRows[modRateRows.length - 1];
   const modRateLowCoverage = modRateLatest?.coverage_status === "low_coverage";
+  // Quarters in a known partial-PIK-decoding era (pik_decode_caveat) have no
+  // readable cash->PIK rate: a gap, never a 0% flip rate.
   const modRateCmp   = modRateRows.map((r) => ({
     period_end: r.period_end,
-    bdc: r.pct_new_cost,
+    bdc: r.pik_decode_caveat ? null : r.pct_new_cost,
     industry: modRateInd.get(r.period_end) ?? null,
   })) as ComparisonPoint[];
+  const modRateCaveatUntil = modRateRows.filter((r) => r.pik_decode_caveat).map((r) => r.period_end).sort().pop();
 
   // Composition stacked-area data (collapse "other" buckets)
   const compositionLine = acRows.map((r) => ({
@@ -258,7 +261,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Back button */}
       <Link href="/bdcs" className="inline-flex items-center gap-1.5 text-sm mb-6 hover:text-white transition-colors" style={{ color: "#8b8ba8" }}>
-        <ArrowLeft size={14} /> Back to BDCs
+        <ArrowLeft size={14} />{" "}Back to BDCs
       </Link>
 
       {/* Header */}
@@ -273,7 +276,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
               background: bdc.type === "Non-Traded" ? "rgba(234,179,8,0.1)" : "rgba(34,197,94,0.1)",
               borderColor: bdc.type === "Non-Traded" ? "rgba(234,179,8,0.2)" : "rgba(34,197,94,0.2)",
             }}>
-              {bdc.type} BDC
+              {bdc.type}{" "}BDC
             </span>
             <AlertBadge severity={softwareRisk as "Critical" | "High" | "Medium" | "Low"} label />
           </div>
@@ -436,6 +439,12 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
                 <div className="text-sm font-semibold text-white mb-1">Cash → PIK modification rate vs industry</div>
                 <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>% of eligible-loan cost that flipped from cash-pay to PIK this quarter.</p>
+                {modRateCaveatUntil && (
+                  <p className="text-xs mb-2" style={{ color: "#6b6b88" }} data-pik-caveat>
+                    No rate through {modRateCaveatUntil}: {bdc.ticker}&apos;s filings from that era could not be read for PIK
+                    reliably, so those quarters are left blank rather than shown as 0%.
+                  </p>
+                )}
                 {modRateLowCoverage && (
                   <p className="text-xs mb-2" style={{ color: "#fbbf24" }}>
                     Low coverage: in {modRateLatest.period_end} this rate covers only{" "}
@@ -485,9 +494,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
                   )}
                 </div>
                 <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
-                  Each quarter as a % of the prior book: capital <span style={{ color: "#a5b4fc" }}>deployed</span> (new
+                  Each quarter as a % of the prior book: capital <span style={{ color: "#a5b4fc" }}>deployed</span>{" "}(new
                   originations, above zero) vs capital leaving — <span style={{ color: "#22c55e" }}>repaid/refinanced</span> and{" "}
-                  <span style={{ color: "#ef4444" }}>distressed exits</span> (below zero). Net = book growth or run-off.
+                  <span style={{ color: "#ef4444" }}>distressed exits</span>{" "}(below zero). Net = book growth or run-off.
                   Dashed lines are the industry averages on each side.
                 </p>
                 <RepaymentChart data={repayRows} />
@@ -614,8 +623,8 @@ export default async function BDCDetailPage({ params }: PageProps) {
                 </h2>
                 <p className="text-xs mt-1 max-w-3xl" style={{ color: "#8b8ba8" }}>
                   Every loan not yet on non-accrual is scored on warning signs whose weights were fitted on data
-                  through {ewsInfo.trained_through ?? "—"} and then tested
-                  {oosWindow ? ` on ${oosWindow.from} to ${oosWindow.to} data` : " on later data"} the fit never saw.
+                  through {ewsInfo.trained_through ?? "—"}{" "}and then tested
+                  {oosWindow ? ` on ${oosWindow.from} to ${oosWindow.to} data` : " on later data"}{" "}the fit never saw.
                   Each score is turned into the share of similar loans that went non-accrual within two quarters in
                   that test; adding those up gives the dollars queued for non-accrual.{" "}
                   <Link href="/credit#forward-queue" className="text-indigo-400 hover:text-indigo-300">
@@ -685,7 +694,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                   <p className="text-xs mt-1" style={{ color: "#6b6b88" }}>
                     Today&apos;s signal weights applied to past quarters, as a trend view (quarters with fewer than
                     50 scored positions are dropped). Only quarters after{" "}
-                    {ewsInfo.trained_through ?? "the training period"} were unseen by the fit; earlier points are
+                    {ewsInfo.trained_through ?? "the training period"}{" "}were unseen by the fit; earlier points are
                     in-sample.
                   </p>
                 </div>
@@ -721,7 +730,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                   </tbody>
                 </table>
                 <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-                  Top {queue.length} positions by score, not yet on non-accrual. A &ldquo;≥&rdquo; score had some
+                  Top {queue.length}{" "}positions by score, not yet on non-accrual. A &ldquo;≥&rdquo; score had some
                   signals we couldn&apos;t observe.{" "}
                   <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Full watchlist →</Link>
                 </p>
@@ -955,14 +964,14 @@ export default async function BDCDetailPage({ params }: PageProps) {
         // such loans, and compare it with the industry's high-confidence rate.
         const pick = (vy: number, age: number) => {
           const r = bdcVintage.find((x) => x.vintage_year === vy && x.age_quarters === age * 4);
-          if (!r) return { value: null as number | null, ind: null as number | null, restricted: false, reached: false, partial: false };
+          if (!r) return { value: null as number | null, ind: null as number | null, restricted: false, reached: false, partial: false, hcShare: null as number | null };
           const reached = r.n_loans_eligible === r.n_loans_cohort;
           const ir = industryVintage.find((x) => x.vintage_year === vy && x.age_quarters === age * 4);
           const restricted = r.pct_ever_default_hc != null && ir?.pct_ever_default_hc != null;
           return {
             value: reached ? (restricted ? r.pct_ever_default_hc : r.pct_ever_default) : null,
             ind: ir ? (restricted ? ir.pct_ever_default_hc : ir.pct_ever_default) : null,
-            restricted, reached, partial: r.na_partial,
+            restricted, reached, partial: r.na_partial, hcShare: restricted ? r.hc_cost_share : null,
           };
         };
         return (
@@ -974,14 +983,16 @@ export default async function BDCDetailPage({ params }: PageProps) {
               </span>
             </div>
             <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-              Cumulative <span className="text-white">cost-weighted % ever defaulted</span> (on-book non-accrual OR a distressed exit)
+              Cumulative <span className="text-white">cost-weighted % ever defaulted</span>{" "}(on-book non-accrual OR a distressed exit)
               at standard ages for each vintage, next to the industry at the same age. A cell appears only once <span className="text-white">every
               loan</span> in {bdc.ticker}&apos;s cohort is old enough to have reached that age. Cells tagged{" "}
               <span className="px-1 py-0 rounded text-[10px]" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}>HC</span>{" "}
               compare high-confidence (HIGH+MED) dates only, against the industry&apos;s HC rate; untagged cells use all dated loans because
-              the HC subset was too thin. Rows marked <span className="text-white">mostly estimated</span> rest on estimated vintage dates
-              for more than {MOSTLY_ESTIMATED_PCT}% of their cost. * = non-accrual status partly unknown. Cohorts under 30 loans and
-              vintages predating our coverage of {bdc.ticker} are omitted.
+              the HC subset was too thin (under 15 loans, or under {MIN_HC_COST_PCT}% of the cohort&apos;s counted cost). Rows marked{" "}
+              <span className="text-white">mostly estimated</span>{" "}have more than {MOSTLY_ESTIMATED_PCT}% of their entry cost dated by an
+              estimate rather than a disclosed date — estimated the same way as the &ldquo;Dated by estimate&rdquo; column above, which
+              measures today&apos;s book rather than the cohort at entry. * = non-accrual status partly unknown. Cohorts under 30 loans and
+              vintages predating our coverage of {bdc.ticker}{" "}are omitted.
             </p>
             <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
               <div className="overflow-x-auto">
@@ -999,13 +1010,13 @@ export default async function BDCDetailPage({ params }: PageProps) {
                   <tbody>
                     {vintageYears.map((vy, i) => {
                       const cohort = bdcVintage.find((r) => r.vintage_year === vy);
-                      const est = cohort ? lowTierShare(cohort) : 0;
+                      const est = cohort ? estimatedShare(cohort) : 0;
                       const mostlyEst = est > MOSTLY_ESTIMATED_PCT;
                       return (
                         <tr key={vy} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16", opacity: mostlyEst ? 0.75 : 1 }}>
                           <td className="px-3 py-2 font-semibold text-white whitespace-nowrap">
                             {vy}
-                            {mostlyEst && <span className="ml-1.5 px-1.5 py-0 rounded text-[10px]" style={{ background: "rgba(107,107,136,0.15)", color: "#9ca3af" }} title={`${est.toFixed(0)}% of this cohort's cost is dated by estimate`}>mostly estimated</span>}
+                            {mostlyEst && <span className="ml-1.5 px-1.5 py-0 rounded text-[10px]" style={{ background: "rgba(107,107,136,0.15)", color: "#9ca3af" }} title={`${est.toFixed(0)}% of this cohort's entry cost is dated by an estimate rather than a disclosed date`}>mostly estimated</span>}
                           </td>
                           <td className="px-3 py-2 text-xs" style={{ color: "#9ca3af" }}>
                             {cohort ? `${cohort.n_loans_cohort} loans · $${cohort.cohort_entry_cost_b.toFixed(1)}B` : "—"}
@@ -1022,7 +1033,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                             const color = diff > 0.25 ? "#ef4444" : diff < -0.25 ? "#22c55e" : "#9ca3af";
                             const arrow = diff > 0.25 ? "↑" : diff < -0.25 ? "↓" : "≈";
                             return (
-                              <td key={yr} className="px-3 py-2" title={c.restricted ? "High-confidence dates only (HIGH+MED), vs industry HC" : "All dated loans"}>
+                              <td key={yr} className="px-3 py-2" title={c.restricted ? `High-confidence dates only (HIGH+MED; ${c.hcShare?.toFixed(0) ?? "?"}% of the counted cost), vs industry HC` : "All dated loans"}>
                                 <div className="text-sm font-semibold flex items-center gap-1" style={{ color: "#d1d5db" }}>
                                   {c.value.toFixed(2)}%{c.partial ? "*" : ""}
                                   {c.restricted && <span className="text-[10px] px-1 py-0 rounded" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}>HC</span>}
@@ -1042,7 +1053,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
               </div>
             </div>
             <div className="text-xs mt-3" style={{ color: "#6b6b88" }}>
-              See <Link href="/vintage" className="text-indigo-400 hover:underline">/vintage</Link> for the industry curves, the dating
+              See <Link href="/vintage" className="text-indigo-400 hover:underline">/vintage</Link>{" "}for the industry curves, the dating
               method and the stricter &ldquo;disclosed dates only&rdquo; view.
             </div>
           </section>
@@ -1163,7 +1174,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
             <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
               Sectors normalized from free-text SOI industry strings. &quot;Other&quot; = an
               industry tag that didn&apos;t map to a canonical sector; &quot;Unclassified&quot; =
-              no usable industry. See <Link href="/credit" className="text-indigo-400 hover:underline">/credit</Link> for
+              no usable industry. See <Link href="/credit" className="text-indigo-400 hover:underline">/credit</Link>{" "}for
               the industry-wide sector credit view.
             </p>
           </section>
@@ -1200,7 +1211,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <span className="text-xs px-2 py-0.5 rounded border" style={{
                 color: "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)",
               }}>
-                {exposure.length} sponsors attributed
+                {exposure.length}{" "}sponsors attributed
               </span>
             </div>
             <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>

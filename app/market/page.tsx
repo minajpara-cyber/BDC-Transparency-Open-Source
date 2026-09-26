@@ -180,7 +180,7 @@ export default function MarketPage() {
         <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <h2 className="font-semibold text-white mb-1">Non-Accrual Rate History</h2>
           <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-            Industry-weighted % of cost on non-accrual · {naSeries.length} quarters · derived from our SOI parsing
+            Industry-weighted % of cost on non-accrual · {naSeries.length}{" "}quarters · derived from our SOI parsing
           </p>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={naSeries}>
@@ -209,7 +209,7 @@ export default function MarketPage() {
         <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <h2 className="font-semibold text-white mb-1">PIK at Cost History</h2>
           <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-            Industry-weighted known PIK lower bound; tooltips show lower–upper ranges where source fields are unknown · {pikObservedQuarters} observed quarters
+            Industry-weighted known PIK lower bound; tooltips show lower–upper ranges where source fields are unknown · {pikObservedQuarters}{" "}observed quarters
           </p>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={pikSeries}>
@@ -240,7 +240,7 @@ export default function MarketPage() {
         <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <h2 className="font-semibold text-white mb-1">Parsed Portfolio FV — All Covered BDCs</h2>
           <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-            Sum of fair value (in $B) across the {derived.n_bdcs_latest} traded BDCs we parse · {fvSeries.length} quarters
+            Sum of fair value (in $B) across the {derived.n_bdcs_latest} traded BDCs we parse · {fvSeries.length}{" "}quarters
           </p>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={fvSeries}>
