@@ -15,10 +15,9 @@
 //               same borrower at a restructuring. The stress signal.
 //   unknown     debt whose history cannot tell; kept separate, never merged
 //
-// A known reading gap sits beside the split (spreadOnlyNote): Blue Owl's BDCs
-// and some FSK loans print a floating loan's cash coupon as the spread over
-// SOFR, which we read without SOFR, so some loans read severe that pay under
-// half in kind. The split is shown as read; the note says how much rests on it.
+// A floating loan's cash coupon counts its index (FLOATING_CASH_LEG_NOTE):
+// Blue Owl's BDCs and FSK print the cash coupon as the spread over SOFR, so the
+// quarter-end SOFR (EURIBOR, SONIA, …) is added before the PIK share is read.
 
 export type PikOrigin = "by_design" | "first_seen" | "switched" | "unknown";
 
@@ -107,39 +106,12 @@ export function severeTypeList(point: Record<PikOrigin, number>, total: number, 
   return PIK_ORIGINS.map((o, i) => `${pikOriginPhrase(o)} ${parts[i].toFixed(decimals)}${unit}`).join(", ");
 }
 
-export interface SpreadOnlyFields {
-  pct_pik_severe?: number | null;
-  pct_pik_severe_switched?: number | null;
-  pct_pik_severe_spread_only?: number | null;
-  pct_pik_severe_switched_spread_only?: number | null;
-}
-
-/** Below this share of the book (percentage points) the reading gap is not worth a sentence. */
-export const SPREAD_ONLY_NOTE_MIN_PP = 0.05;
-
 /**
- * The known reading gap for one BDC (or the industry) as a plain-English
- * sentence, or "" when none of its severe PIK rests on it. Blue Owl's BDCs and
- * some FSK loans print a floating loan's cash coupon as a spread over SOFR; we
- * read it without SOFR, so the PIK share looks bigger than it is.
+ * How a floating-rate cash coupon printed as a spread is read, in one or two
+ * plain-English sentences (methodology, /credit).
  */
-export function spreadOnlyNote(r: SpreadOnlyFields | undefined, who: string, filers?: readonly string[]): string {
-  const all = r?.pct_pik_severe_spread_only ?? 0;
-  if (!r || all < SPREAD_ONLY_NOTE_MIN_PP) return "";
-  const sw = r.pct_pik_severe_switched_spread_only ?? 0;
-  const swText = sw >= SPREAD_ONLY_NOTE_MIN_PP
-    ? `, including ${sw.toFixed(1)} of the ${(r.pct_pik_severe_switched ?? 0).toFixed(1)} points in the switched layer`
-    : "";
-  // e.g. "With SOFR added, 4.8 of the 14.6 points of severe PIK would be moderate
-  // (under half paid in kind), including 1.3 of the 1.5 points in the switched layer."
-  // "A", "A and B", "A, B and C" (lib/joinList's rule; kept inline so this
-  // module has no imports)
-  const list = filers && filers.length > 1
-    ? `${filers.slice(0, -1).join(", ")} and ${filers[filers.length - 1]}` : (filers ?? []).join("");
-  const source = list ? `the filings of ${list} print` : "the filing prints";
-  return `A reading gap we have not yet fixed makes part of ${who} severe PIK look higher than it is: ${source} `
-    + `the cash coupon of some floating-rate loans as the spread over SOFR, and we read it without SOFR. `
-    + `With SOFR added, ${all.toFixed(1)} of the ${(r.pct_pik_severe ?? 0).toFixed(1)} points of severe PIK would `
-    + `be moderate (under half paid in kind)${swText}. The dividend stress test and warning sign on PIK & dividends `
-    + `already leave those loans out.`;
-}
+export const FLOATING_CASH_LEG_NOTE =
+  "Some filers print a floating-rate loan's cash coupon as the spread over the reference rate: Blue Owl's "
+  + "\"S+ | 2.75% | 2.75%\" means SOFR + 2.75% in cash plus 2.75% in kind. We add the reference rate at the "
+  + "quarter end (SOFR, EURIBOR, SONIA and so on, raised to any floor the filing prints) to the cash coupon "
+  + "before working out the PIK share: that loan pays 2.75% in kind out of SOFR + 5.50%, not out of 5.50%.";

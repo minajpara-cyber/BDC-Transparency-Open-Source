@@ -5,8 +5,8 @@
 // income booked over the last year is never collected", and a severe-PIK
 // stress by type: base case = the PIK on debt that switched from cash to PIK
 // while held; wider case = also debt already PIK when first seen. Preferred,
-// equity and convertible PIK (PIK by design) is in neither case, nor are loans
-// that read severe only on a bare-spread cash leg (bdc_inventory/scripts/91).
+// equity and convertible PIK (PIK by design) is in neither case
+// (bdc_inventory/scripts/91).
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { IncomeTtmRow } from "@/data/income_coverage";
@@ -128,11 +128,10 @@ export default function DividendCoverageTable({ rows }: { rows: IncomeTtmRow[] }
               The <span className="text-white">wider case</span>{" "}also takes out severe PIK on debt that was already
               PIK when first seen in our data. Neither takes out PIK dividends on preferred stock, equity or
               convertible notes, where paying in kind is built into the instrument, nor severe debt whose history is
-              unclear (hover the wider-case cell), nor loans that read severe only because the filing prints their
-              cash coupon as a spread over SOFR (with SOFR added they pay under half in kind). Each quarter&apos;s
-              PIK is shared out by that quarter&apos;s loan-level PIK rate × principal, with loans on non-accrual at
-              zero — the PIK ledger&apos;s allocation, except that an all-PIK floating loan quoted as a spread
-              accrues at SOFR plus the spread — and the four quarters are added up.
+              unclear (hover the wider-case cell). Each quarter&apos;s PIK is shared out by that quarter&apos;s
+              loan-level PIK rate × principal, with loans on non-accrual at zero — the PIK ledger&apos;s allocation,
+              where an all-PIK floating loan quoted as a spread accrues at SOFR plus the spread — and the four
+              quarters are added up.
             </p>
           </div>
           <CsvDownloadButton filename="dividend-coverage-ttm" columns={csvColumns} rows={csvRows} />

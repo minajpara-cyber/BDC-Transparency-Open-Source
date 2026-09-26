@@ -5,7 +5,7 @@ import AlertBadge from "@/components/AlertBadge";
 import StatCard from "@/components/StatCard";
 import AssetCompositionChart from "@/components/AssetCompositionChart";
 import SeverityStackedBars from "@/components/SeverityStackedBars";
-import { SEVERE_DEFINITION, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, severeTypeList, spreadOnlyNote } from "@/lib/pikOrigin";
+import { SEVERE_DEFINITION, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, severeTypeList } from "@/lib/pikOrigin";
 import ComparisonChart, { ComparisonPoint } from "@/components/ComparisonChart";
 import BDCTimelineChart from "@/components/BDCTimelineChart";
 import BDCHoldingsTable from "@/components/BDCHoldingsTable";
@@ -250,7 +250,6 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const sevTypeLatest = sevTypeSeries[sevTypeSeries.length - 1];
   const sevTypeRow = cqRows[cqRows.length - 1];
   const sevTypeTotal = sevTypeLatest ? sevTypeRow.pct_pik_severe : 0;
-  const sevSpreadNote = spreadOnlyNote(sevTypeRow, `${bdc.ticker}'s`);
 
   // Helpers
   const fmtDelta = (curr?: number | null, prev?: number | null, decimals = 2) => {
@@ -546,7 +545,6 @@ export default async function BDCDetailPage({ params }: PageProps) {
                     loan cut from it at a restructuring — shows a borrower that moved to paying half or more of its
                     interest in kind (many still pay some cash); preferred and convertible PIK is built into the
                     instrument, and &quot;first seen&quot; debt was already PIK when it first appeared in our data.
-                    {sevSpreadNote && ` ${sevSpreadNote}`}
                   </p>
                   <SeverityStackedBars data={sevTypeSeries} yLabel="% of book at cost" unit="%" series={SEVERE_PIK_TYPE_SERIES} />
                 </div>

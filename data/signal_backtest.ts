@@ -19,19 +19,19 @@ export const signalBacktest: BacktestRow[] = [
   {"signal": "mark < 80c", "n": 2216, "rate_bad": 70.2, "rate_na": 21.6, "lift_bad": 13.3, "lift_na": 9.7},
   {"signal": "mark falling ≥3pt QoQ", "n": 4990, "rate_bad": 29.4, "rate_na": 11.3, "lift_bad": 5.6, "lift_na": 5.1},
   {"signal": "falling 2 quarters", "n": 829, "rate_bad": 55.4, "rate_na": 21.8, "lift_bad": 10.5, "lift_na": 9.8},
-  {"signal": "cash→PIK flip", "n": 1000, "rate_bad": 27.3, "rate_na": 16.8, "lift_bad": 5.2, "lift_na": 7.6},
-  {"signal": "PIK severe", "n": 3743, "rate_bad": 15.9, "rate_na": 11.0, "lift_bad": 3.0, "lift_na": 5.0},
+  {"signal": "cash→PIK flip", "n": 951, "rate_bad": 26.0, "rate_na": 16.4, "lift_bad": 4.9, "lift_na": 7.4},
+  {"signal": "PIK severe", "n": 3455, "rate_bad": 15.9, "rate_na": 10.9, "lift_bad": 3.0, "lift_na": 4.9},
   {"signal": "PIK severe (by design: preferred/convertible)", "n": 72, "rate_bad": 1.4, "rate_na": 0.0, "lift_bad": 0.3, "lift_na": 0.0},
-  {"signal": "PIK severe (already PIK when first seen)", "n": 2130, "rate_bad": 7.7, "rate_na": 5.5, "lift_bad": 1.5, "lift_na": 2.5},
-  {"signal": "PIK severe (switched from cash)", "n": 1063, "rate_bad": 31.8, "rate_na": 22.5, "lift_bad": 6.0, "lift_na": 10.1},
-  {"signal": "PIK severe (history unclear)", "n": 478, "rate_bad": 19.7, "rate_na": 11.5, "lift_bad": 3.7, "lift_na": 5.2},
+  {"signal": "PIK severe (already PIK when first seen)", "n": 2039, "rate_bad": 7.9, "rate_na": 5.6, "lift_bad": 1.5, "lift_na": 2.5},
+  {"signal": "PIK severe (switched from cash)", "n": 926, "rate_bad": 32.9, "rate_na": 23.1, "lift_bad": 6.2, "lift_na": 10.4},
+  {"signal": "PIK severe (history unclear)", "n": 418, "rate_bad": 19.6, "rate_na": 11.5, "lift_bad": 3.7, "lift_na": 5.2},
   {"signal": "amend-and-extend", "n": 5024, "rate_bad": 6.6, "rate_na": 3.5, "lift_bad": 1.2, "lift_na": 1.6},
   {"signal": "spread cut", "n": 4074, "rate_bad": 6.2, "rate_na": 3.4, "lift_bad": 1.2, "lift_na": 1.5},
   {"signal": "NA at another BDC", "n": 121, "rate_bad": 46.3, "rate_na": 45.5, "lift_bad": 8.8, "lift_na": 20.5},
   {"signal": "NA elsewhere + mark < 90c", "n": 24, "rate_bad": 83.3, "rate_na": 79.2, "lift_bad": 15.8, "lift_na": 35.7},
-  {"signal": "tier: Watch", "n": 5861, "rate_bad": 31.3, "rate_na": 10.2, "lift_bad": 5.9, "lift_na": 4.6},
-  {"signal": "tier: Elevated", "n": 1605, "rate_bad": 57.8, "rate_na": 21.1, "lift_bad": 10.9, "lift_na": 9.5},
-  {"signal": "tier: High", "n": 247, "rate_bad": 81.4, "rate_na": 43.3, "lift_bad": 15.4, "lift_na": 19.5}
+  {"signal": "tier: Watch", "n": 5846, "rate_bad": 31.4, "rate_na": 10.4, "lift_bad": 5.9, "lift_na": 4.7},
+  {"signal": "tier: Elevated", "n": 1594, "rate_bad": 58.0, "rate_na": 20.8, "lift_bad": 11.0, "lift_na": 9.4},
+  {"signal": "tier: High", "n": 237, "rate_bad": 81.0, "rate_na": 43.0, "lift_bad": 15.3, "lift_na": 19.4}
 ];
 
 export const signalBacktestMeta = {

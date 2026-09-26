@@ -4,24 +4,18 @@ import { vintageGolden } from "@/data/vintage_golden";
 import { creditQuality } from "@/data/credit_quality";
 import { incomeTtm } from "@/data/income_coverage";
 import { dividendSupportMeta } from "@/data/dividend_support";
-import { PIK_ORIGINS, PIK_ORIGIN_EXPLAIN, PIK_ORIGIN_LABEL, SPREAD_ONLY_NOTE_MIN_PP, severePikTypePoint,
+import { FLOATING_CASH_LEG_NOTE, PIK_ORIGINS, PIK_ORIGIN_EXPLAIN, PIK_ORIGIN_LABEL, severePikTypePoint,
   severeTypeList } from "@/lib/pikOrigin";
 import { joinList } from "@/lib/joinList";
 
-// Latest industry split of severe PIK by type, the reading gap beside it, and
-// the back-test behind the dividend-support PIK sign — all read from the
-// exported data.
+// Latest industry split of severe PIK by type and the back-test behind the
+// dividend-support PIK sign — all read from the exported data.
 const SEVERE_ROW = creditQuality
   .filter((r) => r.ticker === "industry")
   .sort((a, b) => a.period_end.localeCompare(b.period_end))
   .pop();
 const SEVERE_INDUSTRY = SEVERE_ROW ? severePikTypePoint(SEVERE_ROW) : undefined;
 const SEVERE_TOTAL = SEVERE_ROW?.pct_pik_severe ?? 0;
-const SPREAD_ONLY_FILERS = SEVERE_ROW
-  ? creditQuality.filter((r) => r.ticker !== "industry" && r.period_end === SEVERE_ROW.period_end
-    && r.pct_pik_severe_spread_only >= SPREAD_ONLY_NOTE_MIN_PP)
-    .sort((a, b) => b.pct_pik_severe_spread_only - a.pct_pik_severe_spread_only).map((r) => r.ticker)
-  : [];
 // Switched debt cut into a new PIK loan at a restructuring, latest quarter (all BDCs).
 const LATEST_INCOME_PERIOD = incomeTtm.reduce((m, r) => (r.period_end > m ? r.period_end : m), "");
 const LATEST_INCOME = incomeTtm.filter((r) => r.period_end === LATEST_INCOME_PERIOD);
@@ -309,32 +303,24 @@ export default function MethodologyPage() {
             borrower name. A loan that went PIK after a single cash quarter, or whose PIK crept up from a small
             share, is &quot;history unclear&quot; rather than guessed.
           </p>
-          {SEVERE_ROW && SEVERE_ROW.pct_pik_severe_spread_only >= SPREAD_ONLY_NOTE_MIN_PP && (
-            <p data-spread-only-gap={SEVERE_ROW.pct_pik_severe_spread_only.toFixed(1)}>
-              <span className="text-white">A known reading gap, not yet fixed.</span>{" "}Blue Owl&apos;s BDCs print a
-              floating-rate loan&apos;s cash and PIK columns as spreads over SOFR — &quot;S+ | 2.75% | 2.75%&quot; is
-              SOFR + 2.75% in cash plus 2.75% in kind — and FSK prints some spreads with the PIK part inside them. Our
-              reader takes the cash leg as the spread alone, without SOFR, so such a loan&apos;s PIK share reads larger
-              than it is: 2.75% of 5.50% is half (severe), where with SOFR added it is under a third (moderate). At{" "}
-              {SEVERE_ROW.period_end.slice(0, 7)}{" "}this makes {SEVERE_ROW.pct_pik_severe_spread_only.toFixed(1)}{" "}of
-              the {SEVERE_ROW.pct_pik_severe.toFixed(1)}{" "}points of severe PIK read severe that would be moderate
-              ({joinList(SPREAD_ONLY_FILERS)}), including {SEVERE_ROW.pct_pik_severe_switched_spread_only.toFixed(1)}{" "}of
-              the {SEVERE_ROW.pct_pik_severe_switched.toFixed(1)}{" "}points of switched debt. Charts and tables show
-              severity as read and say so where it matters; the dividend stress test and warning sign below leave
-              those loans out. Correcting the reader changes the severe totals across the site and is the next fix.
-            </p>
-          )}
+          <p data-floating-cash-leg="">
+            <span className="text-white">How a floating cash coupon is read.</span>{" "}{FLOATING_CASH_LEG_NOTE}{" "}
+            The same applies to FSK, which prints the spread with the PIK part inside it, and to CCAP&apos;s spreads
+            in basis points; where the filing also prints the loan&apos;s all-in rate, that rate less the PIK part is
+            the cash coupon. Severity uses the cash coupon at each quarter end, so a loan&apos;s PIK share moves a
+            little with SOFR.
+          </p>
           <p>
             <span className="text-white">&quot;If severe PIK is lost&quot; on /income.</span>{" "}The base case takes the
             PIK of debt that switched from cash to PIK out of NII; the wider case also takes out severe PIK on debt
             already PIK when first seen. Neither removes PIK dividends on preferred stock or equity, PIK on
-            convertible notes, severe debt whose history is unclear, or loans that read severe only because of the
-            reading gap above. Each quarter&apos;s PIK from the cash-flow statement is shared out loan by loan by that
-            quarter&apos;s PIK rate × principal, with loans on non-accrual at zero (they book no income), and the four
-            quarters are added up — so a loan that switched late in the year is not charged for the whole year.
-            This is the PIK ledger&apos;s allocation, except that an all-PIK floating loan quoted as a spread accrues
-            at SOFR plus the spread. Severe loans carry far more PIK per dollar than lightly-PIK ones, so a split by
-            cost would misstate them.
+            convertible notes, or severe debt whose history is unclear. Each quarter&apos;s PIK from the cash-flow
+            statement is shared out loan by loan by that quarter&apos;s PIK rate × principal, with loans on
+            non-accrual at zero (they book no income), and the four quarters are added up — so a loan that switched
+            late in the year is not charged for the whole year. This is the PIK ledger&apos;s allocation: an all-PIK
+            floating loan quoted as a spread accrues at SOFR plus the spread, or at the all-in rate where the filing
+            prints one. Severe loans carry far more PIK per dollar than lightly-PIK ones, so a split by cost would
+            misstate them.
           </p>
           {FLAG && (
             <div data-switched-pik-flag={FLAG.threshold_pct_nii} className="space-y-3">

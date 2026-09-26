@@ -4,9 +4,8 @@
 // of the coupon in kind, or all of it) says how much, not why; the four types
 // (lib/pikOrigin.ts) say why, and always add up to the severe total. Beside
 // them: how much of the switched layer is a new PIK loan cut at a
-// restructuring, and how much severe PIK rests on a bare-spread cash leg (a
-// known reading gap, shown, not subtracted). Data: data/income_coverage.ts
-// (bdc_inventory/scripts/91 <- scripts/90).
+// restructuring. Data: data/income_coverage.ts (bdc_inventory/scripts/91 <-
+// scripts/90).
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { IncomeTtmRow } from "@/data/income_coverage";
@@ -17,7 +16,7 @@ import CsvDownloadButton from "./CsvDownloadButton";
 type Row = Pick<IncomeTtmRow, "ticker" | "period_end" | "book_m" | "severe_m" | "severe_pct_book"
   | "sev_by_design_pct_book" | "sev_first_seen_pct_book" | "sev_switched_pct_book" | "sev_unknown_pct_book"
   | "sev_by_design_m" | "sev_first_seen_m" | "sev_switched_m" | "sev_unknown_m">
-  & Partial<Pick<IncomeTtmRow, "sev_switched_recut_m" | "sev_spread_only_m" | "sev_switched_spread_only_m">>;
+  & Partial<Pick<IncomeTtmRow, "sev_switched_recut_m">>;
 type Key = "ticker" | "severe_pct_book" | `sev_${PikOrigin}_pct_book`;
 
 const pctOf = (r: Row, o: PikOrigin) => r[`sev_${o}_pct_book`];
@@ -42,14 +41,9 @@ export function severeTypeTotal(rows: Row[]) {
   const book = sum((r) => r.book_m);
   const severe = sum((r) => r.severe_m);
   const parts = Object.fromEntries(PIK_ORIGINS.map((o) => [o, sum((r) => usdOf(r, o))])) as Record<PikOrigin, number>;
-  const spreadOnly = ok.filter((r) => (r.sev_spread_only_m ?? 0) >= 0.5)
-    .sort((a, b) => (b.sev_spread_only_m ?? 0) - (a.sev_spread_only_m ?? 0))
-    .map((r) => ({ ticker: r.ticker, m: r.sev_spread_only_m ?? 0, switched: r.sev_switched_spread_only_m ?? 0 }));
   return {
     n: ok.length, book, severe, parts,
     recut: sum((r) => r.sev_switched_recut_m),
-    spreadOnly, spreadOnlyM: spreadOnly.reduce((s, x) => s + x.m, 0),
-    spreadOnlySwitchedM: spreadOnly.reduce((s, x) => s + x.switched, 0),
   };
 }
 
@@ -63,17 +57,6 @@ export function severeTypeNotes(total: ReturnType<typeof severeTypeTotal>): stri
   if (total.recut >= 0.5 && total.parts.switched > 0) {
     out.push(`Of the ${usd(total.parts.switched)} of switched debt, ${usd(total.recut)} is new PIK loans cut from the BDCs' `
       + "own cash-pay loans at a restructuring; the rest moved from cash to PIK within the same loan.");
-  }
-  if (total.spreadOnly.length > 0) {
-    const names = total.spreadOnly.map((x) => x.ticker);
-    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names.join("");
-    out.push(`A reading gap we have not yet fixed: ${list} `
-      + "print the cash coupon of some floating-rate loans as the spread over SOFR, and we read it without SOFR, "
-      + `so those loans look more PIK-heavy than they are. With SOFR added, ${usd(total.spreadOnlyM)} of this severe `
-      + `PIK (${total.spreadOnly.map((x) => `${x.ticker} ${usd(x.m)}`).join(", ")}) would be moderate, paying under half `
-      + "in kind"
-      + (total.spreadOnlySwitchedM >= 0.5 ? `; ${usd(total.spreadOnlySwitchedM)} of it is in the switched layer. ` : ". ")
-      + "The table shows the split as read (marked †); the stress test and warning sign below leave those loans out.");
   }
   return out;
 }
@@ -97,10 +80,10 @@ export default function SeverePikTypeTable({ rows }: { rows: Row[] }) {
   const notes = severeTypeNotes(total);
   const csvCols = ["ticker", "as_of", "book_m", "severe_pik_m", "severe_pik_pct_book",
     ...PIK_ORIGINS.flatMap((o) => [`${o}_m`, `${o}_pct_book`]),
-    "switched_new_pik_loan_at_restructuring_m", "severe_only_on_spread_reading_m", "switched_severe_only_on_spread_reading_m"];
+    "switched_new_pik_loan_at_restructuring_m"];
   const csvRows = sorted.map((r) => [r.ticker, r.period_end, r.book_m, r.severe_m, r.severe_pct_book,
     ...PIK_ORIGINS.flatMap((o) => [usdOf(r, o), pctOf(r, o)]),
-    r.sev_switched_recut_m ?? null, r.sev_spread_only_m ?? null, r.sev_switched_spread_only_m ?? null]);
+    r.sev_switched_recut_m ?? null]);
 
   const Bar = ({ r }: { r: Row }) => {
     const sev = r.severe_pct_book ?? 0;
@@ -158,10 +141,6 @@ export default function SeverePikTypeTable({ rows }: { rows: Row[] }) {
               <tr key={r.ticker} style={{ background: i % 2 === 0 ? "#111118" : "#0f0f16" }} data-severe-type-row={r.ticker}>
                 <td className="px-3 py-2 font-mono font-semibold">
                   <Link href={`/bdcs/${r.ticker.toLowerCase()}`} className="hover:underline" style={{ color: "#a5b4fc" }}>{r.ticker}</Link>
-                  {(r.sev_spread_only_m ?? 0) >= 0.5 && (
-                    <span className="ml-1 text-xs font-normal" style={{ color: "#f59e0b" }}
-                      title={`${usd(r.sev_spread_only_m)} of this severe PIK (${usd(r.sev_switched_spread_only_m)} switched) reads severe only because the cash coupon is printed as a spread over SOFR`}>†</span>
-                  )}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums text-white" title={`${usd(r.severe_m)} of a ${usd(r.book_m)} book, ${r.period_end}`}>
                   {pct(r.severe_pct_book)}

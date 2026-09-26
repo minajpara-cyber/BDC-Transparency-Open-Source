@@ -27,8 +27,7 @@ import { sectorCredit } from "@/data/sector_credit";
 import { macroContext } from "@/data/macro_context";
 import { sponsors } from "@/data/sponsors_index";
 import { creditPikPublication, formatPikPublication, pikRangeText, sponsorPikPublication } from "@/lib/pikPublication";
-import { SEVERE_DEFINITION, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, severeTypeList, spreadOnlyNote,
-  SPREAD_ONLY_NOTE_MIN_PP } from "@/lib/pikOrigin";
+import { SEVERE_DEFINITION, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, severeTypeList } from "@/lib/pikOrigin";
 import { joinList } from "@/lib/joinList";
 
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
@@ -564,12 +563,6 @@ export default function CreditPage() {
   const severeTypeRow = severeTypeRows[severeTypeRows.length - 1];
   const severeTypeLatest = severeTypeIndustry[severeTypeIndustry.length - 1];
   const severeTypeTotal = severeTypeRow?.pct_pik_severe ?? 0;
-  // The BDCs whose filings carry the bare-spread reading gap that quarter.
-  const spreadOnlyFilers = severeTypeRow
-    ? creditQuality.filter((r) => r.ticker !== "industry" && r.period_end === severeTypeRow.period_end
-      && r.pct_pik_severe_spread_only >= SPREAD_ONLY_NOTE_MIN_PP)
-      .sort((a, b) => b.pct_pik_severe_spread_only - a.pct_pik_severe_spread_only).map((r) => r.ticker)
-    : [];
 
   // Per-(ticker, period) severity rows for the recent table (latest 8 quarters).
   const recentPeriods = Array.from(new Set(pikModifications.map((r) => r.period_end)))
@@ -897,7 +890,9 @@ export default function CreditPage() {
               {severeTypeList(severeTypeLatest, severeTypeTotal)}.
               &quot;First seen&quot; means already PIK the first time the loan appears in our data, which can include
               a loan restructured before our coverage began or a refinancing we cannot link to the loan it replaced.
-              {spreadOnlyNote(severeTypeRow, "the industry's", spreadOnlyFilers) && ` ${spreadOnlyNote(severeTypeRow, "the industry's", spreadOnlyFilers)}`}
+              {" "}A floating-rate loan&apos;s cash coupon includes its reference rate: where a filing prints only the
+              spread over SOFR, we add SOFR at the quarter end before judging how much is paid in kind (
+              <Link href="/methodology#severe-pik" className="underline" style={{ color: "#a5b4fc" }}>how</Link>).
               {" "}Per BDC:{" "}
               <Link href="/income#severe-pik" className="underline" style={{ color: "#a5b4fc" }}>PIK &amp; dividends</Link>.
             </p>
