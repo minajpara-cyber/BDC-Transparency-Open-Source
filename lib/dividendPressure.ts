@@ -5,8 +5,8 @@
 // than 5% in a year. The fifth, severe PIK on debt that switched from cash to
 // PIK while held above SWITCHED_PIK_FLAG_PCT_NII % of NII, is inferred from
 // each loan's history and PIK rate (until 2026-09-26 it was PIK over 15% of NII
-// with most of the PIK book severe, which counted preferred dividends and loans
-// written with PIK and separated nothing — scripts/93).
+// with most of the PIK book severe, which counted preferred dividends and debt
+// already PIK when first seen, and did not separate outcomes — scripts/93).
 // The sixth — a shadow default rate above 7% — depends on the default-rate
 // estimate, so here it is re-derived from data/default_rate.ts and counted
 // only when that BDC's twelve-month window for the same quarter is fully

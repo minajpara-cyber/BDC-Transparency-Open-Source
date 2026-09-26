@@ -5,7 +5,7 @@ import AlertBadge from "@/components/AlertBadge";
 import StatCard from "@/components/StatCard";
 import AssetCompositionChart from "@/components/AssetCompositionChart";
 import SeverityStackedBars from "@/components/SeverityStackedBars";
-import { PIK_ORIGINS, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, pikOriginPhrase } from "@/lib/pikOrigin";
+import { SEVERE_DEFINITION, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, severeTypeList, spreadOnlyNote } from "@/lib/pikOrigin";
 import ComparisonChart, { ComparisonPoint } from "@/components/ComparisonChart";
 import BDCTimelineChart from "@/components/BDCTimelineChart";
 import BDCHoldingsTable from "@/components/BDCHoldingsTable";
@@ -248,7 +248,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
   // why the severe PIK is paid in kind. The four types add up to severe PIK.
   const sevTypeSeries = cqRows.slice(-12).map(severePikTypePoint);
   const sevTypeLatest = sevTypeSeries[sevTypeSeries.length - 1];
-  const sevTypeTotal = sevTypeLatest ? PIK_ORIGINS.reduce((sum, o) => sum + sevTypeLatest[o], 0) : 0;
+  const sevTypeRow = cqRows[cqRows.length - 1];
+  const sevTypeTotal = sevTypeLatest ? sevTypeRow.pct_pik_severe : 0;
+  const sevSpreadNote = spreadOnlyNote(sevTypeRow, `${bdc.ticker}'s`);
 
   // Helpers
   const fmtDelta = (curr?: number | null, prev?: number | null, decimals = 2) => {
@@ -536,13 +538,15 @@ export default async function BDCDetailPage({ params }: PageProps) {
                   data-severe-pik-types={bdc.ticker}>
                   <div className="text-sm font-semibold text-white mb-1">Severe PIK held, by type (last 12 quarters)</div>
                   <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
-                    Severe PIK — more than half of a position&apos;s coupon paid in kind, or all of it — as % of the
-                    book at cost, split by why. At {sevTypeLatest.period_end.slice(0, 7)}{" "}it was{" "}
+                    Severe PIK — {SEVERE_DEFINITION} — as % of the book at cost, split by why. At{" "}
+                    {sevTypeLatest.period_end.slice(0, 7)}{" "}it was{" "}
                     {sevTypeTotal.toFixed(1)}% of {bdc.ticker}&apos;s book:{" "}
-                    {PIK_ORIGINS.map((o) => `${pikOriginPhrase(o)} ${sevTypeLatest[o].toFixed(1)}%`).join(", ")}.
-                    Only the red layer — debt that switched from cash to PIK while held — shows a borrower that stopped
-                    paying cash interest; preferred and convertible PIK is built into the instrument, and &quot;first
-                    seen&quot; debt was already PIK when it first appeared in our data.
+                    {severeTypeList(sevTypeLatest, sevTypeTotal)}.
+                    Only the red layer — debt that switched from cash to PIK while held, the same loan or a new PIK
+                    loan cut from it at a restructuring — shows a borrower that moved to paying half or more of its
+                    interest in kind (many still pay some cash); preferred and convertible PIK is built into the
+                    instrument, and &quot;first seen&quot; debt was already PIK when it first appeared in our data.
+                    {sevSpreadNote && ` ${sevSpreadNote}`}
                   </p>
                   <SeverityStackedBars data={sevTypeSeries} yLabel="% of book at cost" unit="%" series={SEVERE_PIK_TYPE_SERIES} />
                 </div>

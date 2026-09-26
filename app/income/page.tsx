@@ -455,7 +455,7 @@ export default function IncomePage() {
             much came back. Cash coverage below 1.0x means NII excluding PIK is below declared distributions: the
             dividend relies on income that will arrive later — or not at all if the borrower fails. It does not by
             itself predict a dividend cut. The stress slider and the severe-PIK stress put numbers on that risk.
-            Severe PIK is PIK making up more than half a position&apos;s coupon, or all of it; the stress takes
+            Severe PIK is PIK making up half or more of a position&apos;s coupon, or all of it; the stress takes
             out only severe PIK on debt — first the debt that switched from cash to PIK while held, then also
             debt already PIK when first seen — and never PIK dividends on preferred stock or equity.
           </p>

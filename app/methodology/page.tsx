@@ -2,20 +2,89 @@ import Link from "next/link";
 import { ArrowLeft, Database, FileText, GitBranch, AlertTriangle } from "lucide-react";
 import { vintageGolden } from "@/data/vintage_golden";
 import { creditQuality } from "@/data/credit_quality";
+import { incomeTtm } from "@/data/income_coverage";
 import { dividendSupportMeta } from "@/data/dividend_support";
-import { PIK_ORIGINS, PIK_ORIGIN_EXPLAIN, PIK_ORIGIN_LABEL, severePikTypePoint, pikOriginPhrase } from "@/lib/pikOrigin";
+import { PIK_ORIGINS, PIK_ORIGIN_EXPLAIN, PIK_ORIGIN_LABEL, SPREAD_ONLY_NOTE_MIN_PP, severePikTypePoint,
+  severeTypeList } from "@/lib/pikOrigin";
+import { joinList } from "@/lib/joinList";
 
-// Latest industry split of severe PIK by type, and the back-test behind the
-// dividend-support PIK sign — both read from the exported data.
-const SEVERE_INDUSTRY = creditQuality
+// Latest industry split of severe PIK by type, the reading gap beside it, and
+// the back-test behind the dividend-support PIK sign — all read from the
+// exported data.
+const SEVERE_ROW = creditQuality
   .filter((r) => r.ticker === "industry")
   .sort((a, b) => a.period_end.localeCompare(b.period_end))
-  .map(severePikTypePoint)
   .pop();
-const SEVERE_TOTAL = SEVERE_INDUSTRY ? PIK_ORIGINS.reduce((sum, o) => sum + SEVERE_INDUSTRY[o], 0) : 0;
+const SEVERE_INDUSTRY = SEVERE_ROW ? severePikTypePoint(SEVERE_ROW) : undefined;
+const SEVERE_TOTAL = SEVERE_ROW?.pct_pik_severe ?? 0;
+const SPREAD_ONLY_FILERS = SEVERE_ROW
+  ? creditQuality.filter((r) => r.ticker !== "industry" && r.period_end === SEVERE_ROW.period_end
+    && r.pct_pik_severe_spread_only >= SPREAD_ONLY_NOTE_MIN_PP)
+    .sort((a, b) => b.pct_pik_severe_spread_only - a.pct_pik_severe_spread_only).map((r) => r.ticker)
+  : [];
+// Switched debt cut into a new PIK loan at a restructuring, latest quarter (all BDCs).
+const LATEST_INCOME_PERIOD = incomeTtm.reduce((m, r) => (r.period_end > m ? r.period_end : m), "");
+const LATEST_INCOME = incomeTtm.filter((r) => r.period_end === LATEST_INCOME_PERIOD);
+const RECUT_M = LATEST_INCOME.reduce((s, r) => s + (r.sev_switched_recut_m ?? 0), 0);
+const SWITCHED_M = LATEST_INCOME.reduce((s, r) => s + (r.sev_switched_m ?? 0), 0);
 const FLAG = dividendSupportMeta.switched_pik_flag_evidence;
 const pc = (v: number | null | undefined, d = 1) => (v == null ? "—" : `${v.toFixed(d)}%`);
 const signed = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(1)}%`);
+const bn = (m: number) => `$${(m / 1000).toFixed(1)}bn`;
+const corr = (v: number) => `${v < 0 ? "−" : v > 0 ? "+" : ""}${Math.abs(v).toFixed(2)}`;
+
+type ScanRow = { threshold: number; n: number; n_bdcs: number; gap_mean: number | null; gap_median: number | null };
+
+/** How the line was picked, in words, from the scan in the export. */
+function scanText(): string {
+  if (!FLAG) return "";
+  const scan = FLAG.scan as readonly ScanRow[];
+  const lo = scan[0], hi = scan[scan.length - 1];
+  const worse = scan.filter((x) => (x.gap_mean ?? 0) > 0);
+  const used = scan.find((x) => x.threshold === Number(FLAG.threshold_pct_nii));
+  const all = worse.length === scan.length
+    ? `Every line from ${lo.threshold}% to ${hi.threshold}% (half-point steps, table below) left the BDCs above it worse off on average over the next year`
+    : `${worse.length} of the ${scan.length} lines from ${lo.threshold}% to ${hi.threshold}% left the BDCs above it worse off on average`;
+  const widen = (hi.gap_mean ?? 0) > (lo.gap_mean ?? 0)
+    ? `, and the gap widens as the line rises (${(lo.gap_mean ?? 0).toFixed(1)} points of NAV at ${lo.threshold}%, ${(hi.gap_mean ?? 0).toFixed(1)} at ${hi.threshold}%) while resting on fewer BDCs (${lo.n} BDC-quarters at ${lo.n_bdcs} BDCs, then ${hi.n} at ${hi.n_bdcs})`
+    : "";
+  const pick = Number(FLAG.scan_lowest_clear) === Number(FLAG.threshold_pct_nii) && used
+    ? ` ${FLAG.threshold_pct_nii}% is the lowest line at which the BDCs above it were at least ${FLAG.clear_gap_pp} point worse on both the average and the median: a sign should catch the pattern early, and higher lines lean on a handful of BDCs.`
+    : ` ${FLAG.threshold_pct_nii}% is used; on the latest data the lowest line clearing ${FLAG.clear_gap_pp} point on both the average and the median is ${FLAG.scan_lowest_clear ?? "none"}${FLAG.scan_lowest_clear != null ? "%" : ""}.`;
+  return `${all}${widen}.${pick} The line was chosen on these same data, so this is not an out-of-sample test.`;
+}
+
+/** The plain-PIK benchmark, in words: about as well / better / worse, from the export. */
+function benchmarkText(): string {
+  if (!FLAG) return "";
+  const b = FLAG.benchmark;
+  const best = b.best as ({ threshold: number; n: number; n_bdcs: number; fwd_nav_mean: number | null; rest_nav_mean: number | null; fwd_nav_median: number | null; rest_nav_median: number | null; gap_mean: number | null; fwd_hard_mean: number | null; rest_hard_mean: number | null } | null);
+  const m = b.matched as (typeof best);
+  const sp = FLAG.spearman;
+  const own = FLAG.flagged.fwd_nav_mean != null && FLAG.rest.fwd_nav_mean != null
+    ? FLAG.rest.fwd_nav_mean - FLAG.flagged.fwd_nav_mean : null;
+  const theirs = best?.gap_mean ?? m?.gap_mean ?? null;
+  const verdict = own == null || theirs == null ? "It cannot be compared on these data"
+    : Math.abs(own - theirs) < 1 ? "On NAV, about as well — not better"
+      : own > theirs ? "On NAV, it separates more" : "On NAV, the plain sign separates more";
+  const parts: string[] = [`${verdict}.`];
+  if (best) parts.push(`At its own best line among those flagging no more than a third of BDC-quarters, all PIK above ${best.threshold}% of NII (${best.n} BDC-quarters at ${best.n_bdcs} BDCs), NAV per share changed ${signed(best.fwd_nav_mean)} against ${signed(best.rest_nav_mean)} (medians ${signed(best.fwd_nav_median)} against ${signed(best.rest_nav_median)}).`);
+  if (m) parts.push(`A plain line flagging the same ${pc(FLAG.pct_bdc_quarters_flagged, 0)} of BDC-quarters (${m.threshold.toFixed(0)}% of NII) gave ${signed(m.fwd_nav_mean)} against ${signed(m.rest_nav_mean)}.`);
+  if (sp.switched_vs_fwd_nav != null && sp.all_pik_vs_fwd_nav != null)
+    parts.push(`Ranked across all BDC-quarters, the correlation with the next year's NAV change is ${corr(sp.switched_vs_fwd_nav)} for switched-debt PIK and ${corr(sp.all_pik_vs_fwd_nav)} for all PIK.`);
+  const hardOwn = FLAG.flagged.fwd_hard_mean != null && FLAG.rest.fwd_hard_mean != null ? FLAG.flagged.fwd_hard_mean - FLAG.rest.fwd_hard_mean : null;
+  if (best && best.fwd_hard_mean != null && best.rest_hard_mean != null && hardOwn != null
+    && sp.switched_vs_fwd_hard != null && sp.all_pik_vs_fwd_hard != null) {
+    const hardBest = best.fwd_hard_mean - best.rest_hard_mean;
+    parts.push(hardOwn - hardBest >= 0.5
+      ? `Where it adds something is defaults: the BDCs above the switched line had a hard default rate of ${pc(FLAG.flagged.fwd_hard_mean)} against ${pc(FLAG.rest.fwd_hard_mean)}, while the PIK-heavy BDCs had ${pc(best.fwd_hard_mean)} against ${pc(best.rest_hard_mean)} (rank correlations with the hard default rate ${corr(sp.switched_vs_fwd_hard)} and ${corr(sp.all_pik_vs_fwd_hard)}).`
+      : `On defaults it does no better: hard default rates of ${pc(FLAG.flagged.fwd_hard_mean)} against ${pc(FLAG.rest.fwd_hard_mean)} above and below the switched line, and ${pc(best.fwd_hard_mean)} against ${pc(best.rest_hard_mean)} for the PIK-heavy BDCs (rank correlations ${corr(sp.switched_vs_fwd_hard)} and ${corr(sp.all_pik_vs_fwd_hard)}).`);
+  }
+  parts.push("The switched sign is kept because it also says why: debt that moved from cash to PIK while the BDC held it.");
+  return parts.join(" ");
+}
+const SCAN_TEXT = scanText();
+const BENCHMARK_TEXT = benchmarkText();
 
 export default function MethodologyPage() {
   return (
@@ -160,7 +229,7 @@ export default function MethodologyPage() {
                 ["% non-accrual", "Amortized cost of positions flagged non-accrual ÷ amortized cost of all positions in the filing's schedule (debt and equity alike), when every position's flag can be read. Cash, money-market funds and unfunded commitments are left out of both sides. Where a BDC reports only a total, its reported rate is shown; where the filing states that nothing was on non-accrual on that date, 0.00% is shown with the quoted sentence as its source. A quarter whose flags are incomplete or on hold shows as unknown, never as zero. The industry line on /credit is dollar-weighted across the BDCs with a usable rate that quarter; it shows how many BDCs each point pools and which were left out of the latest one, and plots quarters with at least 5."],
                 ["% below 95¢ / 90¢ / 80¢ of par", "Cost of debt positions where fair value / par is below the threshold, divided by debt cost. Equity positions are excluded (par is meaningless for equity)."],
                 ["% PIK", "Cost of positions known to pay any PIK ÷ cost of all positions in the schedule. Preferred stock paying its dividend in kind counts as PIK. Where some positions' PIK status is unknown, an upper figure counts them all as PIK. One number (the known share) is shown unless the two differ by more than 1pp, in which case the range is shown; otherwise the range is in the hover text. A figure is called 'bounded' only when the two differ by at least 0.1pp, and a quarter-on-quarter change is shown when both quarters differ by under 0.25pp. Coverage is the share of cost whose PIK status is known. This is a stock measure, unlike the quarterly cash → PIK flow below."],
-                ["Severe PIK, by type", "Severe PIK is PIK making up more than half of a position's coupon, or all of it. Each severe position is typed by why it pays in kind: preferred stock, equity and convertible notes (PIK by design); debt already paying PIK the first time it appears in our data; debt that switched from cash to PIK while held; or debt whose history is unclear. The four add up to severe PIK. See Severe PIK below."],
+                ["Severe PIK, by type", "Severe PIK is PIK making up half or more of a position's coupon, or all of it. Each severe position is typed by why it pays in kind: preferred stock, equity and convertible notes (PIK by design); debt already paying PIK the first time it appears in our data; debt that switched from cash to PIK while held (the same loan, or a new PIK loan cut from it at a restructuring); or debt whose history is unclear. The four add up to severe PIK. See Severe PIK below."],
                 ["Inferred cash → PIK modification rate", "Current USD cost of material-rule PIK events / eligible debt cost. A loan is eligible when it is funded, identified debt and its PIK status was read at both adjacent calendar quarter-ends; an event also needs two earlier cash-pay quarters. Only PIK status is needed: a missing spread, par or maturity does not remove a loan or an event from this rate (those inputs have their own denominators in the broad measure). Next-quarter persistence may be provisional. Zero-event issuers and unknown severity remain in totals. A BDC-quarter from an era whose PIK marks could not be read reliably shows no rate (a gap, not 0%). This does not confirm a disclosed amendment or rule out refinancing."],
                 ["Weighted-avg spread (bps)", "Parsed from the SOI's reference-rate text (e.g. 'SOFR + 5.75%' → 575 bps). Cost-weighted across positions. Floating-rate loans give a clean read; fixed-rate notes fall through to coupon as a proxy."],
                 ["Cumulative default exposure (vintage)", "Entry cost of loans ever flagged non-accrual OR that left the book in distress, as % of the vintage cohort's entry cost. Each age adds the new defaults at that age among the loans old enough to have reached it (leaving out loans whose non-accrual status is unknown then), so the cumulative rate never falls when fewer loans are old enough at a cohort's oldest ages. Directionally comparable to Raymond James's 'cumulative 1L default exposure' (our headline spans all instruments; the first-lien toggle gives the strictly comparable view: loans labelled first lien, one stop, unitranche or senior secured)."],
@@ -202,9 +271,10 @@ export default function MethodologyPage() {
         <div className="rounded-xl border p-5 text-sm space-y-3" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#d1d5db" }}>
           <p>
             A position&apos;s PIK <span className="text-white">severity</span>{" "}is the share of its coupon paid in
-            kind: minimal under 20%, moderate 20–50%, severe more than half or all of it. It is read straight off
-            each filing, but it only says how much. Whether severe PIK is a warning depends on why the coupon is
-            paid in kind, so every severe position also gets one of four types:
+            kind: minimal under 20%, moderate 20% to under 50%, severe half or more, or all of it (a loan paying
+            exactly half in kind counts as severe). It is read off each filing, but it only says how much. Whether
+            severe PIK is a warning depends on why the coupon is paid in kind, so every severe position also gets
+            one of four types:
           </p>
           <ul className="list-disc list-inside space-y-1.5">
             {PIK_ORIGINS.map((o) => (
@@ -214,9 +284,9 @@ export default function MethodologyPage() {
           {SEVERE_INDUSTRY && SEVERE_TOTAL > 0 && (
             <p>
               At {SEVERE_INDUSTRY.period_end.slice(0, 7)}{" "}severe PIK was {pc(SEVERE_TOTAL)}{" "}of the covered BDCs&apos;
-              combined book at cost:{" "}
-              {PIK_ORIGINS.map((o) => `${pikOriginPhrase(o)} ${pc(SEVERE_INDUSTRY[o])}`).join(", ")}.
-              Only the switched debt shows a borrower that stopped paying cash interest while the BDC held the loan.
+              combined book at cost: {severeTypeList(SEVERE_INDUSTRY, SEVERE_TOTAL)}. Only the switched debt shows a
+              borrower that moved from paying cash to paying half or more of its interest in kind while the BDC held
+              the loan; many such loans still pay some cash.
             </p>
           )}
           <p>
@@ -224,46 +294,104 @@ export default function MethodologyPage() {
             own description: preferred, equity or convertible wording, or — for filers that leave the instrument
             column blank — a suffix such as &quot;, Preferred Stock&quot; on the borrower&apos;s name (a name like
             &quot;… Preferred Holdings, Inc.&quot; is not an instrument). Ordinary unsecured notes stay debt. For
-            debt, the loan&apos;s own history decides: it is &quot;switched&quot; when the same loan paid cash for at
-            least two quarters and then paid at least a fifth of its coupon in kind, still PIK at the next filing;
-            &quot;first seen&quot; when its first quarter in our data was already PIK. Our data starts with each
-            BDC&apos;s first filing on file, so a loan restructured into PIK before then counts as first seen, not
-            switched. A loan that went PIK after a single cash quarter, or whose PIK crept up from a small share,
-            is &quot;history unclear&quot; rather than guessed.
+            debt, the loan&apos;s history decides. It is &quot;switched&quot; when the same loan paid cash for at least
+            two quarters and then paid at least a fifth of its coupon in kind, still PIK at the next filing — or when
+            it is a new PIK loan cut from the BDC&apos;s own cash-pay loans at a restructuring: the BDC held debt of
+            the same borrower the quarter before, its cash-pay part shrank by at least half the new PIK loan&apos;s
+            size, and its total lending to that borrower grew by no more than a quarter (a restructuring, not new
+            money). A later re-cut of debt that had mostly switched stays switched.
+            {RECUT_M > 0 && SWITCHED_M > 0
+              ? ` At ${LATEST_INCOME_PERIOD.slice(0, 7)}, ${bn(RECUT_M)} of the ${bn(SWITCHED_M)} of severe switched debt was such a new PIK loan. Our loan history cannot always link a restructured loan to the one it replaced (FSK's split of a Kellermeyer Bergensons cash loan into a cash loan and a PIK loan is one case), so without this test these loans would read "first seen".`
+              : ""}{" "}
+            Debt is &quot;first seen&quot; when its first quarter in our data was already PIK and it was not cut from
+            cash-pay debt the BDC held: a loan made with PIK terms, a loan restructured before our coverage of that
+            BDC begins, or a refinancing that brought in more than a quarter of new money or sat under another
+            borrower name. A loan that went PIK after a single cash quarter, or whose PIK crept up from a small
+            share, is &quot;history unclear&quot; rather than guessed.
           </p>
+          {SEVERE_ROW && SEVERE_ROW.pct_pik_severe_spread_only >= SPREAD_ONLY_NOTE_MIN_PP && (
+            <p data-spread-only-gap={SEVERE_ROW.pct_pik_severe_spread_only.toFixed(1)}>
+              <span className="text-white">A known reading gap, not yet fixed.</span>{" "}Blue Owl&apos;s BDCs print a
+              floating-rate loan&apos;s cash and PIK columns as spreads over SOFR — &quot;S+ | 2.75% | 2.75%&quot; is
+              SOFR + 2.75% in cash plus 2.75% in kind — and FSK prints some spreads with the PIK part inside them. Our
+              reader takes the cash leg as the spread alone, without SOFR, so such a loan&apos;s PIK share reads larger
+              than it is: 2.75% of 5.50% is half (severe), where with SOFR added it is under a third (moderate). At{" "}
+              {SEVERE_ROW.period_end.slice(0, 7)}{" "}this makes {SEVERE_ROW.pct_pik_severe_spread_only.toFixed(1)}{" "}of
+              the {SEVERE_ROW.pct_pik_severe.toFixed(1)}{" "}points of severe PIK read severe that would be moderate
+              ({joinList(SPREAD_ONLY_FILERS)}), including {SEVERE_ROW.pct_pik_severe_switched_spread_only.toFixed(1)}{" "}of
+              the {SEVERE_ROW.pct_pik_severe_switched.toFixed(1)}{" "}points of switched debt. Charts and tables show
+              severity as read and say so where it matters; the dividend stress test and warning sign below leave
+              those loans out. Correcting the reader changes the severe totals across the site and is the next fix.
+            </p>
+          )}
           <p>
             <span className="text-white">&quot;If severe PIK is lost&quot; on /income.</span>{" "}The base case takes the
             PIK of debt that switched from cash to PIK out of NII; the wider case also takes out severe PIK on debt
             already PIK when first seen. Neither removes PIK dividends on preferred stock or equity, PIK on
-            convertible notes, or severe debt whose history is unclear. The year&apos;s PIK from the cash-flow
-            statement is shared out loan by loan by PIK rate × principal, with loans on non-accrual at zero (they
-            book no income) — the same allocation as the PIK ledger — because severe loans carry far more PIK per
-            dollar than lightly-PIK ones, so a split by cost would misstate them.
+            convertible notes, severe debt whose history is unclear, or loans that read severe only because of the
+            reading gap above. Each quarter&apos;s PIK from the cash-flow statement is shared out loan by loan by that
+            quarter&apos;s PIK rate × principal, with loans on non-accrual at zero (they book no income), and the four
+            quarters are added up — so a loan that switched late in the year is not charged for the whole year.
+            This is the PIK ledger&apos;s allocation, except that an all-PIK floating loan quoted as a spread accrues
+            at SOFR plus the spread. Severe loans carry far more PIK per dollar than lightly-PIK ones, so a split by
+            cost would misstate them.
           </p>
           {FLAG && (
-            <p data-switched-pik-flag={FLAG.threshold_pct_nii}>
-              <span className="text-white">The PIK warning sign on dividend support.</span>{" "}One of the six signs
-              is severe PIK on switched debt above {FLAG.threshold_pct_nii}% of NII over the last four quarters. It
-              replaced &quot;PIK over 15% of NII with most of the PIK book severe&quot;, which counted preferred
-              dividends and loans written with PIK. The threshold is back-tested on {FLAG.n_bdc_quarters}{" "}BDC-quarters
-              ({FLAG.n_bdcs}{" "}BDCs, {FLAG.from.slice(0, 7)}{" "}to {FLAG.to.slice(0, 7)}): the median BDC-quarter took{" "}
-              {pc(FLAG.median_pct_nii)}{" "}of its NII from this source and {pc(FLAG.pct_bdc_quarters_flagged, 0)}{" "}were
-              above {FLAG.threshold_pct_nii}%. Over the following twelve months those above it saw NAV per share
-              change {signed(FLAG.flagged.fwd_nav_mean)}{" "}on average (median {signed(FLAG.flagged.fwd_nav_median)}) against{" "}
-              {signed(FLAG.rest.fwd_nav_mean)}{" "}(median {signed(FLAG.rest.fwd_nav_median)}) for the rest, and a hard
-              default rate of {pc(FLAG.flagged.fwd_hard_mean)}{" "}against {pc(FLAG.rest.fwd_hard_mean)}. The old sign
-              separated nothing on the same quarters: {signed(FLAG.old_flagged.fwd_nav_mean)}{" "}against{" "}
-              {signed(FLAG.old_rest.fwd_nav_mean)}, and {pc(FLAG.old_flagged.fwd_hard_mean)}{" "}against{" "}
-              {pc(FLAG.old_rest.fwd_hard_mean)}{" "}hard defaults. When the threshold was set (September 2026, data to
-              June 2026), every threshold from 3% to 6% separated the two groups and 4% separated them most. Treat it
-              as a pointer, not a proof: only {FLAG.flagged.n}{" "}BDC-quarters at{" "}
-              {FLAG.flagged.n_bdcs}{" "}BDCs were above the line with a known outcome
-              {FLAG.weakest_leave_one_out
-                ? `, and without ${FLAG.weakest_leave_one_out.without} the gap shrinks to ${signed(FLAG.weakest_leave_one_out.flagged.fwd_nav_mean)} against ${signed(FLAG.weakest_leave_one_out.rest.fwd_nav_mean)} on average (medians ${signed(FLAG.weakest_leave_one_out.flagged.fwd_nav_median)} against ${signed(FLAG.weakest_leave_one_out.rest.fwd_nav_median)})`
-                : ""}.
-              It tells BDCs apart rather than timing one BDC, and the switch test looks one filing ahead to confirm
-              that PIK persisted, so the back-test carries a quarter of hindsight at each switch.
-            </p>
+            <div data-switched-pik-flag={FLAG.threshold_pct_nii} className="space-y-3">
+              <p>
+                <span className="text-white">The PIK warning sign on dividend support.</span>{" "}One of the six signs
+                is severe PIK on switched debt above {FLAG.threshold_pct_nii}% of NII over the last four quarters. It
+                replaced &quot;PIK over 15% of NII with most of the PIK book severe&quot;, which counted preferred
+                dividends and debt already PIK when first seen. The threshold is back-tested on{" "}
+                {FLAG.n_bdc_quarters}{" "}BDC-quarters ({FLAG.n_bdcs}{" "}BDCs, {FLAG.from.slice(0, 7)}{" "}to{" "}
+                {FLAG.to.slice(0, 7)}): the median BDC-quarter took {pc(FLAG.median_pct_nii)}{" "}of its NII from this
+                source and {pc(FLAG.pct_bdc_quarters_flagged, 0)}{" "}were above {FLAG.threshold_pct_nii}%. Over the
+                following twelve months those above it saw NAV per share change {signed(FLAG.flagged.fwd_nav_mean)}{" "}on
+                average (median {signed(FLAG.flagged.fwd_nav_median)}) against {signed(FLAG.rest.fwd_nav_mean)}{" "}(median{" "}
+                {signed(FLAG.rest.fwd_nav_median)}) for the rest, and a hard default rate of{" "}
+                {pc(FLAG.flagged.fwd_hard_mean)}{" "}against {pc(FLAG.rest.fwd_hard_mean)}. The old sign did not separate
+                the same quarters: {signed(FLAG.old_flagged.fwd_nav_mean)}{" "}against {signed(FLAG.old_rest.fwd_nav_mean)}{" "}
+                NAV, and {pc(FLAG.old_flagged.fwd_hard_mean)}{" "}against {pc(FLAG.old_rest.fwd_hard_mean)}{" "}hard defaults.
+              </p>
+              <p>
+                <span className="text-white">How the line was picked.</span>{" "}{SCAN_TEXT}
+              </p>
+              <div className="overflow-x-auto">
+                <table className="text-xs" data-switched-pik-scan="">
+                  <thead style={{ color: "#8b8ba8" }}>
+                    <tr>
+                      {["Line (% of NII)", "BDC-quarters above (BDCs)", "NAV/share next 12m: above vs rest (average)",
+                        "… (median)", "Hard default rate: above vs rest"].map((h) => (
+                        <th key={h} className="text-left font-semibold pr-4 pb-1">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {FLAG.scan.map((x) => (
+                      <tr key={x.threshold} style={{ color: Number(x.threshold) === Number(FLAG.threshold_pct_nii) ? "#fafafa" : "#d1d5db" }}>
+                        <td className="pr-4 tabular-nums">{x.threshold}%{Number(x.threshold) === Number(FLAG.threshold_pct_nii) ? " (used)" : ""}</td>
+                        <td className="pr-4 tabular-nums">{x.n} ({x.n_bdcs})</td>
+                        <td className="pr-4 tabular-nums">{signed(x.fwd_nav_mean)} vs {signed(x.rest_nav_mean)}</td>
+                        <td className="pr-4 tabular-nums">{signed(x.fwd_nav_median)} vs {signed(x.rest_nav_median)}</td>
+                        <td className="pr-4 tabular-nums">{pc(x.fwd_hard_mean)} vs {pc(x.rest_hard_mean)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p data-switched-pik-benchmark="">
+                <span className="text-white">Does it beat a plain &quot;lots of PIK&quot; sign?</span>{" "}{BENCHMARK_TEXT}
+              </p>
+              <p>
+                Treat it as a pointer, not a proof: only {FLAG.flagged.n}{" "}BDC-quarters at {FLAG.flagged.n_bdcs}{" "}BDCs
+                were above the line with a known outcome
+                {FLAG.weakest_leave_one_out
+                  ? `, and without ${FLAG.weakest_leave_one_out.without} the gap shrinks to ${signed(FLAG.weakest_leave_one_out.flagged.fwd_nav_mean)} against ${signed(FLAG.weakest_leave_one_out.rest.fwd_nav_mean)} on average (medians ${signed(FLAG.weakest_leave_one_out.flagged.fwd_nav_median)} against ${signed(FLAG.weakest_leave_one_out.rest.fwd_nav_median)})`
+                  : ""}.
+                It tells BDCs apart rather than timing one BDC, and the switch test looks one filing ahead to confirm
+                that PIK persisted, so the back-test carries a quarter of hindsight at each switch.
+              </p>
+            </div>
           )}
         </div>
       </section>

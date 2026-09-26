@@ -139,11 +139,12 @@ export default function DividendSupportTable({ rows, defaultWindows }: {
         Warning signs (one point each): reported NII below 95% of the dividend · NII ex-PIK below 80% of it ·
         under-covered with less than a quarter of spillover · NAV per share down more than 5% in a year · shadow
         default rate above {SHADOW_DEFAULT_FLAG_PCT}% · severe PIK on debt that switched from cash to PIK while the BDC
-        held it above {SWITCHED_PIK_FLAG_PCT_NII}% of NII (last four quarters; PIK dividends on preferred stock and
-        loans written with PIK from the start do not count). 0–1 = low, 2–3 = elevated, 4+ = high. The first four
+        held it above {SWITCHED_PIK_FLAG_PCT_NII}% of NII (last four quarters; PIK dividends on preferred stock, PIK on
+        convertible notes and debt already PIK when first seen in our data do not count). 0–1 = low, 2–3 = elevated,
+        4+ = high. The first four
         signs are read straight off the filings. The switched-PIK sign is inferred: which loans switched comes from
-        each loan&apos;s history across filings, and the year&apos;s PIK is shared out by each loan&apos;s PIK rate
-        (see the coverage table above). The shadow
+        each loan&apos;s history across filings, and each quarter&apos;s PIK is shared out by each loan&apos;s PIK
+        rate (see the coverage table above). The shadow
         default sign uses the figure in the default-rate table above and counts only where that BDC&apos;s
         twelve-month window is fully observed ({nShadowCounted} of {gated.length}{" "}BDCs this quarter); elsewhere the
         column shows &quot;withheld&quot; and the sign is not counted. Hover a withheld cell for the reason.

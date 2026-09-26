@@ -124,7 +124,7 @@ const FEATURE_LABELS: Record<string, string> = {
   m90: "marked 80–90¢",
   m95: "marked 90–95¢",
   pik_flip: "switched from cash interest to PIK",
-  pik_sev: "heavy (severe) PIK",
+  pik_sev: "severe PIK of any type (preferred dividends included)",
   any_mod: "loan terms modified",
   par_cut: "stressed cut to the loan amount",
   v45: "loan 4–5 years old",

@@ -27,7 +27,8 @@ import { sectorCredit } from "@/data/sector_credit";
 import { macroContext } from "@/data/macro_context";
 import { sponsors } from "@/data/sponsors_index";
 import { creditPikPublication, formatPikPublication, pikRangeText, sponsorPikPublication } from "@/lib/pikPublication";
-import { PIK_ORIGINS, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, pikOriginPhrase } from "@/lib/pikOrigin";
+import { SEVERE_DEFINITION, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, severeTypeList, spreadOnlyNote,
+  SPREAD_ONLY_NOTE_MIN_PP } from "@/lib/pikOrigin";
 import { joinList } from "@/lib/joinList";
 
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
@@ -555,14 +556,20 @@ export default function CreditPage() {
   // industry row of credit_quality, last 12 quarter-ends — after every PIK
   // parse caveat era, and late enough that "first seen" is not just the start
   // of a BDC's coverage.
-  const severeTypeIndustry = creditQuality
+  const severeTypeRows = creditQuality
     .filter((r) => r.ticker === "industry" && isQuarterEnd(r.period_end))
     .sort((a, b) => a.period_end.localeCompare(b.period_end))
-    .slice(-12)
-    .map(severePikTypePoint);
+    .slice(-12);
+  const severeTypeIndustry = severeTypeRows.map(severePikTypePoint);
+  const severeTypeRow = severeTypeRows[severeTypeRows.length - 1];
   const severeTypeLatest = severeTypeIndustry[severeTypeIndustry.length - 1];
-  const severeTypeTotal = severeTypeLatest
-    ? PIK_ORIGINS.reduce((sum, o) => sum + severeTypeLatest[o], 0) : 0;
+  const severeTypeTotal = severeTypeRow?.pct_pik_severe ?? 0;
+  // The BDCs whose filings carry the bare-spread reading gap that quarter.
+  const spreadOnlyFilers = severeTypeRow
+    ? creditQuality.filter((r) => r.ticker !== "industry" && r.period_end === severeTypeRow.period_end
+      && r.pct_pik_severe_spread_only >= SPREAD_ONLY_NOTE_MIN_PP)
+      .sort((a, b) => b.pct_pik_severe_spread_only - a.pct_pik_severe_spread_only).map((r) => r.ticker)
+    : [];
 
   // Per-(ticker, period) severity rows for the recent table (latest 8 quarters).
   const recentPeriods = Array.from(new Set(pikModifications.map((r) => r.period_end)))
@@ -883,13 +890,15 @@ export default function CreditPage() {
             data-severe-pik-types="industry">
             <div className="text-sm font-semibold text-white mb-1">Severe PIK held in the book, by type (industry, % of cost)</div>
             <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
-              The charts above count new switches; this is the stock of severe PIK at each quarter end — PIK making up
-              more than half of a position&apos;s coupon, or all of it — split by why it is paid in kind. Only the red
-              layer is debt that switched from cash to PIK while the BDC held it. At{" "}
+              The charts above count new switches; this is the stock of severe PIK at each quarter end — {SEVERE_DEFINITION}{" "}
+              — split by why it is paid in kind. Only the red layer is debt that switched from cash to PIK while the
+              BDC held it, either the same loan or a new PIK loan cut from it at a restructuring. At{" "}
               {severeTypeLatest.period_end.slice(0, 7)}, severe PIK was {severeTypeTotal.toFixed(1)}% of the book:{" "}
-              {PIK_ORIGINS.map((o) => `${pikOriginPhrase(o)} ${severeTypeLatest[o].toFixed(1)}%`).join(", ")}.
+              {severeTypeList(severeTypeLatest, severeTypeTotal)}.
               &quot;First seen&quot; means already PIK the first time the loan appears in our data, which can include
-              a loan restructured before our coverage began. Per BDC:{" "}
+              a loan restructured before our coverage began or a refinancing we cannot link to the loan it replaced.
+              {spreadOnlyNote(severeTypeRow, "the industry's", spreadOnlyFilers) && ` ${spreadOnlyNote(severeTypeRow, "the industry's", spreadOnlyFilers)}`}
+              {" "}Per BDC:{" "}
               <Link href="/income#severe-pik" className="underline" style={{ color: "#a5b4fc" }}>PIK &amp; dividends</Link>.
             </p>
             <SeverityStackedBars data={severeTypeIndustry} yLabel="% of book at cost" unit="%" series={SEVERE_PIK_TYPE_SERIES} />
