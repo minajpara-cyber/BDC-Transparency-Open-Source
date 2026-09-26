@@ -2,6 +2,14 @@
 // Long-tail BDCs sourced from SEC DERA bulk data (via edgartools.bdc).
 // These are BDCs we don't parse in-house. Use for cross-issuer borrower
 // search and broader universe context. Dollar amounts are RAW USD.
+//
+// latest_fair_value_b / latest_cost_b size the latest book: the filer's own
+// balance-sheet "Investments, at fair value / at cost" when the SEC data
+// carries it (latest_value_source = "filer_total"; cost null when only the
+// fair value is tagged), otherwise the summed positions less the rows
+// scripts/61 marks as subtotals ("summed_positions" — can still overstate a
+// book whose hierarchy rows were not recognised). The $1B floor applies to
+// that fair value. latest_n_positions counts rows not marked as subtotals.
 
 export interface LongTailBDC {
   cik: number;
@@ -11,40 +19,86 @@ export interface LongTailBDC {
   latest_period: string;
   latest_n_positions: number;
   latest_fair_value_b: number;
-  latest_cost_b: number;
+  latest_cost_b: number | null;
+  latest_value_source: "filer_total" | "summed_positions";
 }
 
 export const longTailBDCs: LongTailBDC[] = [
-  { cik: 1930087, name: "GOLUB CAPITAL PRIVATE CREDIT FUND", n_periods: 11, earliest_period: "2023-06-30", latest_period: "2025-12-31", latest_n_positions: 1002, latest_fair_value_b: 9.829, latest_cost_b: 9.756 },
-  { cik: 1925309, name: "SIXTH STREET LENDING PARTNERS", n_periods: 16, earliest_period: "2022-03-31", latest_period: "2025-12-31", latest_n_positions: 120, latest_fair_value_b: 8.111, latest_cost_b: 7.893 },
-  { cik: 1872371, name: "OAKTREE STRATEGIC CREDIT FUND", n_periods: 15, earliest_period: "2022-09-30", latest_period: "2025-12-31", latest_n_positions: 385, latest_fair_value_b: 7.434, latest_cost_b: 7.429 },
-  { cik: 1889668, name: "BLUE OWL TECHNOLOGY FINANCE CORP. II", n_periods: 10, earliest_period: "2021-12-31", latest_period: "2024-12-31", latest_n_positions: 298, latest_fair_value_b: 5.557, latest_cost_b: 5.371 },
-  { cik: 1859919, name: "BARINGS PRIVATE CREDIT CORP", n_periods: 30, earliest_period: "2021-04-30", latest_period: "2025-12-31", latest_n_positions: 808, latest_fair_value_b: 5.125, latest_cost_b: 4.898 },
-  { cik: 1807427, name: "BLUE OWL CAPITAL CORP III", n_periods: 9, earliest_period: "2021-12-31", latest_period: "2024-09-30", latest_n_positions: 452, latest_fair_value_b: 4.376, latest_cost_b: 4.233 },
-  { cik: 1504619, name: "PENNANTPARK FLOATING RATE CAPITAL LTD.", n_periods: 15, earliest_period: "2021-09-30", latest_period: "2025-12-31", latest_n_positions: 683, latest_fair_value_b: 3.994, latest_cost_b: 3.953 },
-  { cik: 1782524, name: "MORGAN STANLEY DIRECT LENDING FUND", n_periods: 14, earliest_period: "2019-12-31", latest_period: "2025-12-31", latest_n_positions: 608, latest_fair_value_b: 3.767, latest_cost_b: 3.839 },
-  { cik: 1377936, name: "SARATOGA INVESTMENT CORP.", n_periods: 20, earliest_period: "2008-01-31", latest_period: "2025-11-30", latest_n_positions: 162, latest_fair_value_b: 3.048, latest_cost_b: 3.081 },
-  { cik: 1383414, name: "PENNANTPARK INVESTMENT CORP", n_periods: 16, earliest_period: "2021-09-30", latest_period: "2025-12-31", latest_n_positions: 594, latest_fair_value_b: 2.942, latest_cost_b: 2.62 },
-  { cik: 1786108, name: "TRINITY CAPITAL INC.", n_periods: 16, earliest_period: "2020-12-31", latest_period: "2025-12-31", latest_n_positions: 456, latest_fair_value_b: 2.941, latest_cost_b: 2.373 },
-  { cik: 1572694, name: "GOLDMAN SACHS BDC, INC.", n_periods: 15, earliest_period: "2021-12-31", latest_period: "2025-12-31", latest_n_positions: 524, latest_fair_value_b: 2.909, latest_cost_b: 3.2 },
-  { cik: 1715268, name: "GOLUB CAPITAL BDC 3, INC.", n_periods: 6, earliest_period: "2022-09-30", latest_period: "2024-03-31", latest_n_positions: 1350, latest_fair_value_b: 2.699, latest_cost_b: 2.712 },
-  { cik: 1655050, name: "BAIN CAPITAL SPECIALTY FINANCE, INC.", n_periods: 20, earliest_period: "2020-12-31", latest_period: "2025-12-31", latest_n_positions: 475, latest_fair_value_b: 2.508, latest_cost_b: 2.485 },
-  { cik: 17313, name: "CAPITAL SOUTHWEST CORP", n_periods: 15, earliest_period: "2022-03-31", latest_period: "2025-12-31", latest_n_positions: 531, latest_fair_value_b: 2.405, latest_cost_b: 2.031 },
-  { cik: 1901612, name: "GOLUB CAPITAL BDC 4, INC.", n_periods: 13, earliest_period: "2022-09-30", latest_period: "2025-12-31", latest_n_positions: 841, latest_fair_value_b: 2.372, latest_cost_b: 2.341 },
-  { cik: 1418076, name: "SLR INVESTMENT CORP.", n_periods: 17, earliest_period: "2020-12-31", latest_period: "2025-12-31", latest_n_positions: 132, latest_fair_value_b: 2.306, latest_cost_b: 2.335 },
-  { cik: 2037804, name: "NEW MOUNTAIN PRIVATE CREDIT FUND", n_periods: 7, earliest_period: "2023-12-31", latest_period: "2025-12-31", latest_n_positions: 382, latest_fair_value_b: 2.078, latest_cost_b: 2.143 },
-  { cik: 1737924, name: "NUVEEN CHURCHILL DIRECT LENDING CORP.", n_periods: 14, earliest_period: "2022-12-31", latest_period: "2025-12-31", latest_n_positions: 528, latest_fair_value_b: 1.962, latest_cost_b: 2.001 },
-  { cik: 1501729, name: "FS SPECIALTY LENDING FUND", n_periods: 14, earliest_period: "2019-12-31", latest_period: "2025-06-30", latest_n_positions: 123, latest_fair_value_b: 1.928, latest_cost_b: 1.78 },
-  { cik: 1370755, name: "BLACKROCK TCP CAPITAL CORP.", n_periods: 15, earliest_period: "2021-12-31", latest_period: "2025-12-31", latest_n_positions: 363, latest_fair_value_b: 1.706, latest_cost_b: 1.678 },
-  { cik: 1885968, name: "T SERIES MIDDLE MARKET LOAN FUND LLC", n_periods: 5, earliest_period: "2021-09-30", latest_period: "2023-09-30", latest_n_positions: 275, latest_fair_value_b: 1.544, latest_cost_b: 1.562 },
-  { cik: 1781870, name: "NEW MOUNTAIN GUARDIAN III BDC, L.L.C.", n_periods: 8, earliest_period: "2022-12-31", latest_period: "2024-09-30", latest_n_positions: 196, latest_fair_value_b: 1.539, latest_cost_b: 1.561 },
-  { cik: 2049733, name: "BLACKSTONE PRIVATE REAL ESTATE CREDIT & INCOME FUND", n_periods: 3, earliest_period: "2025-06-30", latest_period: "2025-12-31", latest_n_positions: 113, latest_fair_value_b: 1.528, latest_cost_b: 1.516 },
-  { cik: 1535778, name: "MSC INCOME FUND, INC.", n_periods: 17, earliest_period: "2021-12-31", latest_period: "2025-12-31", latest_n_positions: 505, latest_fair_value_b: 1.41, latest_cost_b: 1.26 },
-  { cik: 1811972, name: "BARINGS CAPITAL INVESTMENT CORP", n_periods: 18, earliest_period: "2021-06-30", latest_period: "2025-12-31", latest_n_positions: 608, latest_fair_value_b: 1.366, latest_cost_b: 1.35 },
-  { cik: 2018545, name: "FRANKLIN BSP REAL ESTATE DEBT BDC", n_periods: 5, earliest_period: "2024-06-30", latest_period: "2025-06-30", latest_n_positions: 65, latest_fair_value_b: 1.275, latest_cost_b: 1.265 },
-  { cik: 1321741, name: "GLADSTONE INVESTMENT CORPORATIONDE", n_periods: 25, earliest_period: "2012-08-31", latest_period: "2025-12-31", latest_n_positions: 64, latest_fair_value_b: 1.223, latest_cost_b: 1.059 },
-  { cik: 1794776, name: "PALMER SQUARE CAPITAL BDC INC.", n_periods: 13, earliest_period: "2021-12-31", latest_period: "2025-12-31", latest_n_positions: 264, latest_fair_value_b: 1.204, latest_cost_b: 1.295 },
-  { cik: 1490349, name: "PHENIXFIN CORP", n_periods: 19, earliest_period: "2020-09-30", latest_period: "2025-12-31", latest_n_positions: 94, latest_fair_value_b: 1.183, latest_cost_b: 1.27 },
-  { cik: 1825590, name: "SL INVESTMENT CORP.", n_periods: 5, earliest_period: "2022-03-31", latest_period: "2023-09-30", latest_n_positions: 347, latest_fair_value_b: 1.149, latest_cost_b: 1.16 },
-  { cik: 1587987, name: "NEWTEK BUSINESS SERVICES CORP.", n_periods: 4, earliest_period: "2016-06-30", latest_period: "2022-09-30", latest_n_positions: 3611, latest_fair_value_b: 1.119, latest_cost_b: 0.693 }
+  { cik: 1838126, name: "HPS CORPORATE LENDING FUND", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 814, latest_fair_value_b: 24.178, latest_cost_b: 24.437, latest_value_source: "filer_total" },
+  { cik: 1920145, name: "GOLDMAN SACHS PRIVATE CREDIT CORP.", n_periods: 12, earliest_period: "2023-09-30", latest_period: "2026-06-30", latest_n_positions: 785, latest_fair_value_b: 18.188, latest_cost_b: 18.389, latest_value_source: "filer_total" },
+  { cik: 1930087, name: "GOLUB CAPITAL PRIVATE CREDIT FUND", n_periods: 12, earliest_period: "2023-09-30", latest_period: "2026-06-30", latest_n_positions: 1050, latest_fair_value_b: 9.617, latest_cost_b: 9.728, latest_value_source: "filer_total" },
+  { cik: 1925309, name: "SIXTH STREET LENDING PARTNERS", n_periods: 16, earliest_period: "2022-03-31", latest_period: "2026-06-30", latest_n_positions: 125, latest_fair_value_b: 8.653, latest_cost_b: 8.612, latest_value_source: "filer_total" },
+  { cik: 2031750, name: "ARES CORE INFRASTRUCTURE FUND", n_periods: 8, earliest_period: "2024-09-30", latest_period: "2026-06-30", latest_n_positions: 68, latest_fair_value_b: 7.33, latest_cost_b: 7.067, latest_value_source: "filer_total" },
+  { cik: 1849894, name: "MSD INVESTMENT CORP.", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 219, latest_fair_value_b: 6.858, latest_cost_b: 6.922, latest_value_source: "filer_total" },
+  { cik: 1872371, name: "OAKTREE STRATEGIC CREDIT FUND", n_periods: 15, earliest_period: "2022-09-30", latest_period: "2026-06-30", latest_n_positions: 358, latest_fair_value_b: 6.797, latest_cost_b: 6.898, latest_value_source: "filer_total" },
+  { cik: 1287032, name: "PROSPECT CAPITAL CORP", n_periods: 5, earliest_period: "2020-09-30", latest_period: "2026-06-30", latest_n_positions: 216, latest_fair_value_b: 6.343, latest_cost_b: 6.315, latest_value_source: "filer_total" },
+  { cik: 1851322, name: "NORTH HAVEN PRIVATE INCOME FUND LLC", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 822, latest_fair_value_b: 5.981, latest_cost_b: 6.113, latest_value_source: "filer_total" },
+  { cik: 1742313, name: "MONROE CAPITAL INCOME PLUS CORP", n_periods: 19, earliest_period: "2021-12-31", latest_period: "2026-06-30", latest_n_positions: 944, latest_fair_value_b: 5.956, latest_cost_b: 6.047, latest_value_source: "filer_total" },
+  { cik: 1859919, name: "BARINGS PRIVATE CREDIT CORP", n_periods: 21, earliest_period: "2021-06-30", latest_period: "2026-06-30", latest_n_positions: 879, latest_fair_value_b: 5.412, latest_cost_b: 5.499, latest_value_source: "filer_total" },
+  { cik: 1889668, name: "BLUE OWL TECHNOLOGY FINANCE CORP. II", n_periods: 10, earliest_period: "2021-12-31", latest_period: "2024-12-31", latest_n_positions: 290, latest_fair_value_b: 5.381, latest_cost_b: 5.368, latest_value_source: "filer_total" },
+  { cik: 1869453, name: "BLUE OWL TECHNOLOGY INCOME CORP.", n_periods: 15, earliest_period: "2021-12-31", latest_period: "2026-06-30", latest_n_positions: 405, latest_fair_value_b: 5.057, latest_cost_b: 5.27, latest_value_source: "filer_total" },
+  { cik: 1913724, name: "TPG TWIN BROOK CAPITAL INCOME FUND", n_periods: 19, earliest_period: "2022-01-31", latest_period: "2026-06-30", latest_n_positions: 840, latest_fair_value_b: 4.821, latest_cost_b: 4.82, latest_value_source: "filer_total" },
+  { cik: 1993402, name: "ANTARES STRATEGIC CREDIT FUND", n_periods: 10, earliest_period: "2024-03-31", latest_period: "2026-06-30", latest_n_positions: 1427, latest_fair_value_b: 4.616, latest_cost_b: 4.654, latest_value_source: "filer_total" },
+  { cik: 1807427, name: "BLUE OWL CAPITAL CORP III", n_periods: 9, earliest_period: "2021-12-31", latest_period: "2024-09-30", latest_n_positions: 446, latest_fair_value_b: 4.249, latest_cost_b: 4.233, latest_value_source: "filer_total" },
+  { cik: 1825248, name: "FRANKLIN BSP CAPITAL CORP", n_periods: 16, earliest_period: "2021-12-31", latest_period: "2026-06-30", latest_n_positions: 576, latest_fair_value_b: 4.079, latest_cost_b: 4.178, latest_value_source: "filer_total" },
+  { cik: 1950803, name: "STEPSTONE PRIVATE CREDIT FUND LLC", n_periods: 12, earliest_period: "2023-09-30", latest_period: "2026-06-30", latest_n_positions: 1393, latest_fair_value_b: 3.795, latest_cost_b: 3.806, latest_value_source: "filer_total" },
+  { cik: 1782524, name: "MORGAN STANLEY DIRECT LENDING FUND", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 756, latest_fair_value_b: 3.554, latest_cost_b: 3.677, latest_value_source: "filer_total" },
+  { cik: 1911066, name: "NUVEEN CHURCHILL PRIVATE CAPITAL INCOME FUND", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 714, latest_fair_value_b: 3.256, latest_cost_b: 3.291, latest_value_source: "filer_total" },
+  { cik: 1572694, name: "GOLDMAN SACHS BDC, INC.", n_periods: 14, earliest_period: "2021-12-31", latest_period: "2026-06-30", latest_n_positions: 509, latest_fair_value_b: 3.195, latest_cost_b: 3.411, latest_value_source: "filer_total" },
+  { cik: 1901164, name: "T. ROWE PRICE OHA SELECT PRIVATE CREDIT FUND", n_periods: 13, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 390, latest_fair_value_b: 3.101, latest_cost_b: 3.17, latest_value_source: "filer_total" },
+  { cik: 1825384, name: "STONE POINT CREDIT CORP", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 359, latest_fair_value_b: 2.961, latest_cost_b: 2.987, latest_value_source: "filer_total" },
+  { cik: 1916099, name: "DIAMETER CREDIT CO", n_periods: 10, earliest_period: "2024-03-31", latest_period: "2026-06-30", latest_n_positions: 174, latest_fair_value_b: 2.807, latest_cost_b: 2.807, latest_value_source: "filer_total" },
+  { cik: 1702510, name: "CARLYLE CREDIT SOLUTIONS, INC.", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 297, latest_fair_value_b: 2.75, latest_cost_b: 2.834, latest_value_source: "filer_total" },
+  { cik: 1786108, name: "TRINITY CAPITAL INC.", n_periods: 16, earliest_period: "2021-12-31", latest_period: "2026-06-30", latest_n_positions: 460, latest_fair_value_b: 2.732, latest_cost_b: 2.718, latest_value_source: "filer_total" },
+  { cik: 1715268, name: "GOLUB CAPITAL BDC 3, INC.", n_periods: 6, earliest_period: "2022-09-30", latest_period: "2024-03-31", latest_n_positions: 1350, latest_fair_value_b: 2.699, latest_cost_b: 2.712, latest_value_source: "filer_total" },
+  { cik: 1901612, name: "GOLUB CAPITAL BDC 4, INC.", n_periods: 15, earliest_period: "2022-09-30", latest_period: "2026-06-30", latest_n_positions: 921, latest_fair_value_b: 2.667, latest_cost_b: 2.675, latest_value_source: "filer_total" },
+  { cik: 1930679, name: "KKR FS INCOME TRUST", n_periods: 14, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 502, latest_fair_value_b: 2.649, latest_cost_b: 2.659, latest_value_source: "filer_total" },
+  { cik: 1902649, name: "BLACKROCK PRIVATE CREDIT FUND", n_periods: 12, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 480, latest_fair_value_b: 2.515, latest_cost_b: 2.555, latest_value_source: "filer_total" },
+  { cik: 1504619, name: "PENNANTPARK FLOATING RATE CAPITAL LTD.", n_periods: 15, earliest_period: "2022-09-30", latest_period: "2026-06-30", latest_n_positions: 723, latest_fair_value_b: 2.505, latest_cost_b: 2.627, latest_value_source: "filer_total" },
+  { cik: 1920453, name: "FIDELITY PRIVATE CREDIT FUND", n_periods: 14, earliest_period: "2023-03-31", latest_period: "2026-06-30", latest_n_positions: 352, latest_fair_value_b: 2.476, latest_cost_b: 2.51, latest_value_source: "filer_total" },
+  { cik: 1655050, name: "BAIN CAPITAL SPECIALTY FINANCE, INC.", n_periods: 17, earliest_period: "2021-12-31", latest_period: "2026-06-30", latest_n_positions: 504, latest_fair_value_b: 2.364, latest_cost_b: 2.375, latest_value_source: "filer_total" },
+  { cik: 1747172, name: "KAYNE ANDERSON BDC, INC.", n_periods: 6, earliest_period: "2024-12-31", latest_period: "2026-06-30", latest_n_positions: 335, latest_fair_value_b: 2.292, latest_cost_b: 2.305, latest_value_source: "filer_total" },
+  { cik: 1989817, name: "HPS CORPORATE CAPITAL SOLUTIONS FUND", n_periods: 9, earliest_period: "2024-06-30", latest_period: "2026-06-30", latest_n_positions: 321, latest_fair_value_b: 2.271, latest_cost_b: 2.248, latest_value_source: "filer_total" },
+  { cik: 1899017, name: "BAIN CAPITAL PRIVATE CREDIT", n_periods: 13, earliest_period: "2023-06-30", latest_period: "2026-06-30", latest_n_positions: 390, latest_fair_value_b: 2.216, latest_cost_b: 2.209, latest_value_source: "filer_total" },
+  { cik: 17313, name: "CAPITAL SOUTHWEST CORP", n_periods: 17, earliest_period: "2022-03-31", latest_period: "2026-06-30", latest_n_positions: 455, latest_fair_value_b: 2.202, latest_cost_b: 2.235, latest_value_source: "filer_total" },
+  { cik: 1418076, name: "SLR INVESTMENT CORP.", n_periods: 14, earliest_period: "2022-11-30", latest_period: "2026-06-30", latest_n_positions: 110, latest_fair_value_b: 2.099, latest_cost_b: 2.139, latest_value_source: "filer_total" },
+  { cik: 1925531, name: "NEW MOUNTAIN GUARDIAN IV BDC, L.L.C.", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 443, latest_fair_value_b: 2.071, latest_cost_b: 2.096, latest_value_source: "filer_total" },
+  { cik: 2083477, name: "APS BDC, LLC", n_periods: 2, earliest_period: "2026-03-31", latest_period: "2026-06-30", latest_n_positions: 139, latest_fair_value_b: 2.071, latest_cost_b: 2.102, latest_value_source: "filer_total" },
+  { cik: 2049733, name: "BLACKSTONE PRIVATE REAL ESTATE CREDIT & INCOME FUND", n_periods: 5, earliest_period: "2025-06-30", latest_period: "2026-06-30", latest_n_positions: 121, latest_fair_value_b: 2.021, latest_cost_b: 2.013, latest_value_source: "filer_total" },
+  { cik: 1634452, name: "AB PRIVATE CREDIT INVESTORS CORP", n_periods: 13, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 593, latest_fair_value_b: 1.944, latest_cost_b: 1.985, latest_value_source: "filer_total" },
+  { cik: 2012139, name: "FORTRESS PRIVATE LENDING FUND", n_periods: 5, earliest_period: "2025-06-30", latest_period: "2026-06-30", latest_n_positions: 163, latest_fair_value_b: 1.919, latest_cost_b: 1.927, latest_value_source: "filer_total" },
+  { cik: 1737924, name: "NUVEEN CHURCHILL DIRECT LENDING CORP.", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 569, latest_fair_value_b: 1.919, latest_cost_b: 1.972, latest_value_source: "filer_total" },
+  { cik: 1959604, name: "JEFFERIES CREDIT PARTNERS BDC INC.", n_periods: 11, earliest_period: "2023-12-31", latest_period: "2026-06-30", latest_n_positions: 484, latest_fair_value_b: 1.906, latest_cost_b: 1.915, latest_value_source: "filer_total" },
+  { cik: 1919369, name: "VISTA CREDIT STRATEGIC LENDING CORP.", n_periods: 11, earliest_period: "2023-12-31", latest_period: "2026-06-30", latest_n_positions: 73, latest_fair_value_b: 1.864, latest_cost_b: 1.886, latest_value_source: "filer_total" },
+  { cik: 2037804, name: "NEW MOUNTAIN PRIVATE CREDIT FUND", n_periods: 8, earliest_period: "2023-12-31", latest_period: "2026-06-30", latest_n_positions: 357, latest_fair_value_b: 1.828, latest_cost_b: 1.881, latest_value_source: "filer_total" },
+  { cik: 1950976, name: "26NORTH BDC, INC.", n_periods: 11, earliest_period: "2023-12-31", latest_period: "2026-06-30", latest_n_positions: 144, latest_fair_value_b: 1.806, latest_cost_b: 1.819, latest_value_source: "filer_total" },
+  { cik: 1534254, name: "CION INVESTMENT CORP", n_periods: 18, earliest_period: "2020-12-31", latest_period: "2026-06-30", latest_n_positions: 321, latest_fair_value_b: 1.8, latest_cost_b: 1.931, latest_value_source: "filer_total" },
+  { cik: 1976336, name: "ANTARES PRIVATE CREDIT FUND", n_periods: 7, earliest_period: "2024-12-31", latest_period: "2026-06-30", latest_n_positions: 1276, latest_fair_value_b: 1.733, latest_cost_b: 1.753, latest_value_source: "filer_total" },
+  { cik: 1899996, name: "FIDELITY PRIVATE CREDIT CO LLC", n_periods: 13, earliest_period: "2022-12-31", latest_period: "2026-03-31", latest_n_positions: 341, latest_fair_value_b: 1.663, latest_cost_b: 1.704, latest_value_source: "filer_total" },
+  { cik: 1501729, name: "FS SPECIALTY LENDING FUND", n_periods: 12, earliest_period: "2021-12-31", latest_period: "2025-06-30", latest_n_positions: 111, latest_fair_value_b: 1.647, latest_cost_b: 1.685, latest_value_source: "filer_total" },
+  { cik: 2052152, name: "APOLLO ORIGINATION II (LEVERED) CAPITAL TRUST", n_periods: 6, earliest_period: "2025-03-31", latest_period: "2026-06-30", latest_n_positions: 157, latest_fair_value_b: 1.62, latest_cost_b: 1.633, latest_value_source: "filer_total" },
+  { cik: 1965934, name: "OVERLAND ADVANTAGE", n_periods: 9, earliest_period: "2024-06-30", latest_period: "2026-06-30", latest_n_positions: 42, latest_fair_value_b: 1.619, latest_cost_b: 1.627, latest_value_source: "filer_total" },
+  { cik: 2008748, name: "LORD ABBETT PRIVATE CREDIT FUND", n_periods: 9, earliest_period: "2024-02-29", latest_period: "2026-06-30", latest_n_positions: 183, latest_fair_value_b: 1.564, latest_cost_b: 1.573, latest_value_source: "filer_total" },
+  { cik: 1975736, name: "KKR FS INCOME TRUST SELECT", n_periods: 11, earliest_period: "2023-12-31", latest_period: "2026-06-30", latest_n_positions: 432, latest_fair_value_b: 1.554, latest_cost_b: 1.56, latest_value_source: "filer_total" },
+  { cik: 1885968, name: "T SERIES MIDDLE MARKET LOAN FUND LLC", n_periods: 4, earliest_period: "2022-12-31", latest_period: "2023-09-30", latest_n_positions: 275, latest_fair_value_b: 1.544, latest_cost_b: 1.562, latest_value_source: "filer_total" },
+  { cik: 1781870, name: "NEW MOUNTAIN GUARDIAN III BDC, L.L.C.", n_periods: 8, earliest_period: "2022-12-31", latest_period: "2024-09-30", latest_n_positions: 196, latest_fair_value_b: 1.539, latest_cost_b: 1.561, latest_value_source: "filer_total" },
+  { cik: 1513363, name: "FIDUS INVESTMENT CORP", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 194, latest_fair_value_b: 1.433, latest_cost_b: 1.404, latest_value_source: "filer_total" },
+  { cik: 2012839, name: "KKR ENHANCED US DIRECT LENDING FUND-L INC.", n_periods: 9, earliest_period: "2024-06-30", latest_period: "2026-06-30", latest_n_positions: 304, latest_fair_value_b: 1.401, latest_cost_b: 1.416, latest_value_source: "filer_total" },
+  { cik: 1766037, name: "NMF SLF I, INC.", n_periods: 15, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 401, latest_fair_value_b: 1.397, latest_cost_b: 1.431, latest_value_source: "filer_total" },
+  { cik: 1535778, name: "MSC INCOME FUND, INC.", n_periods: 18, earliest_period: "2021-12-31", latest_period: "2026-06-30", latest_n_positions: 458, latest_fair_value_b: 1.389, latest_cost_b: 1.308, latest_value_source: "filer_total" },
+  { cik: 1772704, name: "GOLDMAN SACHS PRIVATE MIDDLE MARKET CREDIT II LLC", n_periods: 13, earliest_period: "2022-12-31", latest_period: "2026-06-30", latest_n_positions: 140, latest_fair_value_b: 1.369, latest_cost_b: 1.468, latest_value_source: "filer_total" },
+  { cik: 1811972, name: "BARINGS CAPITAL INVESTMENT CORP", n_periods: 19, earliest_period: "2021-06-30", latest_period: "2026-06-30", latest_n_positions: 653, latest_fair_value_b: 1.332, latest_cost_b: 1.347, latest_value_source: "filer_total" },
+  { cik: 1370755, name: "BLACKROCK TCP CAPITAL CORP.", n_periods: 16, earliest_period: "2021-12-31", latest_period: "2026-06-30", latest_n_positions: 82, latest_fair_value_b: 1.291, latest_cost_b: 1.436, latest_value_source: "filer_total" },
+  { cik: 1321741, name: "GLADSTONE INVESTMENT CORPORATIONDE", n_periods: 17, earliest_period: "2022-03-31", latest_period: "2026-06-30", latest_n_positions: 65, latest_fair_value_b: 1.282, latest_cost_b: 1.044, latest_value_source: "filer_total" },
+  { cik: 2018545, name: "FRANKLIN BSP REAL ESTATE DEBT BDC", n_periods: 5, earliest_period: "2024-06-30", latest_period: "2025-06-30", latest_n_positions: 65, latest_fair_value_b: 1.276, latest_cost_b: 1.266, latest_value_source: "filer_total" },
+  { cik: 2011498, name: "AGL PRIVATE CREDIT INCOME FUND", n_periods: 7, earliest_period: "2024-12-31", latest_period: "2026-06-30", latest_n_positions: 115, latest_fair_value_b: 1.257, latest_cost_b: 1.257, latest_value_source: "filer_total" },
+  { cik: 1383414, name: "PENNANTPARK INVESTMENT CORP", n_periods: 15, earliest_period: "2022-09-30", latest_period: "2026-06-30", latest_n_positions: 609, latest_fair_value_b: 1.193, latest_cost_b: 1.228, latest_value_source: "filer_total" },
+  { cik: 1653384, name: "RUNWAY GROWTH FINANCE CORP.", n_periods: 16, earliest_period: "2021-12-31", latest_period: "2026-06-30", latest_n_positions: 124, latest_fair_value_b: 1.192, latest_cost_b: 1.237, latest_value_source: "filer_total" },
+  { cik: 1825590, name: "SL INVESTMENT CORP.", n_periods: 4, earliest_period: "2022-12-31", latest_period: "2023-09-30", latest_n_positions: 347, latest_fair_value_b: 1.149, latest_cost_b: 1.16, latest_value_source: "filer_total" },
+  { cik: 1646614, name: "SILVER POINT SPECIALTY LENDING FUND", n_periods: 15, earliest_period: "2021-12-31", latest_period: "2026-06-30", latest_n_positions: 198, latest_fair_value_b: 1.148, latest_cost_b: 1.205, latest_value_source: "filer_total" },
+  { cik: 2033362, name: "AUDAX PRIVATE CREDIT FUND, LLC", n_periods: 6, earliest_period: "2024-12-31", latest_period: "2026-06-30", latest_n_positions: 436, latest_fair_value_b: 1.128, latest_cost_b: 1.138, latest_value_source: "filer_total" },
+  { cik: 1377936, name: "SARATOGA INVESTMENT CORP.", n_periods: 8, earliest_period: "2024-02-29", latest_period: "2026-05-31", latest_n_positions: 128, latest_fair_value_b: 1.126, latest_cost_b: 1.169, latest_value_source: "filer_total" },
+  { cik: 1794776, name: "PALMER SQUARE CAPITAL BDC INC.", n_periods: 9, earliest_period: "2023-12-31", latest_period: "2026-06-30", latest_n_positions: 282, latest_fair_value_b: 1.113, latest_cost_b: 1.242, latest_value_source: "filer_total" },
+  { cik: 1911321, name: "KENNEDY LEWIS CAPITAL CO", n_periods: 14, earliest_period: "2023-03-31", latest_period: "2026-06-30", latest_n_positions: 69, latest_fair_value_b: 1.109, latest_cost_b: 1.116, latest_value_source: "filer_total" },
+  { cik: 2017636, name: "CCS IX PORTFOLIO HOLDINGS, LLC", n_periods: 6, earliest_period: "2025-03-31", latest_period: "2026-06-30", latest_n_positions: 55, latest_fair_value_b: 1.027, latest_cost_b: 1.033, latest_value_source: "filer_total" }
 ];
