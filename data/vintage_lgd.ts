@@ -6,14 +6,16 @@
 // (last mark < 0.85, or ever non-accrual / below 80¢ before exiting):
 //   mark_loss = last reported fair value − last reported cost (USD, all pieces)
 // Filings do not disclose sale prices or recoveries, so this is the markdown
-// at the last filing before the loan disappeared. Small n_distress = noisy.
+// at the last filing before the loan disappeared. Small n_distress = noisy:
+// mark_loss_pct is null below 10 distress exits, and a net markUP (last fair
+// value above cost) is shown as 0%, never as a negative loss.
 //
 //   n_loans_total   loans dated to this vintage
 //   n_exited        loans no longer on their holder's latest schedule
 //   n_distress      of those, exits in distress
 //   distress_cost_b last reported cost of the distress exits, $bn
 //   mark_loss_b     last fair value − last cost across them, $bn (negative = loss)
-//   mark_loss_pct   −mark_loss_b / distress_cost_b × 100
+//   mark_loss_pct   max(0, −mark_loss_b / distress_cost_b × 100); null below 10 exits
 
 export interface VintageLGD {
   vintage_year: number; n_loans_total: number; n_exited: number; n_distress: number;
@@ -22,12 +24,12 @@ export interface VintageLGD {
 }
 
 export const vintageLGD: VintageLGD[] = [
-  {"vintage_year": 2018, "n_loans_total": 1008, "n_exited": 890, "n_distress": 63, "cost_exited_b": 16.1564, "distress_cost_b": 1.3155, "mark_loss_b": -0.2708, "pct_exited": 88.29, "pct_distress": 6.25, "mark_loss_pct": 20.58},
-  {"vintage_year": 2019, "n_loans_total": 1173, "n_exited": 993, "n_distress": 49, "cost_exited_b": 20.8069, "distress_cost_b": 0.6642, "mark_loss_b": -0.2148, "pct_exited": 84.65, "pct_distress": 4.18, "mark_loss_pct": 32.34},
-  {"vintage_year": 2020, "n_loans_total": 1170, "n_exited": 935, "n_distress": 64, "cost_exited_b": 22.7107, "distress_cost_b": 0.8846, "mark_loss_b": -0.2091, "pct_exited": 79.91, "pct_distress": 5.47, "mark_loss_pct": 23.64},
-  {"vintage_year": 2021, "n_loans_total": 3125, "n_exited": 2050, "n_distress": 163, "cost_exited_b": 46.4126, "distress_cost_b": 3.6195, "mark_loss_b": -1.0596, "pct_exited": 65.6, "pct_distress": 5.22, "mark_loss_pct": 29.28},
-  {"vintage_year": 2022, "n_loans_total": 2408, "n_exited": 1498, "n_distress": 139, "cost_exited_b": 29.6464, "distress_cost_b": 1.4462, "mark_loss_b": -0.4832, "pct_exited": 62.21, "pct_distress": 5.77, "mark_loss_pct": 33.42},
-  {"vintage_year": 2023, "n_loans_total": 2053, "n_exited": 1072, "n_distress": 48, "cost_exited_b": 22.596, "distress_cost_b": 0.9776, "mark_loss_b": -0.3304, "pct_exited": 52.22, "pct_distress": 2.34, "mark_loss_pct": 33.8},
-  {"vintage_year": 2024, "n_loans_total": 2831, "n_exited": 1041, "n_distress": 10, "cost_exited_b": 19.5295, "distress_cost_b": 0.1074, "mark_loss_b": 0.0096, "pct_exited": 36.77, "pct_distress": 0.35, "mark_loss_pct": -8.92},
-  {"vintage_year": 2025, "n_loans_total": 2411, "n_exited": 528, "n_distress": 11, "cost_exited_b": 8.9774, "distress_cost_b": 0.1161, "mark_loss_b": -0.0281, "pct_exited": 21.9, "pct_distress": 0.46, "mark_loss_pct": 24.18}
+  {"vintage_year": 2018, "n_loans_total": 878, "n_exited": 761, "n_distress": 22, "cost_exited_b": 14.5417, "distress_cost_b": 0.4677, "mark_loss_b": -0.1988, "pct_exited": 86.67, "pct_distress": 2.51, "mark_loss_pct": 42.51},
+  {"vintage_year": 2019, "n_loans_total": 968, "n_exited": 785, "n_distress": 19, "cost_exited_b": 16.4843, "distress_cost_b": 0.385, "mark_loss_b": -0.1485, "pct_exited": 81.1, "pct_distress": 1.96, "mark_loss_pct": 38.57},
+  {"vintage_year": 2020, "n_loans_total": 944, "n_exited": 714, "n_distress": 36, "cost_exited_b": 16.9597, "distress_cost_b": 0.5338, "mark_loss_b": -0.1273, "pct_exited": 75.64, "pct_distress": 3.81, "mark_loss_pct": 23.86},
+  {"vintage_year": 2021, "n_loans_total": 2695, "n_exited": 1639, "n_distress": 92, "cost_exited_b": 36.9301, "distress_cost_b": 2.0276, "mark_loss_b": -0.7621, "pct_exited": 60.82, "pct_distress": 3.41, "mark_loss_pct": 37.58},
+  {"vintage_year": 2022, "n_loans_total": 2250, "n_exited": 1279, "n_distress": 95, "cost_exited_b": 25.408, "distress_cost_b": 1.1207, "mark_loss_b": -0.3854, "pct_exited": 56.84, "pct_distress": 4.22, "mark_loss_pct": 34.39},
+  {"vintage_year": 2023, "n_loans_total": 2004, "n_exited": 944, "n_distress": 26, "cost_exited_b": 19.0254, "distress_cost_b": 0.5915, "mark_loss_b": -0.2308, "pct_exited": 47.11, "pct_distress": 1.3, "mark_loss_pct": 39.01},
+  {"vintage_year": 2024, "n_loans_total": 2917, "n_exited": 1027, "n_distress": 10, "cost_exited_b": 18.143, "distress_cost_b": 0.0879, "mark_loss_b": -0.0067, "pct_exited": 35.21, "pct_distress": 0.34, "mark_loss_pct": 7.61},
+  {"vintage_year": 2025, "n_loans_total": 2457, "n_exited": 515, "n_distress": 5, "cost_exited_b": 8.6117, "distress_cost_b": 0.2411, "mark_loss_b": -0.0839, "pct_exited": 20.96, "pct_distress": 0.2, "mark_loss_pct": null}
 ];

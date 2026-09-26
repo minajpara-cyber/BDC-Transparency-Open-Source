@@ -17,16 +17,16 @@ export const signalBacktest: BacktestRow[] = [
   {"signal": "ALL (base rate)", "n": 97328, "rate_bad": 5.3, "rate_na": 2.2, "lift_bad": 1.0, "lift_na": 1.0},
   {"signal": "mark < 90c", "n": 6544, "rate_bad": 42.4, "rate_na": 13.8, "lift_bad": 8.0, "lift_na": 6.2},
   {"signal": "mark < 80c", "n": 2213, "rate_bad": 70.2, "rate_na": 21.6, "lift_bad": 13.2, "lift_na": 9.7},
-  {"signal": "mark falling ≥3pt QoQ", "n": 4968, "rate_bad": 29.4, "rate_na": 11.3, "lift_bad": 5.5, "lift_na": 5.1},
+  {"signal": "mark falling ≥3pt QoQ", "n": 4970, "rate_bad": 29.5, "rate_na": 11.3, "lift_bad": 5.5, "lift_na": 5.1},
   {"signal": "falling 2 quarters", "n": 828, "rate_bad": 55.4, "rate_na": 21.9, "lift_bad": 10.4, "lift_na": 9.9},
-  {"signal": "cash→PIK flip", "n": 1003, "rate_bad": 26.8, "rate_na": 16.4, "lift_bad": 5.0, "lift_na": 7.4},
-  {"signal": "PIK severe", "n": 3675, "rate_bad": 16.1, "rate_na": 10.9, "lift_bad": 3.0, "lift_na": 4.9},
-  {"signal": "amend-and-extend", "n": 4911, "rate_bad": 6.7, "rate_na": 3.5, "lift_bad": 1.3, "lift_na": 1.6},
-  {"signal": "spread cut", "n": 4031, "rate_bad": 6.1, "rate_na": 3.3, "lift_bad": 1.1, "lift_na": 1.5},
+  {"signal": "cash→PIK flip", "n": 1017, "rate_bad": 26.8, "rate_na": 16.5, "lift_bad": 5.1, "lift_na": 7.4},
+  {"signal": "PIK severe", "n": 3718, "rate_bad": 16.1, "rate_na": 10.9, "lift_bad": 3.0, "lift_na": 4.9},
+  {"signal": "amend-and-extend", "n": 4965, "rate_bad": 6.7, "rate_na": 3.6, "lift_bad": 1.3, "lift_na": 1.6},
+  {"signal": "spread cut", "n": 4066, "rate_bad": 6.1, "rate_na": 3.4, "lift_bad": 1.2, "lift_na": 1.5},
   {"signal": "NA at another BDC", "n": 121, "rate_bad": 46.3, "rate_na": 45.5, "lift_bad": 8.7, "lift_na": 20.5},
   {"signal": "NA elsewhere + mark < 90c", "n": 24, "rate_bad": 83.3, "rate_na": 79.2, "lift_bad": 15.7, "lift_na": 35.7},
-  {"signal": "tier: Watch", "n": 5858, "rate_bad": 31.2, "rate_na": 10.1, "lift_bad": 5.9, "lift_na": 4.6},
-  {"signal": "tier: Elevated", "n": 1601, "rate_bad": 57.8, "rate_na": 21.0, "lift_bad": 10.9, "lift_na": 9.5},
+  {"signal": "tier: Watch", "n": 5872, "rate_bad": 31.2, "rate_na": 10.2, "lift_bad": 5.9, "lift_na": 4.6},
+  {"signal": "tier: Elevated", "n": 1604, "rate_bad": 57.8, "rate_na": 21.0, "lift_bad": 10.9, "lift_na": 9.5},
   {"signal": "tier: High", "n": 247, "rate_bad": 81.4, "rate_na": 43.3, "lift_bad": 15.3, "lift_na": 19.5}
 ];
 

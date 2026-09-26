@@ -6,78 +6,78 @@ export interface GoldenScore { n: number; exact?: number; within_1y?: number;
   pct_within_1y?: number; mean_err_years?: number; mae_years?: number; }
 
 export const vintageGolden = {
-  "scored_on": "2026-09-25",
+  "scored_on": "2026-09-26",
   "caveat": "Small reference set, not a representative accuracy benchmark: hand-picked public financings matched to our loans by borrower name.",
   "n_reference_rows": 87,
   "n_reference_financings_matched": 85,
   "n_reference_rows_unmatched": 2,
-  "n_conflicting_loans_excluded": 20,
+  "n_conflicting_loans_excluded": 22,
   "overall": {
-    "n": 711,
-    "exact": 421,
-    "within_1y": 510,
-    "pct_within_1y": 71.7,
-    "mean_err_years": 0.16,
-    "mae_years": 1.14
+    "n": 667,
+    "exact": 390,
+    "within_1y": 472,
+    "pct_within_1y": 70.8,
+    "mean_err_years": 0.12,
+    "mae_years": 1.16
   },
   "high_conf": {
-    "n": 270,
-    "exact": 186,
-    "within_1y": 210,
-    "pct_within_1y": 77.8,
-    "mean_err_years": 0.07,
-    "mae_years": 0.89
+    "n": 265,
+    "exact": 188,
+    "within_1y": 208,
+    "pct_within_1y": 78.5,
+    "mean_err_years": -0.0,
+    "mae_years": 0.83
   },
   "by_bucket": {
     "borrowed": {
-      "n": 182,
-      "exact": 115,
-      "within_1y": 134,
-      "pct_within_1y": 73.6,
-      "mean_err_years": 0.35,
-      "mae_years": 1.07
+      "n": 191,
+      "exact": 126,
+      "within_1y": 142,
+      "pct_within_1y": 74.3,
+      "mean_err_years": 0.19,
+      "mae_years": 0.95
     },
     "corrected": {
-      "n": 42,
-      "exact": 26,
-      "within_1y": 26,
-      "pct_within_1y": 61.9,
-      "mean_err_years": -1.02,
-      "mae_years": 1.02
+      "n": 45,
+      "exact": 28,
+      "within_1y": 28,
+      "pct_within_1y": 62.2,
+      "mean_err_years": -1.0,
+      "mae_years": 1.0
     },
     "disclosed": {
-      "n": 233,
-      "exact": 144,
-      "within_1y": 162,
-      "pct_within_1y": 69.5,
-      "mean_err_years": 0.12,
-      "mae_years": 1.28
+      "n": 207,
+      "exact": 123,
+      "within_1y": 139,
+      "pct_within_1y": 67.1,
+      "mean_err_years": 0.06,
+      "mae_years": 1.37
     },
     "inferred": {
       "n": 110,
       "exact": 48,
-      "within_1y": 75,
-      "pct_within_1y": 68.2,
-      "mean_err_years": 0.48,
-      "mae_years": 1.25
+      "within_1y": 76,
+      "pct_within_1y": 69.1,
+      "mean_err_years": 0.45,
+      "mae_years": 1.23
     },
     "name_matched": {
-      "n": 144,
-      "exact": 88,
-      "within_1y": 113,
-      "pct_within_1y": 78.5,
-      "mean_err_years": 0.1,
-      "mae_years": 0.97
+      "n": 114,
+      "exact": 65,
+      "within_1y": 87,
+      "pct_within_1y": 76.3,
+      "mean_err_years": 0.25,
+      "mae_years": 1.14
     }
   },
   "by_source": {
     "dera_lower_bound": {
-      "n": 20,
-      "exact": 7,
-      "within_1y": 13,
-      "pct_within_1y": 65.0,
-      "mean_err_years": 0.7,
-      "mae_years": 1.1
+      "n": 18,
+      "exact": 6,
+      "within_1y": 12,
+      "pct_within_1y": 66.7,
+      "mean_err_years": 0.89,
+      "mae_years": 1.11
     },
     "first_obs_discount_clip": {
       "n": 1,
@@ -88,68 +88,68 @@ export const vintageGolden = {
       "mae_years": 2.0
     },
     "first_obs_maturity_clip": {
-      "n": 20,
+      "n": 23,
       "exact": 5,
-      "within_1y": 9,
-      "pct_within_1y": 45.0,
-      "mean_err_years": 0.25,
-      "mae_years": 1.85
+      "within_1y": 10,
+      "pct_within_1y": 43.5,
+      "mean_err_years": 0.43,
+      "mae_years": 1.91
     },
     "first_obs_reliable": {
-      "n": 61,
-      "exact": 29,
-      "within_1y": 46,
-      "pct_within_1y": 75.4,
-      "mean_err_years": 0.74,
-      "mae_years": 1.0
+      "n": 64,
+      "exact": 34,
+      "within_1y": 51,
+      "pct_within_1y": 79.7,
+      "mean_err_years": 0.61,
+      "mae_years": 0.86
     },
     "ltail_enriched": {
-      "n": 21,
-      "exact": 21,
-      "within_1y": 21,
+      "n": 16,
+      "exact": 16,
+      "within_1y": 16,
       "pct_within_1y": 100.0,
       "mean_err_years": 0.0,
       "mae_years": 0.0
     },
     "own_acq": {
-      "n": 233,
-      "exact": 144,
-      "within_1y": 162,
-      "pct_within_1y": 69.5,
-      "mean_err_years": 0.12,
-      "mae_years": 1.28
+      "n": 207,
+      "exact": 123,
+      "within_1y": 139,
+      "pct_within_1y": 67.1,
+      "mean_err_years": 0.06,
+      "mae_years": 1.37
     },
     "tenor_model": {
-      "n": 28,
-      "exact": 14,
-      "within_1y": 20,
-      "pct_within_1y": 71.4,
-      "mean_err_years": 0.18,
-      "mae_years": 1.32
+      "n": 22,
+      "exact": 9,
+      "within_1y": 15,
+      "pct_within_1y": 68.2,
+      "mean_err_years": 0.09,
+      "mae_years": 1.55
     },
     "xbdc_borrow": {
-      "n": 182,
-      "exact": 115,
-      "within_1y": 134,
-      "pct_within_1y": 73.6,
-      "mean_err_years": 0.35,
-      "mae_years": 1.07
+      "n": 191,
+      "exact": 126,
+      "within_1y": 142,
+      "pct_within_1y": 74.3,
+      "mean_err_years": 0.19,
+      "mae_years": 0.95
     },
     "xbdc_borrow_loose": {
-      "n": 103,
-      "exact": 60,
-      "within_1y": 79,
-      "pct_within_1y": 76.7,
-      "mean_err_years": 0.0,
-      "mae_years": 1.15
+      "n": 80,
+      "exact": 43,
+      "within_1y": 59,
+      "pct_within_1y": 73.8,
+      "mean_err_years": 0.15,
+      "mae_years": 1.38
     },
     "xbdc_earlier_peer": {
-      "n": 42,
-      "exact": 26,
-      "within_1y": 26,
-      "pct_within_1y": 61.9,
-      "mean_err_years": -1.02,
-      "mae_years": 1.02
+      "n": 45,
+      "exact": 28,
+      "within_1y": 28,
+      "pct_within_1y": 62.2,
+      "mean_err_years": -1.0,
+      "mae_years": 1.0
     }
   }
 } as {
