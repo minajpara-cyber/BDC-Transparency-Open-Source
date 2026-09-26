@@ -232,7 +232,7 @@ export default function MethodologyPage() {
                 ["Disclosed-dates-only NA bounds", "The stricter cross-check tab on /vintage: fixed initial-cost share of holding groups (dated only by the holder's own acquisition date or first observation) with any observed quarter-end non-accrual (lower), plus groups with unresolved past status, including every exit (upper). Not default rates."],
                 ["PIK cascade", "For every loan tranche that switched from cash interest to PIK, where it was a year later: back to cash-pay, still PIK (split by mark: 90¢ or more, 80–90¢, under 80¢, or mark unknown), or gone from the book while the BDC was still filing. 'Left the book' does not say whether the loan was repaid, refinanced, sold or written off. Follow-ups that have not happened yet are 'not yet seasoned', and a switch whose later filing is missing or unreadable is 'status unknown' rather than any outcome, so each year adds to 100%."],
                 ["Default rate (hard / shadow)", "Of the debt that was performing twelve months earlier, the share whose borrower defaulted during the year, counted once at its first event. Hard = new non-accrual (observed) or a distressed exit (inferred from the exit mark: left below 85¢, or after a mark below 80¢, without going non-accrual). Shadow adds restructurings and PIK amendments inferred from term changes. Published only for BDC windows where every loan's non-accrual status is known at the start and in every quarter; others are listed as withheld with the reason."],
-                ["Where did the PIK go (PIK ledger)", "The PIK booked since the window start, allocated to loans by their disclosed PIK rates and followed to today; the loan-level dollars are scaled to the cash-flow statement's PIK in quarters where at least 97% of the book's cost has a known PIK status and rate. Still in the book (performing, relabelled to another equity line at the same borrower, impaired, or PIK status unknown) is observed. Collected (loans that left at 97¢ or better or were refinanced at par) is an estimate, compared with the BDCs that report their PIK collections. Lost is estimated from the last mark before exit, not from sale proceeds."],
+                ["Where did the PIK go (PIK ledger)", "The PIK booked since the window start, allocated to loans by their disclosed PIK rates (a floating loan that pays its whole coupon in kind but is printed as a spread accrues at the quarter-end reference rate plus the spread, or at the filer's all-in rate where one is printed) and followed to today; the loan-level dollars are scaled to the cash-flow statement's PIK in quarters where at least 97% of the book's cost has a known PIK status and rate. Still in the book (performing, relabelled to another equity line at the same borrower, impaired, or PIK status unknown) is observed. Collected (loans that left at 97¢ or better or were refinanced at par) is an estimate, compared with the BDCs that report their PIK collections. Lost is estimated from the last mark before exit, not from sale proceeds."],
                 ["Forward queue (implied non-accrual formation)", "Each loan not yet on non-accrual is scored on warning signals (mark below 90¢, mark drop, cash → PIK switch, modification, junior ranking, another holder already on non-accrual); a signal gets points in proportion to how much more often loans carrying it went non-accrual, and none if too few loans carried it to measure. The score was fitted on older data and tested on later quarters it had not seen; each score bucket's hit rate there (share going non-accrual within two quarters) is applied to the BDC's scored book. Loans whose status is unknown at the start or at either later quarter are left out of the test rather than counted as performing, and so are loans whose borrower was already on non-accrual at the same BDC; a signal that cannot be checked counts as absent, so a BDC's figure is a lower bound where its signal coverage is below 100%."],
                 ["Cross-BDC mark dispersion", "For borrowers held by ≥3 BDCs, the spread between max and min mark across holders in the same quarter."],
               ].map(([metric, desc]) => (
@@ -289,7 +289,11 @@ export default function MethodologyPage() {
             column blank — a suffix such as &quot;, Preferred Stock&quot; on the borrower&apos;s name (a name like
             &quot;… Preferred Holdings, Inc.&quot; is not an instrument). Ordinary unsecured notes stay debt. For
             debt, the loan&apos;s history decides. It is &quot;switched&quot; when the same loan paid cash for at least
-            two quarters and then paid at least a fifth of its coupon in kind, still PIK at the next filing — or when
+            two quarters and then paid at least a fifth of its coupon in kind, still PIK at the next filing. A loan
+            that first took only a small PIK piece counts from the later quarter, in the same unbroken PIK run,
+            when its terms moved further into PIK — a PIK rate at least 0.25 points higher, half or more of the
+            coupon in kind, or all of it — and stayed there (Notorious Topco at OBDC and OCIC: a small PIK piece
+            from 2024, all-PIK after its 2025 restructuring). It is also switched when
             it is a new PIK loan cut from the BDC&apos;s own cash-pay loans at a restructuring: the BDC held debt of
             the same borrower the quarter before, its cash-pay part shrank by at least half the new PIK loan&apos;s
             size, and its total lending to that borrower grew by no more than a quarter (a restructuring, not new
@@ -300,15 +304,23 @@ export default function MethodologyPage() {
             Debt is &quot;first seen&quot; when its first quarter in our data was already PIK and it was not cut from
             cash-pay debt the BDC held: a loan made with PIK terms, a loan restructured before our coverage of that
             BDC begins, or a refinancing that brought in more than a quarter of new money or sat under another
-            borrower name. A loan that went PIK after a single cash quarter, or whose PIK crept up from a small
-            share, is &quot;history unclear&quot; rather than guessed.
+            borrower name. A loan that went PIK after a single cash quarter, or whose small PIK piece crossed a
+            fifth of the coupon only because SOFR fell and its cash coupon shrank (the PIK rate unchanged), is
+            &quot;history unclear&quot; rather than guessed.
           </p>
           <p data-floating-cash-leg="">
             <span className="text-white">How a floating cash coupon is read.</span>{" "}{FLOATING_CASH_LEG_NOTE}{" "}
-            The same applies to FSK, which prints the spread with the PIK part inside it, and to CCAP&apos;s spreads
-            in basis points; where the filing also prints the loan&apos;s all-in rate, that rate less the PIK part is
-            the cash coupon. Severity uses the cash coupon at each quarter end, so a loan&apos;s PIK share moves a
-            little with SOFR.
+            The same applies to FSK and to CCAP&apos;s spreads in basis points. FSK&apos;s spread is read with the
+            PIK part inside it (the filing does not say; read on top, those loans would be a little less PIK-heavy,
+            and a few small ones would move down a bucket). Where the filing also prints the loan&apos;s all-in
+            rate, that rate less the PIK part is the cash coupon — except that when CCAP prints the PIK
+            &quot;plus&quot; the spread and its rate matches the reference rate plus the spread, the rate leaves the
+            PIK out and is the cash coupon itself. When the PIK part is the whole printed spread (&quot;L + 7.00%
+            (incl. 7.00% PIK)&quot;), the whole coupon is taken to be paid in kind: no cash coupon, and the PIK
+            accrues at the reference rate plus the spread. Severity uses the cash coupon at each quarter end, so a
+            loan&apos;s PIK share moves a little with SOFR. Euro and sterling rates come from monthly series that
+            run months behind; for a quarter they have not reached yet, the overnight rate (€STR, SONIA) on the
+            quarter end plus its most recent gap to the three-month rate stands in.
           </p>
           <p>
             <span className="text-white">&quot;If severe PIK is lost&quot; on /income.</span>{" "}The base case takes the

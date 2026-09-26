@@ -11,8 +11,11 @@
 //               BDC starts, or a refinancing our loan history cannot link to the
 //               loan it replaced, lands here too.
 //   switched    debt that paid cash while held, then moved to PIK — the same
-//               loan, or a new PIK loan cut from the BDC's cash-pay loans to the
-//               same borrower at a restructuring. The stress signal.
+//               loan (also when it started with a small PIK piece and its terms
+//               later moved further into PIK: a higher PIK rate, half or more in
+//               kind, or all of it), or a new PIK loan cut from the BDC's
+//               cash-pay loans to the same borrower at a restructuring. The
+//               stress signal.
 //   unknown     debt whose history cannot tell; kept separate, never merged
 //
 // A floating loan's cash coupon counts its index (FLOATING_CASH_LEG_NOTE):
@@ -42,8 +45,8 @@ export const SEVERE_DEFINITION = "half or more of a position's coupon paid in ki
 export const PIK_ORIGIN_EXPLAIN: Record<PikOrigin, string> = {
   by_design: "Preferred stock, other equity and convertible notes. The PIK dividend or PIK coupon is built into the instrument — by design, not by itself a sign of trouble.",
   first_seen: "Debt that was already paying PIK the first time it appears in our data, and was not cut from cash-pay debt the BDC held the quarter before. That can be a loan made with PIK terms, a loan restructured before our coverage of that BDC begins, or a refinancing into a new PIK loan that our loan history cannot link to the loan it replaced (more than a quarter of new money came in, or the old loan was filed under another name) — so \"first seen\", not \"at origination\".",
-  switched: "Debt that paid interest in cash while the BDC held it, then moved to paying at least a fifth of its coupon in kind: either the same loan (after at least two cash quarters, and still PIK at the next filing where there is one), or a new PIK loan cut from the BDC's cash-pay loans to the same borrower at a restructuring (the cash-pay loans shrank as the PIK loan appeared, with no more than a quarter of new money). Severe ones now pay half or more in kind; many still pay some cash. This is the stress signal.",
-  unknown: "Debt whose history cannot tell: it was cash-pay when first seen but the move to PIK did not pass the switch test (only one cash quarter before, or PIK that grew from a small share), or its history has a gap.",
+  switched: "Debt that paid interest in cash while the BDC held it, then moved to paying at least a fifth of its coupon in kind: either the same loan (after at least two cash quarters, and still PIK at the next filing where there is one — a loan that started with a small PIK piece counts from the quarter its terms moved further into PIK: a higher PIK rate, half or more in kind, or all of it), or a new PIK loan cut from the BDC's cash-pay loans to the same borrower at a restructuring (the cash-pay loans shrank as the PIK loan appeared, with no more than a quarter of new money). Severe ones now pay half or more in kind; many still pay some cash. This is the stress signal.",
+  unknown: "Debt whose history cannot tell: it was cash-pay when first seen but the move to PIK did not pass the switch test (only one cash quarter before, or a small PIK piece that crossed a fifth of the coupon only because the reference rate fell, on unchanged terms), or its history has a gap.",
 };
 
 export const PIK_ORIGIN_COLOR: Record<PikOrigin, string> = {
@@ -86,7 +89,10 @@ export function severePikTypePoint(r: SeverePikTypeFields & { period_end: string
  */
 export function roundToTotal(parts: number[], decimals = 0, total?: number): number[] {
   const f = 10 ** decimals;
-  const target = Math.round((total ?? parts.reduce((s, v) => s + v, 0)) * f);
+  // Round the target exactly as the total is displayed (toFixed), so the parts
+  // add up to the printed total: 9.85 prints "9.8" (binary 9.8499…), while
+  // Math.round(9.85 * 10) would give 99.
+  const target = Math.round(Number((total ?? parts.reduce((s, v) => s + v, 0)).toFixed(decimals)) * f);
   const scaled = parts.map((v) => v * f);
   const floors = scaled.map(Math.floor);
   let left = target - floors.reduce((s, v) => s + v, 0);

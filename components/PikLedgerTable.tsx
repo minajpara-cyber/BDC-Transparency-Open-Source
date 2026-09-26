@@ -33,7 +33,7 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
 
   const head: [Key, string, string][] = [
     ["ticker", "BDC", ""],
-    ["pik_accrued_m", "PIK booked ($m)", "PIK allocated to each loan from its disclosed PIK rate × principal since the window start; scaled to the cash-flow statement's PIK in quarters where at least 97% of the book's cost has a known PIK status and rate"],
+    ["pik_accrued_m", "PIK booked ($m)", "PIK allocated to each loan from its disclosed PIK rate × principal since the window start (a floating loan that pays its whole coupon in kind but is printed as a spread accrues at the quarter-end reference rate plus the spread, or at the filer's all-in rate where one is printed); scaled to the cash-flow statement's PIK in quarters where at least 97% of the book's cost has a known PIK status and rate"],
     ["pik_pct_nii_window", "% of NII", "PIK income as a share of NII over the window"],
     ["collected_pct", "Collected (est.)", "estimate: loans that left the book at 97¢ or better, or were refinanced at par at the same BDC, plus the recovered part of loans exited below par"],
     ["refinanced_pct", "of which refinanced", "included in Collected: loans that left at par while the borrower kept a position at the same BDC — the old loan was repaid from the new facility"],
@@ -104,7 +104,7 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
                       ? `\nreports PIK collected in cash: $${r.reported_collected_last4q_m.toFixed(0)}m over the last four quarters (our estimate: $${r.collected_last4q_m.toFixed(0)}m)` : "") +
                     (r.pik_dollars_basis === "statement_scaled"
                       ? `\nscaled to the cash-flow statement in ${r.statement_scaled_quarters} of ${r.window_quarters} quarters (${r.statement_scaled_pct_of_accrued == null ? "—" : `${r.statement_scaled_pct_of_accrued.toFixed(0)}%`} of these PIK dollars)`
-                      : "\nloan-level PIK rate × principal (not matched to the statement)") +
+                      : "\nloan-level PIK rate × principal, a whole-coupon PIK loan printed as a spread at the reference rate plus the spread (not matched to the statement)") +
                     (r.statement_basis && r.statement_basis !== "gross" ? `\nstatement basis: ${r.statement_basis.replace(/_/g, " ")}` : "")}>
                   <Link href={`/bdcs/${r.ticker.toLowerCase()}`} className="hover:underline" style={{ color: "#a5b4fc" }}>{r.ticker}</Link>
                   {r.statement_basis && r.statement_basis !== "gross" && (

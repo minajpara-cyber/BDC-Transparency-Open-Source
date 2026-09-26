@@ -374,7 +374,7 @@ export default function IncomePage() {
           latest quarter and {(pikLedgerMeta.window_pik_observation_coverage_pct ?? 0).toFixed(1)}% over the whole
           window; cost with unknown PIK status is left out of the dollars.
           {scaledQuarters != null && totalQuarters
-            ? ` Each loan's PIK is its disclosed PIK rate × principal; it is scaled to the cash-flow statement's PIK in ${scaledQuarters} of ${totalQuarters} BDC-quarters (those where at least ${pikLedgerMeta.statement_scaling_min_coverage_pct ?? 97}% of the book's cost has a known PIK status and rate), which cover ${pikLedgerMeta.pooled_statement_scaled_pct_of_accrued ?? "—"}% of the PIK dollars.`
+            ? ` Each loan's PIK is its disclosed PIK rate × principal (a floating loan that pays its whole coupon in kind but is printed as a spread accrues at the quarter-end reference rate plus the spread, or at the filer's all-in rate where one is printed); it is scaled to the cash-flow statement's PIK in ${scaledQuarters} of ${totalQuarters} BDC-quarters (those where at least ${pikLedgerMeta.statement_scaling_min_coverage_pct ?? 97}% of the book's cost has a known PIK status and rate), which cover ${pikLedgerMeta.pooled_statement_scaled_pct_of_accrued ?? "—"}% of the PIK dollars.`
             : ""}
           {pikLedgerMeta.tieout_median_coverage != null
             ? ` Across BDCs the loan-level figure reproduces a median ${(100 * pikLedgerMeta.tieout_median_coverage).toFixed(0)}% of the statement PIK.`
