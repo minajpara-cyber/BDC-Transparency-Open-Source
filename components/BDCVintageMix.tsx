@@ -92,7 +92,7 @@ export default function BDCVintageMix({ ticker, asOf, rows }: { ticker: string; 
           {undated && undated.pct_of_book > 0 && <div className="text-[11px] mt-0.5" style={{ color: "#6b6b88" }}>{undated.pct_of_book.toFixed(0)}% undated</div>}
         </div>
         <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-          <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Book-weighted {m.short.toLowerCase()}</div>
+          <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Book-weighted {m.label.charAt(0).toLowerCase() + m.label.slice(1)}</div>
           <div className="text-xl font-bold tabular-nums" style={{ color: sevColor(wAvg, m.thresh) }}>{wAvg == null ? "—" : `${wAvg.toFixed(2)}%`}</div>
         </div>
         <div className="rounded-xl border p-4" style={{ background: "#111118", borderColor: "#1e1e2e" }}>

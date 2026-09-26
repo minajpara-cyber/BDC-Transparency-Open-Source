@@ -97,12 +97,17 @@ function buildSeries(rows: VintageRow[], key: keyof VintageRow): VintageSeries[]
 // Per vintage: the oldest age EVERY loan has reached (what the summary table
 // and the BDC matrix read), and the oldest published age (where the curve
 // ends, counting only the loans old enough).
-function seasonedPerVintage(rows: VintageRow[]) {
+// `tail` = the last age where the default chart's own measure (`key`) has a
+// value, so "Curve reaches" matches where that line ends. The high-confidence
+// line can stop before the all-dated one (its subset falls under the gate).
+function seasonedPerVintage(rows: VintageRow[], key: keyof VintageRow) {
   const byV = new Map<number, VintageRow[]>();
   for (const r of rows) byV.set(r.vintage_year, [...(byV.get(r.vintage_year) ?? []), r]);
   return Array.from(byV.entries()).sort((a, b) => a[0] - b[0]).flatMap(([, list]) => {
     const seasoned = fullySeasonedRow(list);
-    const tail = list.reduce((a, r) => (r.age_quarters > a.age_quarters ? r : a), list[0]);
+    const withValue = list.filter((r) => r[key] != null);
+    const pool = withValue.length ? withValue : list;
+    const tail = pool.reduce((a, r) => (r.age_quarters > a.age_quarters ? r : a), pool[0]);
     return seasoned ? [{ row: seasoned, tail }] : [];
   });
 }
@@ -130,13 +135,21 @@ interface MatrixData {
   vintages: number[];
   cells: Map<string, MatrixCell>;
   bdcTotal: Map<string, number>;
+  // The industry on the SAME vintages as each BDC, at that BDC's cohort ages,
+  // weighted by the BDC's cohort cost: the fair yardstick for its Total.
+  bdcBench: Map<string, number>;
+  bdcCells: Map<string, number>;
   industryByVintage: Map<number, { v: number; age: number }>;
   industryTotal: number;
   dropped: { ticker: string; reason: string }[];
 }
 
-function buildMatrix(bdcRows: VintageRow[], industryRows: VintageRow[], metric: Metric, hcOnly: boolean): MatrixData {
-  const mKey = resolveMetricKey(metric, hcOnly, false);
+// A Total resting on one or two vintages is mostly a statement about which
+// vintages the BDC has, so it is greyed and ranked after the others.
+const MIN_TOTAL_VINTAGES = 3;
+
+function buildMatrix(bdcRows: VintageRow[], industryRows: VintageRow[], metric: Metric, hcOnly: boolean, l1Only: boolean): MatrixData {
+  const mKey = resolveMetricKey(metric, hcOnly, l1Only);
   const cells = new Map<string, MatrixCell>();
   const byPair = new Map<string, VintageRow[]>();
   for (const r of bdcRows) {
@@ -168,15 +181,23 @@ function buildMatrix(bdcRows: VintageRow[], industryRows: VintageRow[], metric: 
     vintageSet.add(bdcR.vintage_year);
   }
   const bdcTotal = new Map<string, number>();
+  const bdcBench = new Map<string, number>();
+  const bdcCells = new Map<string, number>();
   for (const ticker of tickerSet) {
-    let num = 0, den = 0;
+    let num = 0, ind = 0, den = 0, n = 0;
     for (const vy of vintageSet) {
       const c = cells.get(`${ticker}|${vy}`);
       if (!c) continue;
       num += (c.bdcVal / 100) * c.cohort_b;
+      ind += (c.indVal / 100) * c.cohort_b;
       den += c.cohort_b;
+      n += 1;
     }
-    if (den > 0) bdcTotal.set(ticker, (num / den) * 100);
+    if (den > 0) {
+      bdcTotal.set(ticker, (num / den) * 100);
+      bdcBench.set(ticker, (ind / den) * 100);
+      bdcCells.set(ticker, n);
+    }
   }
   const industryByVintage = new Map<number, { v: number; age: number }>();
   let indNum = 0, indDen = 0;
@@ -199,13 +220,15 @@ function buildMatrix(bdcRows: VintageRow[], industryRows: VintageRow[], metric: 
     if (full.length === 0) reason = "every cohort predates our coverage of this BDC";
     else if (mKey.endsWith("_hc") && full.some((r) => r[metric] != null && r[mKey] == null))
       reason = `high-confidence dates cover under ${MIN_HC_COST_PCT}% of its cohorts' cost (or under 15 loans)`;
+    else if (mKey.endsWith("_1l") && full.some((r) => r[metric] != null && r[mKey] == null))
+      reason = "too few first-lien loans in its cohorts";
     else if (full.every((r) => r[mKey] == null)) reason = "this measure is not published for its cohorts";
     dropped.push({ ticker: t, reason });
   }
   return {
     tickers: Array.from(tickerSet).sort(),
     vintages: Array.from(vintageSet).sort(),
-    cells, bdcTotal, industryByVintage,
+    cells, bdcTotal, bdcBench, bdcCells, industryByVintage,
     industryTotal: indDen > 0 ? (indNum / indDen) * 100 : 0,
     dropped,
   };
@@ -282,7 +305,7 @@ export default function VintagePage() {
   const b80Series = useMemo(() => buildSeries(visibleRows, "pct_ever_b80"), [visibleRows]);
   const b90Series = useMemo(() => buildSeries(visibleRows, "pct_b90_alive"), [visibleRows]);
   const survivalSeries = useMemo(() => buildSeries(visibleRows, "pct_surviving"), [visibleRows]);
-  const tableRows = useMemo(() => seasonedPerVintage(visibleRows), [visibleRows]);
+  const tableRows = useMemo(() => seasonedPerVintage(visibleRows, defaultMetricKey), [visibleRows, defaultMetricKey]);
   const thinRange = useMemo(() => thinVintageRange(vintageRows), []);
   // First-lien share of each BDC's dated cohort cost (all vintages, entry cost).
   const l1Share = useMemo(() => {
@@ -297,14 +320,24 @@ export default function VintagePage() {
       .map(([t, a]) => ({ ticker: t, pct: (100 * a.l1) / a.all }))
       .sort((a, b) => (a.ticker === "industry" ? -1 : b.ticker === "industry" ? 1 : a.ticker.localeCompare(b.ticker)));
   }, []);
-  const matrix = useMemo(() => buildMatrix(bdcRows, industryRows, matrixMetric, hcOnly), [bdcRows, industryRows, matrixMetric, hcOnly]);
+  const matrix = useMemo(() => buildMatrix(bdcRows, industryRows, matrixMetric, hcOnly, l1Only), [bdcRows, industryRows, matrixMetric, hcOnly, l1Only]);
+  const matrixKey = resolveMetricKey(matrixMetric, hcOnly, l1Only);
 
   const sortedTickers = useMemo(() => {
     const ts = [...matrix.tickers];
     if (matrixSortKey === null) return ts;
+    // "Total" ranks each BDC against the industry on its own vintages (the
+    // gap), not on its raw average, which mostly reflects how old its
+    // vintages are. Totals on fewer than MIN_TOTAL_VINTAGES vintages go last.
+    const gap = (t: string) => {
+      const tot = matrix.bdcTotal.get(t), bench = matrix.bdcBench.get(t);
+      return tot == null || bench == null ? null : tot - bench;
+    };
+    const thin = (t: string) => (matrix.bdcCells.get(t) ?? 0) < MIN_TOTAL_VINTAGES;
     return ts.sort((a, b) => {
-      const va = matrixSortKey === "total" ? (matrix.bdcTotal.get(a) ?? Number.POSITIVE_INFINITY) : (matrix.cells.get(`${a}|${matrixSortKey}`)?.bdcVal ?? Number.POSITIVE_INFINITY);
-      const vb = matrixSortKey === "total" ? (matrix.bdcTotal.get(b) ?? Number.POSITIVE_INFINITY) : (matrix.cells.get(`${b}|${matrixSortKey}`)?.bdcVal ?? Number.POSITIVE_INFINITY);
+      if (matrixSortKey === "total" && thin(a) !== thin(b)) return thin(a) ? 1 : -1;
+      const va = matrixSortKey === "total" ? (gap(a) ?? Number.POSITIVE_INFINITY) : (matrix.cells.get(`${a}|${matrixSortKey}`)?.bdcVal ?? Number.POSITIVE_INFINITY);
+      const vb = matrixSortKey === "total" ? (gap(b) ?? Number.POSITIVE_INFINITY) : (matrix.cells.get(`${b}|${matrixSortKey}`)?.bdcVal ?? Number.POSITIVE_INFINITY);
       return matrixSortDir === "asc" ? va - vb : vb - va;
     });
   }, [matrix, matrixSortKey, matrixSortDir]);
@@ -418,7 +451,9 @@ export default function VintagePage() {
             {(m === "pct_ever_default" || m === "pct_ever_modified") && (
               <p className="text-xs mb-3" style={{ color: "#6b6b88" }}>Basis: {m === "pct_ever_default" ? basisLabel : hcOnly ? "high-confidence dates only" : "all dated loans"}.</p>
             )}
-            <VintageChart series={series} yLabel={meta.label} height={300} />
+            {/* The panel title names the measure; the axis only says the unit (a
+                long title rotated on the axis was clipped). */}
+            <VintageChart series={series} yLabel="% of cohort cost" height={300} />
           </div>
         );
       })}
@@ -430,7 +465,7 @@ export default function VintagePage() {
           schedule at age T or later. Declines reflect refinancings, paydowns, sales and write-offs. It cannot exceed 100% — loans
           that grew through add-ons or PIK still count once, at their entry cost.
         </p>
-        <VintageChart series={survivalSeries} yLabel="% of cohort cost still on book" height={300} yMax={100} />
+        <VintageChart series={survivalSeries} yLabel="% still on book" height={300} yMax={100} />
       </div>
 
       <div className="rounded-xl border overflow-hidden mb-6" style={panel}>
@@ -490,8 +525,10 @@ export default function VintagePage() {
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
             Each vintage at the <span className="text-white">oldest age every loan in it has reached</span>{" "}({basisLabel}{" "}for the
             default column) — the same age the BDC × Vintage matrix reads, so every figure counts the whole cohort. &ldquo;Curve
-            reaches&rdquo; is where the chart line ends, counting only the loans old enough. NA% and Below-80% are cumulative through
-            age; Below-90% is point-in-time among loans still on the book.
+            reaches&rdquo; is where the default chart&apos;s line ends on the same basis, counting only the loans old enough. NA% and
+            Below-80% are cumulative through age; Below-90% is point-in-time among loans still on the book. * on Ever Modified = the
+            modification history of 5% or more of the cost could not be judged and is left out; when under half the cost could be
+            judged the figure is greyed with the share judged beside it (hover for details).
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -559,9 +596,12 @@ export default function VintagePage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: modColor }}
+                    <td className="px-4 py-3 text-sm font-semibold" style={{ color: modValue != null && r.pct_mod_unknown >= 50 ? "#6b6b88" : modColor }}
                         title={`Loans whose modification history could not be judged, left out: ${r.pct_mod_unknown.toFixed(1)}% of the cost`}>
                       {modValue == null ? "—" : `${modValue.toFixed(2)}%${r.mod_partial ? "*" : ""}`}
+                      {modValue != null && r.pct_mod_unknown >= 50 && (
+                        <span className="ml-1 text-[10px] font-normal" style={{ color: "#6b6b88" }}>on {(100 - r.pct_mod_unknown).toFixed(0)}% of cost</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm" style={{ color: naColor }}>{r.pct_ever_na == null ? "—" : `${r.pct_ever_na.toFixed(2)}%`}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: b80Color }}>{r.pct_ever_b80 == null ? "—" : `${r.pct_ever_b80.toFixed(2)}%`}</td>
@@ -636,9 +676,14 @@ export default function VintagePage() {
             Rows = BDCs, columns = vintage years. Each cell is the BDC&apos;s metric at the <span className="text-white">oldest age every
             loan in its cohort has reached</span>, next to the industry at that same age — so a cell never rests on the early-dated
             part of a cohort only. <span className="text-white">Greyed italic</span> cells: more than {ESTIMATED_GREY_PCT}% of the
-            cohort&apos;s cost is dated by an estimate rather than a disclosed date. * = status partly unknown. With high-confidence
-            dates only, a cell appears only when HIGH+MED loans carry at least {MIN_HC_COST_PCT}% of the cohort&apos;s counted cost, so no
-            BDC is ranked on a sliver of its loans. Cohorts below 30 loans are not shown; BDCs without a cell are listed under the table.
+            cohort&apos;s cost is dated by an estimate rather than a disclosed date. * = status partly unknown.
+            {matrixKey.endsWith("_hc") && <> With high-confidence dates only, a cell appears only when HIGH+MED loans carry at least{" "}
+            {MIN_HC_COST_PCT}% of the cohort&apos;s counted cost, so no BDC is ranked on a sliver of its loans.</>}
+            {matrixKey.endsWith("_1l") && <> First-lien loans only (the First-lien toggle above).</>}
+            {" "}Cohorts below 30 loans are not shown; BDCs without a cell are listed under the table. <span className="text-white">Total</span>{" "}
+            averages a BDC&apos;s own vintages (weighted by cohort cost), so it depends on which vintages the BDC has: its relative view and
+            its rank compare it with the industry on those same vintages, and a Total on fewer than {MIN_TOTAL_VINTAGES}{" "}vintages is
+            greyed and ranked last.
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2 mt-3 text-xs">
             <div className="flex items-center gap-1.5">
@@ -682,7 +727,7 @@ export default function VintagePage() {
                   );
                 })}
                 <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider whitespace-nowrap border-l" style={{ borderColor: "#1e1e2e" }}>
-                  <button onClick={() => onSortClick("total")} className="hover:text-white transition-colors mx-auto" style={{ color: matrixSortKey === "total" ? "#a5b4fc" : "#8b8ba8" }} title="Cohort-weighted across this BDC's vintages">
+                  <button onClick={() => onSortClick("total")} className="hover:text-white transition-colors mx-auto" style={{ color: matrixSortKey === "total" ? "#a5b4fc" : "#8b8ba8" }} title="Cohort-weighted across this BDC's vintages; sorts by the gap to the industry on the same vintages">
                     Total {matrixSortKey === "total" ? (matrixSortDir === "asc" ? "↑" : "↓") : ""}
                   </button>
                 </th>
@@ -691,9 +736,14 @@ export default function VintagePage() {
             <tbody>
               {sortedTickers.map((ticker, i) => {
                 const total = matrix.bdcTotal.get(ticker);
-                const totalDelta = total != null ? total - matrix.industryTotal : null;
+                const bench = matrix.bdcBench.get(ticker);
+                const nCells = matrix.bdcCells.get(ticker) ?? 0;
+                const thinTotal = nCells < MIN_TOTAL_VINTAGES;
+                const totalDelta = total != null && bench != null ? total - bench : null;
                 const isAbs = matrixView === "absolute";
-                const totalStyle = total == null ? { bg: "transparent", fg: "#444" } : isAbs ? absLevelColor(total, matrixMetric) : relDeltaColor(totalDelta ?? 0);
+                const totalStyle = total == null ? { bg: "transparent", fg: "#444" }
+                  : thinTotal ? { bg: "transparent", fg: "#6b6b88" }
+                  : isAbs ? absLevelColor(total, matrixMetric) : relDeltaColor(totalDelta ?? 0);
                 const totalText = total == null ? "—" : isAbs ? `${total.toFixed(2)}%` : `${(totalDelta ?? 0) > 0 ? "+" : ""}${(totalDelta ?? 0).toFixed(2)}pp`;
                 return (
                   <tr key={ticker} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
@@ -703,8 +753,9 @@ export default function VintagePage() {
                       </a>
                     </td>
                     {matrix.vintages.map((vy) => <React.Fragment key={vy}>{renderCell(matrix.cells.get(`${ticker}|${vy}`))}</React.Fragment>)}
-                    <td className="px-3 py-2.5 text-center font-semibold tabular-nums border-l" style={{ background: totalStyle.bg, color: totalStyle.fg, borderColor: "#1e1e2e", fontSize: "0.95rem" }}
-                        title={total != null ? `Cohort-weighted across ${ticker}'s vintages · industry total ${matrix.industryTotal.toFixed(2)}%` : undefined}>
+                    <td className="px-3 py-2.5 text-center font-semibold tabular-nums border-l" style={{ background: totalStyle.bg, color: totalStyle.fg, borderColor: "#1e1e2e", fontSize: "0.95rem", fontStyle: thinTotal ? "italic" : undefined }}
+                        data-thin-total={thinTotal ? "true" : undefined}
+                        title={total != null && bench != null ? `Cohort-weighted across ${ticker}'s ${nCells} vintage${nCells === 1 ? "" : "s"}: ${total.toFixed(2)}% · the industry on the same vintages, weighted the same way: ${bench.toFixed(2)}%${thinTotal ? ` · greyed and ranked last: fewer than ${MIN_TOTAL_VINTAGES} vintages` : ""}` : undefined}>
                       {totalText}
                     </td>
                   </tr>
@@ -721,7 +772,8 @@ export default function VintagePage() {
                     </td>
                   );
                 })}
-                <td className="px-3 py-2.5 text-center font-semibold tabular-nums border-l" style={{ color: "#d1d5db", fontSize: "0.95rem", borderColor: "#1e1e2e" }}>{matrix.industryTotal.toFixed(2)}%</td>
+                <td className="px-3 py-2.5 text-center font-semibold tabular-nums border-l" style={{ color: "#d1d5db", fontSize: "0.95rem", borderColor: "#1e1e2e" }}
+                    title="All vintages in the matrix, weighted by the industry's cohort cost. Each BDC's Relative Total is measured against the industry on that BDC's own vintages instead (hover a BDC's Total).">{matrix.industryTotal.toFixed(2)}%</td>
               </tr>
             </tbody>
           </table>

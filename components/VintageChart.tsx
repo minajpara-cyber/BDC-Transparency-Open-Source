@@ -103,7 +103,7 @@ export default function VintageChart({
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
-        <LineChart data={wide} margin={{ top: 10, right: 20, left: 0, bottom: 8 }}>
+        <LineChart data={wide} margin={{ top: 10, right: 20, left: 10, bottom: 8 }}>
           <CartesianGrid stroke="#1e1e2e" strokeDasharray="3 3" />
           <XAxis
             dataKey="age_years"
@@ -117,7 +117,7 @@ export default function VintageChart({
             domain={yMax != null ? [0, yMax] : [0, "auto"]}
             tick={{ fill: "#8b8ba8", fontSize: 11 }}
             tickFormatter={(v: number) => `${v.toFixed(1)}%`}
-            label={{ value: yLabel, angle: -90, position: "insideLeft", fill: "#8b8ba8", fontSize: 11 }}
+            label={{ value: yLabel, angle: -90, position: "insideLeft", fill: "#8b8ba8", fontSize: 11, style: { textAnchor: "middle" } }}
           />
           <Tooltip
             contentStyle={{

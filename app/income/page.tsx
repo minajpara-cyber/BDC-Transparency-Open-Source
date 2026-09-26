@@ -298,8 +298,10 @@ export default function IncomePage() {
             months earlier is followed through the year at the same BDC; it counts once, under its first event.
             New non-accruals are observed in the filings. The other legs are inferred, not disclosed:{" "}
             <span className="text-white">distressed exits</span>{" "}are inferred from the exit mark (the loan left
-            the book below 85¢, or after a mark below 80¢, without going non-accrual — a low last mark is not
-            proof of a loss, and some of these may be sales at a discount), and{" "}
+            the book below 85¢, or after a mark below 80¢, without going non-accrual, or a marked-down loan was
+            swapped for new equity or much smaller or junior debt — a low last mark is not proof of a loss, and some
+            of these may be sales at a discount; a piece repaid or refinanced while the borrower keeps its debt at the
+            BDC is not counted; CLO and other structured-finance notes are left out altogether), and{" "}
             <span className="text-white">restructurings and PIK amendments</span>{" "}are inferred from changes in
             the loan&apos;s terms between filings. A PIK amendment counts only when PIK becomes at least a fifth of
             the coupon after at least two cash-pay quarters, and a modification only when it touches at least a

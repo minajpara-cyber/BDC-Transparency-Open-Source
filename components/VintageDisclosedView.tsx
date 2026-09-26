@@ -1,6 +1,6 @@
 "use client";
 
-// "Disclosed dates only" tab on /vintage — Codex's strict holding-cohort view,
+// "Disclosed dates only" tab on /vintage — the strict holding-cohort view,
 // kept as a secondary view and a cross-check on the main curves. Only a BDC's
 // own disclosed acquisition date (or the first quarter we saw the holding) is
 // used; nothing is estimated. Results are lower/upper bounds on observed

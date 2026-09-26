@@ -931,7 +931,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
           const est = rs.reduce((s, r) => s + r.cost_estimated_b, 0);
           const vy = k === "undated" ? null : k === "old" ? 2017 : Number(k);
           const cmp = k === "undated" || k === "old" ? undefined : fullySeasonedRow(mine.filter((r) => r.vintage_year === vy));
-          const ind = cmp ? vintageRows.find((i) => i.ticker === "industry" && i.vintage_year === cmp.vintage_year && i.age_quarters === cmp.age_quarters) : undefined;
+          // Same baseline as the performance table below: a thin industry
+          // cohort (one that predates most of our coverage) is no baseline.
+          const ind = cmp ? vintageRows.find((i) => i.ticker === "industry" && !i.is_partial && i.vintage_year === cmp.vintage_year && i.age_quarters === cmp.age_quarters) : undefined;
           return {
             vintage_year: vy,
             label: k === "old" ? "≤2017" : undefined,
@@ -967,7 +969,9 @@ export default async function BDCDetailPage({ params }: PageProps) {
           if (!r) return { value: null as number | null, ind: null as number | null, restricted: false, reached: false, partial: false, hcShare: null as number | null };
           const reached = r.n_loans_eligible === r.n_loans_cohort;
           const ir = industryVintage.find((x) => x.vintage_year === vy && x.age_quarters === age * 4);
-          const restricted = r.pct_ever_default_hc != null && ir?.pct_ever_default_hc != null;
+          // No industry cohort for this vintage (it predates most of our
+          // coverage): still show this BDC's own figure, HC when it has one.
+          const restricted = r.pct_ever_default_hc != null && (ir == null || ir.pct_ever_default_hc != null);
           return {
             value: reached ? (restricted ? r.pct_ever_default_hc : r.pct_ever_default) : null,
             ind: ir ? (restricted ? ir.pct_ever_default_hc : ir.pct_ever_default) : null,
@@ -992,7 +996,8 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <span className="text-white">mostly estimated</span>{" "}have more than {MOSTLY_ESTIMATED_PCT}% of their entry cost dated by an
               estimate rather than a disclosed date — estimated the same way as the &ldquo;Dated by estimate&rdquo; column above, which
               measures today&apos;s book rather than the cohort at entry. * = non-accrual status partly unknown. Cohorts under 30 loans and
-              vintages predating our coverage of {bdc.ticker}{" "}are omitted.
+              vintages predating our coverage of {bdc.ticker}{" "}are omitted; for vintages before most of our coverage there is no industry
+              figure, so {bdc.ticker}&apos;s own rate is shown alone (&ldquo;no industry baseline&rdquo;).
             </p>
             <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
               <div className="overflow-x-auto">
@@ -1023,10 +1028,21 @@ export default async function BDCDetailPage({ params }: PageProps) {
                           </td>
                           {ageYears.map((yr) => {
                             const c = pick(vy, yr);
-                            if (c.value == null || c.ind == null) {
+                            if (c.value == null) {
                               return (
                                 <td key={yr} className="px-3 py-2 text-xs" style={{ color: "#444" }}
-                                    title={c.reached ? "No industry baseline at this age" : "Not every loan in this cohort has reached this age yet"}>—</td>
+                                    title="Not every loan in this cohort has reached this age yet">—</td>
+                              );
+                            }
+                            if (c.ind == null) {
+                              return (
+                                <td key={yr} className="px-3 py-2" title={`${c.restricted ? `High-confidence dates only (HIGH+MED; ${c.hcShare?.toFixed(0) ?? "?"}% of the counted cost)` : "All dated loans"} · the industry cohort for this vintage predates most of our filing coverage, so there is no industry figure to compare`}>
+                                  <div className="text-sm font-semibold flex items-center gap-1" style={{ color: "#d1d5db" }}>
+                                    {c.value.toFixed(2)}%{c.partial ? "*" : ""}
+                                    {c.restricted && <span className="text-[10px] px-1 py-0 rounded" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}>HC</span>}
+                                  </div>
+                                  <div className="text-xs" style={{ color: "#6b6b88" }}>no industry baseline</div>
+                                </td>
                               );
                             }
                             const diff = c.value - c.ind;

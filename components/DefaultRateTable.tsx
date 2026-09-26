@@ -28,7 +28,7 @@ const HEAD: [Key, string, string, string][] = [
   ["hard_rate", "Hard rate", "", "new non-accruals plus distressed exits"],
   ["rate_non_accrual", "New non-accrual", "observed", "the BDC flagged the loan non-accrual during the year"],
   ["rate_distressed_exit", "Distressed exit", "inferred from exit mark",
-    "the loan left the book below 85¢, or after a mark below 80¢, without ever going non-accrual — a sale or write-off at a distressed price is inferred from the last mark, not from sale proceeds"],
+    "the loan left the book below 85¢, or after a mark below 80¢, without ever going non-accrual, or a marked-down loan was swapped for new equity or much smaller or junior debt — inferred from the last mark, not from sale proceeds. A piece repaid or refinanced while the borrower keeps its debt at the BDC is not an exit"],
   ["rate_restructuring", "Restructuring", "inferred from term changes",
     "principal cut at a stressed mark or for equity, debt swapped for equity, a lien downgrade, or a maturity extension on a loan marked below 90¢"],
   ["rate_pik_amendment", "PIK amendment", "inferred from term changes",
