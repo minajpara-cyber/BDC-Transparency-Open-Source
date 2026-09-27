@@ -89,8 +89,8 @@ export interface CompareRow {
   ticker: string;
   period_end: string;
   pct_non_accrual: number | null;
-  pct_below_95: number;
-  pct_below_90: number;
+  pct_below_95: number | null;
+  pct_below_90: number | null;
   pct_pik_total: number | null;
   pct_pik_total_upper: number | null;
   pik_observation_coverage_pct: number | null;

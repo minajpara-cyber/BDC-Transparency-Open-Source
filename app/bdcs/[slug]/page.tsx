@@ -388,10 +388,13 @@ export default async function BDCDetailPage({ params }: PageProps) {
             />
             <StatCard
               label="% below 95¢ of par"
-              value={`${cqLatest.pct_below_95.toFixed(1)}%`}
-              color={cqLatest.pct_below_95 >= 15 ? "#ef4444" : cqLatest.pct_below_95 >= 5 ? "#eab308" : "#9ca3af"}
-              trend={cqPrior && cqLatest.pct_below_95 > cqPrior.pct_below_95 ? "up" : cqPrior && cqLatest.pct_below_95 < cqPrior.pct_below_95 ? "down" : undefined}
-              trendLabel={cqPrior ? fmtDelta(cqLatest.pct_below_95, cqPrior.pct_below_95, 1) : undefined}
+              value={cqLatest.pct_below_95 == null ? "Unknown" : `${cqLatest.pct_below_95.toFixed(1)}%`}
+              color={(cqLatest.pct_below_95 ?? 0) >= 15 ? "#ef4444" : (cqLatest.pct_below_95 ?? 0) >= 5 ? "#eab308" : "#9ca3af"}
+              trend={cqPrior?.pct_below_95 != null && cqLatest.pct_below_95 != null
+                ? (cqLatest.pct_below_95 > cqPrior.pct_below_95 ? "up" : cqLatest.pct_below_95 < cqPrior.pct_below_95 ? "down" : undefined)
+                : undefined}
+              trendLabel={cqPrior?.pct_below_95 != null && cqLatest.pct_below_95 != null
+                ? fmtDelta(cqLatest.pct_below_95, cqPrior.pct_below_95, 1) : undefined}
             />
             {spLatest?.avg_spread_book_bps !== undefined && spLatest.avg_spread_book_bps !== null && (
               <StatCard
@@ -589,11 +592,12 @@ export default async function BDCDetailPage({ params }: PageProps) {
                           style={{ color: (pik.upper ?? pik.lower ?? 0) >= 15 ? "#f97316" : (pik.upper ?? pik.lower ?? 0) >= 5 ? "#eab308" : "#9ca3af" }}>
                           {formatPikPublication(pik)}
                         </td>
-                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_below_95 >= 15 ? "#ef4444" : "#9ca3af" }}>
-                          {r.pct_below_95.toFixed(1)}%
+                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_below_95 == null ? "#8b8ba8" : r.pct_below_95 >= 15 ? "#ef4444" : "#9ca3af" }}
+                          title={r.pct_below_95 == null ? "Unknown: par was not read for this quarter's loans, so the mark (fair value ÷ par) cannot be computed" : undefined}>
+                          {r.pct_below_95 == null ? "Unknown" : `${r.pct_below_95.toFixed(1)}%`}
                         </td>
-                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_below_90 >= 10 ? "#ef4444" : "#9ca3af" }}>
-                          {r.pct_below_90.toFixed(1)}%
+                        <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_below_90 == null ? "#8b8ba8" : r.pct_below_90 >= 10 ? "#ef4444" : "#9ca3af" }}>
+                          {r.pct_below_90 == null ? "Unknown" : `${r.pct_below_90.toFixed(1)}%`}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: "#22c55e" }}>
                           {sp?.avg_spread_book_bps ?? "—"}

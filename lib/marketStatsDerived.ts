@@ -88,6 +88,8 @@ function aggregate(period: string) {
       (b) => b.ticker === cq.ticker && b.period_end === cq.period_end,
     );
     if (!w) continue;
+    // Unknown marks (no par read) stay out of the weighted average.
+    if (cq.pct_below_95 == null || cq.pct_below_90 == null) continue;
     below95 += w.total_cost_b * cq.pct_below_95;
     below90 += w.total_cost_b * cq.pct_below_90;
     cqCost  += w.total_cost_b;

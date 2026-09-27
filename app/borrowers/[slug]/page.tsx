@@ -4,8 +4,9 @@ import { ArrowLeft } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import BorrowerHistoryChart from "@/components/BorrowerHistoryChart";
 import { borrowers } from "@/data/borrowers_index";
-import { borrowerHistory } from "@/data/borrowers_history";
+import { borrowerHistory, latestBookByTicker } from "@/data/borrowers_history";
 import { borrowerEnrichment } from "@/data/borrower_enrichment";
+import { splitCurrentHolders } from "@/lib/borrowerHolders";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -58,12 +59,16 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
     is_non_accrual: number | null;
     has_pik: number | null;
   };
-  const latestByTicker = new Map<string, Snapshot>();
+  const lastByTicker = new Map<string, Snapshot>();
   for (const h of rows) {
-    const prev = latestByTicker.get(h.ticker);
-    if (!prev || h.period_end > prev.period_end) latestByTicker.set(h.ticker, h);
+    const prev = lastByTicker.get(h.ticker);
+    if (!prev || h.period_end > prev.period_end) lastByTicker.set(h.ticker, h);
   }
-  const latestRows = Array.from(latestByTicker.values()).sort((a, b) => b.fv - a.fv);
+  // Current holders: the borrower is in the BDC's latest book (the same rule
+  // as the /borrowers index). A BDC whose last row is older has exited; it is
+  // listed apart and left out of the totals and the mark dispersion.
+  const { current: latestRows, exited: exitedRows } = splitCurrentHolders(
+    Array.from(lastByTicker.values()), latestBookByTicker);
   const latestTotalFV = latestRows.reduce((s, r) => s + r.fv, 0);
   const latestTotalCost = latestRows.reduce((s, r) => s + r.cost, 0);
 
@@ -160,7 +165,9 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
           </div>
         )}
         <p className="text-sm" style={{ color: "#9ca3af" }}>
-          {tickers.length} holder{tickers.length === 1 ? "" : "s"} · {periods.length} quarter{periods.length === 1 ? "" : "s"}{" "}of history
+          {latestRows.length} current holder{latestRows.length === 1 ? "" : "s"}
+          {exitedRows.length > 0 && <> · {exitedRows.length}{" "}exited</>}
+          {" "}· {periods.length} quarter{periods.length === 1 ? "" : "s"}{" "}of history
           · {periods[0]} → {periods[periods.length - 1]}
         </p>
         {(() => {
@@ -198,7 +205,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
           value={`${latestTotalCost ? ((100 * latestTotalFV) / latestTotalCost).toFixed(1) : "—"}%`}
           color={latestTotalCost && latestTotalFV / latestTotalCost >= 0.98 ? "#22c55e" : latestTotalFV / latestTotalCost >= 0.9 ? "#eab308" : "#ef4444"}
         />
-        {b.n_holders >= 2 && spreadBps !== null && (
+        {latestRows.length >= 2 && spreadBps !== null && (
           <StatCard
             label="Mark dispersion (latest)"
             value={`${spreadBps} bps`}
@@ -278,6 +285,17 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
             </tbody>
           </table>
         </div>
+        {exitedRows.length > 0 && (
+          <p className="px-5 py-3 text-xs border-t" style={{ color: "#8b8ba8", borderColor: "#1e1e2e" }}>
+            Exited (not in the BDC&apos;s latest book, left out of the totals above):{" "}
+            {exitedRows.map((r, i) => (
+              <span key={r.ticker}>
+                {i > 0 && ", "}
+                <span className="font-mono text-white">{r.ticker}</span>{" "}(last seen {r.period_end}, {fmtUSD(r.fv)}{" "}fair value)
+              </span>
+            ))}
+          </p>
+        )}
       </div>
 
       {/* Fair value over time per holder */}

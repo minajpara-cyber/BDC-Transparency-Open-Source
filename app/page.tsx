@@ -117,12 +117,13 @@ export default function HomePage() {
           {siteMeta.n_bdcs} BDCs · latest quarter ends {siteMeta.latest_period} · data updated{" "}
           {siteMeta.generated_at}
         </p>
-        {longTailReportingDate && (
-          <p className="text-xs mt-2 text-gray-500">
-            Data for the smaller BDCs we add from the SEC&apos;s bulk data sets runs only through {longTailReportingDate}.{" "}
-            <Link href="/about#data-notes" className="underline">Data notes</Link>
-          </p>
-        )}
+        <p className="text-xs mt-2 text-gray-500">
+          {/* Only when the SEC bulk data actually lags the main data. */}
+          {longTailReportingDate && longTailReportingDate < siteMeta.latest_period && (
+            <>Data for the smaller BDCs we add from the SEC&apos;s bulk data sets runs only through {longTailReportingDate}.{" "}</>
+          )}
+          <Link href="/about#data-notes" className="underline">Data notes</Link>
+        </p>
       </div>
 
       {/* Headline stats */}
@@ -287,7 +288,7 @@ export default function HomePage() {
             { href: "/vintage", icon: TrendingDown, t: "Vintage analysis", d: "Cumulative default curves by vintage year, with dating confidence and coverage shown" },
             { href: "/credit", icon: AlertTriangle, t: "Credit quality", d: "Non-accruals, marks and PIK trends quarterly since 2018, with a 160-fund industry blend" },
             { href: "/maturity", icon: Clock, t: "Maturity walls", d: "When each BDC's borrowers must repay or refinance" },
-            { href: "/borrowers", icon: Users, t: "Borrower universe", d: "1,900+ entity-resolved borrowers with cross-holder marks and history" },
+            { href: "/borrowers", icon: Users, t: "Borrower universe", d: "Entity-resolved borrowers in each BDC's latest book, with cross-holder marks and history" },
           ].map((x) => (
             <Link key={x.href} href={x.href} className="p-3 rounded-lg border transition-colors hover:border-indigo-500/50" style={{ borderColor: "#1e1e2e" }}>
               <x.icon size={15} className="text-indigo-400 mb-1.5" />

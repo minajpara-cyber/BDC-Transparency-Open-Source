@@ -501,11 +501,13 @@ export default function MethodologyPage() {
               disclosed figure is shown instead. Mark-based metrics from the same filings are reliable.
             </li>
             <li>
-              <span className="text-white">CCAP pre-XBRL.</span>{" "}
-              CCAP&apos;s pre-XBRL parser extracted financial-statement summary rows instead of
-              SOI positions, so those quarters are fully muted until XBRL kicks in. OCSL&apos;s older
+              <span className="text-white">Older schedules.</span>{" "}
+              CCAP&apos;s books from 2015-06 to 2021-12 are read from its schedules of investments and add
+              up to each filing&apos;s printed total investments, so CCAP is no longer muted. OCSL&apos;s older
               schedules (to 2022-12-31) print each loan&apos;s rate terms and maturity inside its
               description; those are now read from the description, so OCSL is no longer muted.
+              ARCC&apos;s parsed books before 2022-09 carry no par, so its below-95¢ / 90¢ shares for
+              those quarters are unknown (shown as &quot;—&quot;, left out of the industry line), never zero.
             </li>
             <li>
               <span className="text-white">Cross-check against each BDC&apos;s own figure.</span>{" "}

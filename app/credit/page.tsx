@@ -36,7 +36,6 @@ import { joinList } from "@/lib/joinList";
 // the broken metric family, which lets reliable historical data surface.
 // Caveat-flagged cells are muted/italic and excluded from industry charts.
 type MetricFamily = "mark" | "na" | "pik";
-const ALL_FAMILIES: MetricFamily[] = ["mark", "na", "pik"];
 // `from` is optional. Without it, the caveat applies through `until` (no
 // lower bound). With it, the caveat covers a closed [from, until] window —
 // useful when a parser breaks for a specific era of filings.
@@ -47,10 +46,11 @@ const COVERAGE_CAVEATS: Array<{
   metrics: MetricFamily[];
   reason: string;
 }> = [
-  // CCAP pre-XBRL parsed financial-statement summary rows, not SOI positions —
-  // every metric is unreliable.
-  { ticker: "CCAP", until: "2022-02-28", metrics: ALL_FAMILIES,
-    reason: "Pre-XBRL CCAP filings parsed financial-statement summary rows instead of SOI positions" },
+  // CCAP's books 2015-06..2021-12 are read from its schedules of investments
+  // (header-mapped, 2026-09) and add up to each filing's printed total, and its
+  // decoded non-accrual rate matches CCAP's own figure, so no CCAP caveat
+  // remains. ARCC's parsed books before 2022-09 carry no par: its below-95/90¢
+  // rates for those quarters are exported as unknown (null), not muted here.
   // OCSL's legacy schedules (books to 2022-12-31) are parsed with par, cost,
   // fair value, maturity and PIK read from each loan's description
   // (scripts/26, 2026-09-25), so no OCSL caveat remains. Its non-accrual
@@ -182,6 +182,7 @@ function buildIndustrySeries(field: NumericKeys): IndustryPoint[] {
       value: r[field] as number,
       coverage: field === "pct_non_accrual" ? r.na_covered_bdcs : creditQuality.filter(
         (b) => b.ticker !== "industry" && b.period_end === r.period_end && b.n_positions >= MIN_POSITIONS_FOR_RELIABLE
+          && b[field] != null
       ).length,
     }))
     .filter((p) => p.coverage >= MIN_BDCS_FOR_INDUSTRY)
@@ -723,8 +724,10 @@ export default function CreditPage() {
           <span className="font-semibold">Partial coverage:</span>{" "}
           Caveats now apply per metric family rather than per BDC-quarter as a whole — mark-based
           data (below 95¢ / 90¢, asset mix, spread) surfaces back to 2013 for FSK and 2016 for OBDC
-          because those parsers capture par / cost / fv cleanly even pre-XBRL. CCAP pre-XBRL remains
-          fully muted (its parser extracted financial-statement summary rows). FSK&apos;s
+          because those parsers capture par / cost / fv cleanly even pre-XBRL. The below-95¢ / 90¢
+          share needs par (the mark is fair value ÷ par): where par was read for under half of a
+          quarter&apos;s debt (ARCC before 2022-09) the share is shown as unknown (&quot;—&quot;), not zero, and
+          left out of the industry line. FSK&apos;s
           non-accrual before mid-2022 is muted as approximate: those filings don&apos;t mark unfunded
           commitments, so the rate can drift from FSK&apos;s own figure, and a quarter joins the industry
           line only when it is within 1pp of what FSK disclosed. A BDC&apos;s non-accrual rate is shown as unknown (&quot;—&quot;), never as zero,
