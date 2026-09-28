@@ -35,6 +35,7 @@ import { bdcSectorExposure } from "@/data/bdc_sector_exposure";
 import { maturityByBdc, maturityMeta } from "@/data/maturity";
 import MaturityWallChart from "@/components/MaturityWallChart";
 import BDCVintageMix, { type VintageMixRow } from "@/components/BDCVintageMix";
+import { pnavSnapshots } from "@/data/pnav";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -48,6 +49,8 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const { slug } = await params;
   const bdc = bdcs.find((b) => b.slug === slug);
   if (!bdc) notFound();
+  // Live market figures (scripts/81) win over the curated ones in data/bdcs.ts.
+  const pnav = pnavSnapshots.find((s) => s.ticker === bdc.ticker);
 
   const softwareRisk = bdc.softwareExposure >= 50 ? "Critical" : bdc.softwareExposure >= 25 ? "High" : bdc.softwareExposure >= 15 ? "Medium" : "Low";
 
@@ -291,15 +294,34 @@ export default async function BDCDetailPage({ params }: PageProps) {
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{bdc.name}</h1>
           <p className="text-sm" style={{ color: "#9ca3af" }}>Managed by {bdc.manager}</p>
         </div>
-        {bdc.type === "Traded" && bdc.price && (
+        {bdc.type === "Traded" && pnav ? (
+          // Same figures as the Price/NAV page: latest close over NAV rolled
+          // forward for income earned and dividends paid since the last report.
+          <div className="rounded-xl border p-4 text-right" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
+            <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Share price · {pnav.priceDate}</div>
+            <div className="text-2xl font-bold text-white">${pnav.price.toFixed(2)}</div>
+            <div className="text-xs mt-1" style={{ color: pnav.pb >= 1 ? "#22c55e" : "#f97316" }}
+              title={`NAV rolled forward to $${pnav.navEst.toFixed(2)} from the $${pnav.navPs.toFixed(2)} reported for ${pnav.navDate}, for income earned and dividends paid since`}>
+              {pnav.pb.toFixed(2)}x NAV ({pnav.premPct > 0 ? "+" : ""}{pnav.premPct.toFixed(1)}%)
+            </div>
+            <div className="text-[11px] mt-0.5" style={{ color: "#6b6b88" }}>
+              {pnav.pbReported.toFixed(2)}x on NAV reported for {pnav.navDate}
+            </div>
+            <Link href="/valuation" className="text-[11px] underline hover:text-white" style={{ color: "#8b8ba8" }}>
+              Price/NAV page
+            </Link>
+          </div>
+        ) : bdc.type === "Traded" && bdc.price ? (
           <div className="rounded-xl border p-4 text-right" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
             <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Share Price</div>
             <div className="text-2xl font-bold text-white">${bdc.price.toFixed(2)}</div>
-            <div className="text-xs mt-1" style={{ color: bdc.priceToNav && bdc.priceToNav >= 1 ? "#22c55e" : "#f97316" }}>
-              {bdc.priceToNav && bdc.priceToNav >= 1 ? "+" : ""}{((bdc.priceToNav ?? 1) - 1) * 100 > 0 ? "+" : ""}{(((bdc.priceToNav ?? 1) - 1) * 100).toFixed(1)}% to NAV
-            </div>
+            {bdc.priceToNav != null && (
+              <div className="text-xs mt-1" style={{ color: bdc.priceToNav >= 1 ? "#22c55e" : "#f97316" }}>
+                {bdc.priceToNav >= 1 ? "+" : ""}{((bdc.priceToNav - 1) * 100).toFixed(1)}% to NAV
+              </div>
+            )}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Description */}
