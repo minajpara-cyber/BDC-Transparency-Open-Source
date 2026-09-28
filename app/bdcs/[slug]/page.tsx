@@ -36,6 +36,7 @@ import { maturityByBdc, maturityMeta } from "@/data/maturity";
 import MaturityWallChart from "@/components/MaturityWallChart";
 import BDCVintageMix, { type VintageMixRow } from "@/components/BDCVintageMix";
 import { pnavSnapshots } from "@/data/pnav";
+import { fmtDay } from "@/lib/pnavFormat";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -294,18 +295,22 @@ export default async function BDCDetailPage({ params }: PageProps) {
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{bdc.name}</h1>
           <p className="text-sm" style={{ color: "#9ca3af" }}>Managed by {bdc.manager}</p>
         </div>
-        {bdc.type === "Traded" && pnav ? (
+        {pnav ? (
           // Same figures as the Price/NAV page: latest close over NAV rolled
           // forward for income earned and dividends paid since the last report.
+          // Shown for every BDC with a listed price (OTF listed in 2025).
           <div className="rounded-xl border p-4 text-right" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
-            <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Share price · {pnav.priceDate}</div>
+            <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Share price · {fmtDay(pnav.priceDate)}</div>
             <div className="text-2xl font-bold text-white">${pnav.price.toFixed(2)}</div>
             <div className="text-xs mt-1" style={{ color: pnav.pb >= 1 ? "#22c55e" : "#f97316" }}
-              title={`NAV rolled forward to $${pnav.navEst.toFixed(2)} from the $${pnav.navPs.toFixed(2)} reported for ${pnav.navDate}, for income earned and dividends paid since`}>
-              {pnav.pb.toFixed(2)}x NAV ({pnav.premPct > 0 ? "+" : ""}{pnav.premPct.toFixed(1)}%)
+              title={pnav.navBasis === "rolled"
+                ? `NAV rolled forward to $${pnav.navEst.toFixed(2)} from the $${pnav.navPs.toFixed(2)} reported for ${fmtDay(pnav.navDate)}, for income earned and dividends paid since`
+                : `The $${pnav.navPs.toFixed(2)} NAV reported for ${fmtDay(pnav.navDate)}, used unchanged`}>
+              {pnav.pb.toFixed(2)}x {pnav.navBasis === "rolled" ? "est. NAV today" : "NAV"}
+              {" "}({pnav.premPct > 0 ? "+" : ""}{pnav.premPct.toFixed(1)}%)
             </div>
             <div className="text-[11px] mt-0.5" style={{ color: "#6b6b88" }}>
-              {pnav.pbReported.toFixed(2)}x on NAV reported for {pnav.navDate}
+              {pnav.pbReported.toFixed(2)}x on NAV reported for {fmtDay(pnav.navDate)}
             </div>
             <Link href="/valuation" className="text-[11px] underline hover:text-white" style={{ color: "#8b8ba8" }}>
               Price/NAV page

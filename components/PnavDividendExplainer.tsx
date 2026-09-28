@@ -1,15 +1,9 @@
 "use client";
 
 import type { PnavEvaluation, PnavExample } from "@/data/pnav";
+import { fmtAmt, fmtDay } from "@/lib/pnavFormat";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "2026-09-15" -> "Sep 15, 2026" (no Date(): avoids time-zone drift). */
-export function fmtDay(d: string | null | undefined): string {
-  if (!d) return "—";
-  const [y, m, dd] = d.split("-").map(Number);
-  return `${MONTHS[m - 1]} ${dd}, ${y}`;
-}
+export { fmtDay };
 
 const x2 = (v: number) => `${v.toFixed(2)}x`;
 const usd = (v: number) => `$${v.toFixed(2)}`;
@@ -30,7 +24,12 @@ function ExampleCard({ ex }: { ex: PnavExample }) {
       <div className="flex items-baseline gap-2 mb-1 flex-wrap">
         <span className="font-mono font-semibold" style={{ color: "#a5b4fc" }}>{ex.ticker}</span>
         <span className="text-xs" style={{ color: "#8b8ba8" }}>
-          pays {ex.freq} · ${ex.amount.toFixed(ex.amount < 0.1 ? 3 : 2)}{" "}dividend went ex on {fmtDay(ex.exDate)}
+          pays {ex.freq} · {fmtAmt(ex.amount)}{" "}dividend went ex on {fmtDay(ex.exDate)}
+        </span>
+        <span className="text-[11px]" style={{ color: "#6b6b88" }}>
+          {ex.quiet
+            ? "(a quiet trading day, chosen so the dividend effect is easy to see)"
+            : "(its latest regular dividend in the past year)"}
         </span>
       </div>
       <table className="text-xs w-full mt-2" style={{ borderCollapse: "collapse" }}>
@@ -55,10 +54,10 @@ function ExampleCard({ ex }: { ex: PnavExample }) {
         By {fmtDay(ex.prevDate)}, {ex.daysPrev}{" "}days past the quarter end its last report covered
         ({fmtDay(ex.navDate)}), {ex.ticker}{" "}had earned about {usd(ex.accruedPrev)}{" "}a share of net investment income
         (at the latest reported pace of {usd(ex.niiQ)}{" "}a quarter)
-        {ex.paidPrev > 0 ? ` and already paid out ${usd(ex.paidPrev)} in earlier dividends` : ""}.
+        {ex.paidPrev > 0 ? ` and already paid out ${fmtAmt(ex.paidPrev)} in earlier dividends` : ""}.
         {" "}On the ex-date the price {ex.pxEx <= ex.pxPrev ? "fell" : "rose"}{" "}by
         {" "}${Math.abs(ex.pxPrev - ex.pxEx).toFixed(2)}{" "}{ex.pxEx <= ex.pxPrev ? "against" : "despite"}{" "}a
-        {" "}${ex.amount.toFixed(ex.amount < 0.1 ? 3 : 2)}{" "}dividend. On the reported NAV,
+        {" "}{fmtAmt(ex.amount)}{" "}dividend. On the reported NAV,
         P/NAV moved {repMove >= 0 ? "+" : ""}{repMove.toFixed(3)}; on the rolled-forward NAV it
         moved {adjMove >= 0 ? "+" : ""}{adjMove.toFixed(3)}.
       </p>
@@ -75,6 +74,9 @@ export default function PnavDividendExplainer({
   const exA = step("A", "ex"), exC = step("C", "ex"), ordA = step("A", "ordinary");
   const dc = evaluation.dividendCheck;
   const nHandovers = C?.n ?? 0;
+  const nSmall = evaluation.nBdcs - evaluation.nCurated;
+  const deep = evaluation.exStepByPremium.find((b) => b.bucket.startsWith("below"));
+  const above = evaluation.exStepByPremium.find((b) => b.bucket.includes("above"));
 
   return (
     <section className="mb-8 rounded-xl border p-5" style={{ background: "#0d0d14", borderColor: "#1e1e2e" }}>
@@ -98,6 +100,17 @@ export default function PnavDividendExplainer({
           funds it, and over-corrects. What no method can see in advance is the quarter&apos;s
           gains and losses on the loans themselves; those still arrive with the next report.
         </p>
+        <p>
+          Reported income can include one-off items, such as incentive fees accrued in one quarter
+          and reversed in the next. When the latest quarter&apos;s income was negative or more than
+          one and a half times the regular dividend, the regular dividend rate is used instead,
+          since a BDC sets its regular dividend at what it expects to earn. Two cases keep the
+          reported NAV unchanged. The first is a BDC&apos;s first months after listing, because
+          dividends it paid before listing are not in our price feed. The second is any time no
+          income estimate exists at all. The roll-forward also leaves out the NAV a BDC gains by
+          selling new shares above NAV, so for the premium issuers in the table below the estimate
+          runs a little low.
+        </p>
       </div>
 
       {examples.length > 0 && (
@@ -110,7 +123,8 @@ export default function PnavDividendExplainer({
         <div className="mt-5">
           <h3 className="text-base font-semibold text-white mb-1">Does it work? Tested on history</h3>
           <p className="text-sm max-w-4xl mb-3" style={{ color: "#9ca3af" }}>
-            {nHandovers}{" "}quarterly NAV reports from {evaluation.nBdcs}{" "}listed BDCs, quarters ending
+            {nHandovers}{" "}quarterly NAV reports from {evaluation.nBdcs}{" "}listed BDCs
+            {nSmall > 0 ? `, including ${nSmall} smaller ones not in the table below,` : ""}{" "}quarters ending
             {" "}{fmtDay(evaluation.firstQuarter)}{" "}to {fmtDay(evaluation.lastQuarter)}. For each, on the
             day before the new NAV came out, we estimated it three ways from what was public that day
             and compared with what was reported.
@@ -185,10 +199,25 @@ export default function PnavDividendExplainer({
                 <span className="text-white">The difference is inside the quarter.</span>{" "}On reported NAV,
                 P/NAV moves {pct(exA.meanAbsPct)}{" "}on an ex-dividend day — {exA.vsOrdinary?.toFixed(1)}x an
                 ordinary day&apos;s {pct(ordA.meanAbsPct)}{" "}— and nearly all of that is the dividend. On the
-                rolled-forward NAV the ex-day move is {pct(exC.meanAbsPct)}. What remains is mostly real: for a BDC
-                trading below NAV the price drops by the whole dividend, which is a bigger slice of a discounted
-                price than of NAV, so its discount genuinely widens a little. NAV-report days move a lot under
-                every method, because that is when the quarter&apos;s gains and losses — and earnings — land.
+                rolled-forward NAV the ex-day move is {pct(exC.meanAbsPct)}. What remains is in the prices
+                themselves, not in the NAV we divide by.
+                {evaluation.exPriceDropRatio != null && (
+                  <>
+                    {" "}On ex-dates BDC prices have typically fallen by {evaluation.exPriceDropRatio.toFixed(1)}x
+                    {" "}the dividend (median of {evaluation.exPriceDropN.toLocaleString("en-US")}{" "}ex-dates),
+                    a little more than the payout.
+                  </>
+                )}
+                {" "}And for a BDC below NAV the dividend is a bigger slice of the price than of NAV, so its
+                discount widens a little every time it pays.
+                {deep && above && (
+                  <>
+                    {" "}Below 0.80x NAV the rolled-forward P/NAV still moves {pct(deep.meanPct)}{" "}on an
+                    average ex-date; at or above NAV it moves {pct(above.meanPct)}.
+                  </>
+                )}
+                {" "}NAV-report days move a lot under every method, because that is when the quarter&apos;s
+                gains and losses — and earnings — land.
               </p>
             )}
             {dc && (
@@ -197,7 +226,8 @@ export default function PnavDividendExplainer({
                 special). For the {dc.bdcs}{" "}BDCs whose filings we parse they were checked against the
                 distributions each filing reports: {dc.ok}{" "}of {dc.quarters}{" "}quarters agree, {dc.timing}{" "}
                 differ only in which side of a quarter end a dividend falls, {dc.inconclusive}{" "}can&apos;t be
-                checked (a merger moved the share count mid-quarter) and {dc.mismatch}{" "}look like gaps in the
+                checked with confidence (a merger, or share counts we had to estimate, make it too uncertain)
+                and {dc.mismatch}{" "}look like gaps in the
                 dividend feed{dc.mismatches.length ? ` (${dc.mismatches.join(", ")})` : ""}.
               </p>
             )}

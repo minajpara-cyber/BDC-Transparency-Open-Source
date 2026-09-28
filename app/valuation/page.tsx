@@ -5,7 +5,8 @@ import StatCard from "@/components/StatCard";
 import CsvDownloadButton from "@/components/CsvDownloadButton";
 import PnavHistoryChart, { PnavChartSeries } from "@/components/PnavHistoryChart";
 import IssuanceStackChart from "@/components/IssuanceStackChart";
-import PnavDividendExplainer, { fmtDay } from "@/components/PnavDividendExplainer";
+import PnavDividendExplainer from "@/components/PnavDividendExplainer";
+import { fmtAmt, fmtDay } from "@/lib/pnavFormat";
 import {
   pnavAsOf, pnavSnapshots, pnavSeries, pnavAggregate, managerPnav, pnavExamples, pnavEvaluation,
   type PnavSnapshot,
@@ -36,13 +37,29 @@ type SortKey = keyof PnavSnapshot;
 
 /** Hover text for the rolled-forward NAV: how today's estimate was built. */
 function navEstTitle(r: PnavSnapshot): string {
+  if (r.navBasis !== "rolled") {
+    const why = r.navBasis === "pre_listing"
+      ? "its quarter ended before the BDC listed, and dividends paid before listing aren't in our price feed"
+      : "there is no income estimate, and subtracting dividends alone would over-correct";
+    return `Reported NAV $${r.navPs.toFixed(2)} (${r.navDate}), used unchanged: ${why}`;
+  }
   const divs = r.divs.length
-    ? r.divs.map((d) => `$${d.amt.toFixed(d.amt < 0.1 ? 3 : 2)} ex ${d.ex}${d.kind === "extra" ? " (supplemental/special)" : ""}`).join(", ")
+    ? r.divs.map((d) => `${fmtAmt(d.amt)} ex ${d.ex}${d.kind === "extra" ? " (supplemental/special)" : ""}`).join(", ")
     : "none";
+  const rate = r.niiQ != null ? `$${r.niiQ.toFixed(2)}/quarter` : "";
+  const latest = r.niiLatestQ != null
+    ? `${r.niiLatestQ < 0 ? "−" : ""}$${Math.abs(r.niiLatestQ).toFixed(2)}` : "";
+  const pace = r.niiRule === "dividend_rate"
+    ? `at ${rate}, the regular dividend rate — no NII on file yet`
+    : r.niiRule === "one_off"
+      ? `at ${rate}, the regular dividend rate: the ${latest} reported for the quarter to ${r.niiPeriod} looks like one-off items`
+      : r.niiRule === "floor_zero"
+        ? `none: the ${latest} reported for the quarter to ${r.niiPeriod} was negative`
+        : `at ${rate}, the rate reported for the quarter to ${r.niiPeriod}`;
   const income = r.niiQ != null
-    ? `+ $${r.accruedNii.toFixed(2)} income earned over ${r.daysSinceNav} days (at $${r.niiQ.toFixed(2)}/quarter${r.niiSource === "dividend_proxy" ? ", the regular dividend rate — no NII on file yet" : `, the rate reported for the quarter to ${r.niiPeriod}`})`
+    ? `+ $${r.accruedNii.toFixed(2)} income earned over ${r.daysSinceNav} days (${pace})`
     : "+ no income estimate available";
-  return `Reported NAV $${r.navPs.toFixed(2)} (${r.navDate})\n${income}\n− $${r.divsPaid.toFixed(2)} dividends gone ex since: ${divs}\n= $${r.navEst.toFixed(2)}`;
+  return `Reported NAV $${r.navPs.toFixed(2)} (${r.navDate})\n${income}\n− ${fmtAmt(r.divsPaid)} dividends gone ex since: ${divs}\n= $${r.navEst.toFixed(2)}`;
 }
 
 export default function ValuationPage() {
@@ -548,7 +565,7 @@ export default function ValuationPage() {
               rather than by assumption: median error {bt.medianBps.model.toFixed(0)}bps of net assets
               against {bt.medianBps.last.toFixed(0)}bps for carrying last quarter forward and
               {" "}{bt.medianBps.ttm4.toFixed(0)}bps for a trailing-4-quarter average, and mean dollar error
-              {" "}~${(bt.meanUsdM.model ?? 0).toFixed(0)}M against ~${(bt.meanUsdM.last ?? 0).toFixed(0)}M.
+              {" "}~${(bt.meanUsdM.model ?? 0).toFixed(1)}M against ~${(bt.meanUsdM.last ?? 0).toFixed(1)}M.
               It buys that by being right about the large misses — per-quarter it is closer than
               last-quarter-carried-forward only about {Math.round((bt.beatsLastPct ?? 0) / 10)}{" "}times
               in 10, so read it as an expected level, not a point forecast.
@@ -583,7 +600,12 @@ export default function ValuationPage() {
           filed yet, the regular dividend rate stands in), spread evenly over the days since
           the quarter end, and subtracts every dividend whose ex-date has passed but whose
           record date falls after that quarter end — the NAV already reflects a dividend
-          recorded by the quarter end, the price reflects it from the ex-date. Record dates
+          recorded by the quarter end, the price reflects it from the ex-date. A latest quarter
+          of income that was negative or more than 1.5 times the regular dividend is treated as
+          one-off items, and the regular dividend rate is used instead. The reported NAV is used
+          unchanged when its quarter ended before the BDC listed (dividends paid before listing
+          are not in the price feed) or when there is no income estimate at all. Regular and
+          supplemental dividends are told apart using only the payments before each one. Record dates
           are Nasdaq&apos;s where it publishes them, otherwise inferred from the settlement cycle
           (ex-date two business days before the record date until September 2017, one day
           until May 2024, the same day since). Before mid-2022 BDCs did not file quarterly
