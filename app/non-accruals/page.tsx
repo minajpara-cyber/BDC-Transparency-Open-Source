@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import CreditNav from "@/components/CreditNav";
 import Link from "next/link";
 import AlertBadge from "@/components/AlertBadge";
-import { portfolioCompanies } from "@/data/companies";
 import { recentAlerts } from "@/data/market";
 import { enrichedBDCs, naPublicationDisplay } from "@/lib/enrichBDC";
 import { enrichedPikPublication, formatPikPublication, pikPublicationLabel } from "@/lib/pikPublication";
@@ -16,6 +15,18 @@ import {
 } from "@/data/non_accrual_events";
 
 const fmtPct = (v: number | null | undefined) => v == null ? "—" : `${v.toFixed(2)}%`;
+
+// Software sectors as the filings name them (SOI industry text)
+const SOFTWARE_INDUSTRY = /software|information technology|it services|internet|saas/i;
+
+// A hand-entered news item may not state a credit status: that comes from filings.
+const marketNews = recentAlerts.filter((a) => !/non-?\s?accrual/i.test(`${a.title} ${a.description}`));
+
+/** The borrower page slug the export resolved for a row, or null (no page). */
+function rowSlug(r: object): string | null {
+  const slug = (r as { borrower_slug?: string | null }).borrower_slug;
+  return typeof slug === "string" && slug ? slug : null;
+}
 const fmtFV = (v: number | null) => v == null ? "—" : `$${v.toFixed(1)}M`;
 
 type SortKey = "ticker" | "company" | "fv_m" | "cost_m" | "par_m" | "mark_at_par";
@@ -88,10 +99,22 @@ export default function NonAccrualsPage() {
   ].map((group) => ({ ...group, rows: filteredFlow.filter((e) => e.event === group.event) }));
   const industryNA = creditQuality.filter((r) => r.ticker === "industry").sort((a, b) => b.period_end.localeCompare(a.period_end))[0];
 
-  // Curated list (legacy 15-company filter)
-  const curatedNonAccrualCompanies = portfolioCompanies.filter(
-    (c) => c.holders.some((h) => h.status === "Non-Accrual"),
-  );
+  // Software borrowers on non-accrual, from the parsed list (one row per
+  // borrower across BDCs; same rows and dollars as the table above).
+  const softwareNonAccruals = Array.from(currentNonAccruals
+    .filter((r) => SOFTWARE_INDUSTRY.test(r.industry ?? ""))
+    .reduce((m, r) => {
+      const slug = rowSlug(r);
+      const key = slug ?? r.company_norm;
+      const g = m.get(key) ?? { key, slug, name: r.company, industry: r.industry ?? "", tickers: [] as string[], fv_m: 0, cost_m: 0 };
+      if (!g.tickers.includes(r.ticker)) g.tickers.push(r.ticker);
+      g.fv_m += r.fv_m;
+      g.cost_m += r.cost_m;
+      m.set(key, g);
+      return m;
+    }, new Map<string, { key: string; slug: string | null; name: string; industry: string; tickers: string[]; fv_m: number; cost_m: number }>())
+    .values())
+    .sort((a, b) => b.fv_m - a.fv_m);
 
   // Issuer summary preserves disclosed vs panel-derived basis and unavailable reasons.
   const bdcSummary = enrichedBDCs()
@@ -205,7 +228,7 @@ export default function NonAccrualsPage() {
                   : markPct >= 90 ? "#eab308"
                   : markPct >= 70 ? "#f97316"
                   : "#ef4444";
-                const borrowerSlug = r.company_norm.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+                const borrowerSlug = rowSlug(r);
                 return (
                   <tr key={`${r.ticker}-${i}`} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
                     <td className="px-4 py-3">
@@ -216,9 +239,13 @@ export default function NonAccrualsPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3">
-                      <Link href={`/borrowers/${borrowerSlug}`} className="text-sm font-medium text-white hover:text-red-400 transition-colors">
-                        {r.company}
-                      </Link>
+                      {borrowerSlug ? (
+                        <Link href={`/borrowers/${borrowerSlug}`} className="text-sm font-medium text-white hover:text-red-400 transition-colors">
+                          {r.company}
+                        </Link>
+                      ) : (
+                        <span className="text-sm font-medium text-white">{r.company}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{r.industry ?? "—"}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{r.investment_type ?? "—"}</td>
@@ -360,9 +387,13 @@ export default function NonAccrualsPage() {
             <div key={d.company_norm} className="px-5 py-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
                 <div>
-                  <Link href={`/borrowers/${d.company_norm.replace(/[^a-z0-9]+/g, "-")}`} className="text-sm font-semibold text-white hover:text-orange-400 transition-colors">
-                    {d.display_name}
-                  </Link>
+                  {rowSlug(d) ? (
+                    <Link href={`/borrowers/${rowSlug(d)}`} className="text-sm font-semibold text-white hover:text-orange-400 transition-colors">
+                      {d.display_name}
+                    </Link>
+                  ) : (
+                    <span className="text-sm font-semibold text-white">{d.display_name}</span>
+                  )}
                   <div className="text-xs" style={{ color: "#8b8ba8" }}>
                     {d.n_holders_na} of {d.n_holders} BDCs flag this name non-accrual · {d.period_end}
                   </div>
@@ -477,48 +508,57 @@ export default function NonAccrualsPage() {
         </div>
       </div>
 
-      {/* Curated companies list (legacy) */}
-      {curatedNonAccrualCompanies.length > 0 && (
+      {/* Software borrowers on non-accrual — parsed (replaces the hand-entered
+          2026-03 "curated" list, which showed Ivanti on non-accrual at ARCC and
+          FSK although their filings never did) */}
+      {softwareNonAccruals.length > 0 && (
         <div className="rounded-xl border overflow-hidden mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-            <h2 className="font-semibold text-white">Curated Software Names on Non-Accrual</h2>
+            <h2 className="font-semibold text-white">Software borrowers on non-accrual</h2>
             <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              From the bdctransparency.io watchlist — these may overlap with the parsed list above.
+              The software names in the parsed list above, one row per borrower: loans each BDC&apos;s latest filing
+              marks non-accrual, at fair value.
             </p>
           </div>
           <div className="divide-y" style={{ borderColor: "#1a1a28" }}>
-            {curatedNonAccrualCompanies.map((company) => {
-              const naHolders = company.holders.filter((h) => h.status === "Non-Accrual");
-              const fv = naHolders.reduce((s, h) => s + h.fairValue, 0);
-              return (
-                <div key={company.slug} className="px-5 py-3 flex items-center justify-between gap-4">
-                  <div>
-                    <Link href={`/companies/${company.slug}`} className="text-sm font-medium text-white hover:text-red-400">
-                      {company.name}
+            {softwareNonAccruals.map((g) => (
+              <div key={g.key} className="px-5 py-3 flex items-center justify-between gap-4">
+                <div>
+                  {g.slug ? (
+                    <Link href={`/borrowers/${g.slug}`} className="text-sm font-medium text-white hover:text-red-400">
+                      {g.name}
                     </Link>
-                    <div className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-                      {naHolders.length} BDC holder{naHolders.length > 1 ? "s" : ""} · {company.subsector}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold" style={{ color: "#ef4444" }}>
-                      ${fv.toFixed(0)}M FV
-                    </div>
+                  ) : (
+                    <span className="text-sm font-medium text-white">{g.name}</span>
+                  )}
+                  <div className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
+                    {g.tickers.join(", ")}{" "}· {g.industry}
                   </div>
                 </div>
-              );
-            })}
+                <div className="text-right">
+                  <div className="text-sm font-semibold" style={{ color: "#ef4444" }}>
+                    ${g.fv_m.toFixed(1)}M FV
+                  </div>
+                  <div className="text-xs" style={{ color: "#6b6b88" }}>${g.cost_m.toFixed(1)}M cost</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Recent alerts */}
+      {/* Market news — hand-entered (data/market.ts). Items that state a
+          non-accrual status are left out: status comes from the filings only
+          (the Ivanti item named ARCC and FSK, whose filings say otherwise). */}
       <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
-          <h2 className="font-semibold text-white">All Market Alerts</h2>
+          <h2 className="font-semibold text-white">Market news</h2>
+          <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
+            Hand-entered news items, not read from filings. Non-accrual status on this page comes only from the filings.
+          </p>
         </div>
         <div className="divide-y" style={{ borderColor: "#1a1a28" }}>
-          {recentAlerts.map((alert, i) => (
+          {marketNews.map((alert, i) => (
             <div key={i} className="px-5 py-4">
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 flex-shrink-0">

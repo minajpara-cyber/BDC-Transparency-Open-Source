@@ -29,8 +29,12 @@ const FILTERS: { key: string; label: string }[] = [
 
 const MAX_ROWS = 120;
 
-function borrowerSlug(companyNorm: string): string {
-  return companyNorm.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+/** The borrower page the export resolved for this event (scripts/50, from
+ *  the borrower index), or null when the borrower has no page: the old
+ *  client-side slug ("Auctane, Inc." -> "uctane-nc") linked to 404s. */
+function borrowerSlug(e: object): string | null {
+  const slug = (e as { borrower_slug?: string | null }).borrower_slug;
+  return typeof slug === "string" && slug ? slug : null;
 }
 
 export default function ModificationEventsTable({ events }: { events: PublishedModificationEvent[] }) {
@@ -153,9 +157,13 @@ export default function ModificationEventsTable({ events }: { events: PublishedM
                   </Link>
                 </td>
                 <td className="px-4 py-2.5">
-                  <Link href={`/borrowers/${borrowerSlug(e.company_norm)}`} className="text-sm text-white hover:text-indigo-400 transition-colors">
-                    {e.company}
-                  </Link>
+                  {borrowerSlug(e) ? (
+                    <Link href={`/borrowers/${borrowerSlug(e)}`} className="text-sm text-white hover:text-indigo-400 transition-colors">
+                      {e.company}
+                    </Link>
+                  ) : (
+                    <span className="text-sm text-white">{e.company}</span>
+                  )}
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex flex-wrap gap-1">

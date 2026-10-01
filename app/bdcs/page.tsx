@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import AlertBadge from "@/components/AlertBadge";
 import { bdcsHistory } from "@/data/bdcs_history";
-import { enrichedBDCs, BDCEnriched, naPublicationDisplay } from "@/lib/enrichBDC";
+import { enrichedBDCs, BDCEnriched, naPublicationDisplay, CATALOG_NOT_PARSED } from "@/lib/enrichBDC";
 import {
   CATALOG_AS_OF_LABEL, enrichedPikPublication, formatPikPublication, pikPublicationLabel,
 } from "@/lib/pikPublication";
@@ -244,8 +244,14 @@ export default function BDCsPage() {
                         {pikPublicationLabel(pik)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-sm" style={{ color: "#9ca3af" }}>
+                    <td className="px-4 py-3 text-right text-sm" style={{ color: "#9ca3af" }}
+                      title={bdc.companiesParsed
+                        ? `Distinct portfolio companies in the ${bdc.asOf} filing (funded holdings; undrawn commitments left out)`
+                        : "Hand-entered catalog figure, not parsed from filings"}>
                       {bdc.portfolioCompanies.toLocaleString()}
+                      {!bdc.companiesParsed && (
+                        <span className="block text-[10px] mt-0.5" style={{ color: "#6b6b88" }}>{CATALOG_NOT_PARSED}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-xs" style={{ color: bdc.asOf ? "#a5b4fc" : "#6b6b88" }}>
                       {bdc.asOf ?? <span style={{ color: "#6b6b88" }} title="Hand-compiled catalog figures, not parsed from filings">

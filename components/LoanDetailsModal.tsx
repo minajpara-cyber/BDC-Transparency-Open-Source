@@ -2,7 +2,25 @@
 
 import { useEffect } from "react";
 import { X } from "lucide-react";
-import { stressedPositions, StressedPosition } from "@/data/stressed_positions";
+import * as stressed from "@/data/stressed_positions";
+import type { StressedPosition } from "@/data/stressed_positions";
+
+const { stressedPositions } = stressed;
+
+// Full count and cost of every flag per cell (absent on an export older than
+// 2026-10-01, when the extract was a top-30 across all flags).
+type CountRow = { ticker: string; period_end: string } & Record<string, number | string>;
+const stressedCounts: CountRow[] =
+  ((stressed as unknown as { stressedCounts?: CountRow[] }).stressedCounts) ?? [];
+
+/** "M" for the cell: how many rows the cell counts for this flag, and their cost. */
+function cellTotal(ticker: string, period: string, flagKey: string): { n: number; cost: number } | null {
+  const c = stressedCounts.find((r) => r.ticker === ticker && r.period_end === period);
+  if (!c) return null;
+  const key = flagKey.replace(/^f_/, "");
+  const n = c[`n_${key}`], cost = c[`cost_${key}_m`];
+  return typeof n === "number" && typeof cost === "number" ? { n, cost } : null;
+}
 
 type FlagKey = "f_na" | "f_below_95" | "f_below_90" | "f_below_80" | "f_pik";
 
@@ -43,6 +61,21 @@ export default function LoanDetailsModal({
   const rows = stressedPositions
     .filter((p) => p.ticker === ticker && p.period_end === period_end && p[flagKey] === 1)
     .sort((a, b) => b.cost_m - a.cost_m);
+
+  const total = cellTotal(ticker, period_end, flagKey);
+  const listedCost = rows.reduce((sum, r) => sum + r.cost_m, 0);
+  const complete = total != null && rows.length >= total.n;
+  const summary = rows.length === 0
+    ? (total && total.n > 0
+      ? `${total.n} flagged position${total.n === 1 ? "" : "s"} ($${total.cost.toFixed(1)}M at cost) — not in the extract.`
+      : flagKey === "f_na"
+        ? "No position-level non-accrual flags for this quarter (the rate shown may be the BDC's own disclosed figure)."
+        : "No flagged positions for this cell.")
+    : complete
+      ? `All ${rows.length} flagged position${rows.length === 1 ? "" : "s"}, $${listedCost.toFixed(1)}M at cost.`
+      : total
+        ? `Largest ${rows.length} of ${total.n} flagged positions by cost: $${listedCost.toFixed(1)}M of $${total.cost.toFixed(1)}M.`
+        : `Largest ${rows.length} flagged position${rows.length === 1 ? "" : "s"} by cost.`;
 
   const fmtNum = (n: number | null | undefined, d = 1) =>
     n === null || n === undefined ? "—" : n.toFixed(d);
@@ -85,9 +118,7 @@ export default function LoanDetailsModal({
               {ticker} · {period_end} — {metricLabel}
             </h3>
             <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-              {rows.length === 0
-                ? "No flagged positions in our top-30-by-cost extract for this cell."
-                : `Top ${rows.length} flagged position${rows.length === 1 ? "" : "s"} by amortized cost. Click outside or press Esc to close.`}
+              {summary}{" "}Click outside or press Esc to close.
             </p>
           </div>
           <button
@@ -139,6 +170,9 @@ export default function LoanDetailsModal({
                   </td>
                   <td className="px-3 py-2" style={{ color: "#9ca3af" }}>
                     {r.investment_type ?? "—"}
+                    {(r as StressedPosition & { instrument?: string }).instrument === "equity" && (
+                      <span className="ml-1 text-[10px]" style={{ color: "#6b6b88" }}>(equity)</span>
+                    )}
                   </td>
                   <td className="px-3 py-2" style={{ color: "#9ca3af" }}>
                     {r.industry ?? "—"}
@@ -177,11 +211,12 @@ export default function LoanDetailsModal({
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={COLS.length} className="px-3 py-8 text-center" style={{ color: "#6b6b88" }}>
-                    No flagged loans found in our position-level extract for this cell.
+                    No flagged positions listed for this cell.
                     <br />
                     <span className="text-[10px]">
-                      Either no positions were flagged (NA / below 95¢ / PIK) at this quarter,
-                      or the cell pre-dates our position-level extract window.
+                      Either nothing was flagged at this quarter, the loan-by-loan status
+                      was not readable (the BDC&apos;s own disclosed rate is shown instead),
+                      or the cell is older than the position-level extract.
                     </span>
                   </td>
                 </tr>

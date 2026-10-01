@@ -385,8 +385,12 @@ export default function MarketPage() {
             </div>
           </div>
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: "#8b8ba8" }}>
-              Tracked Portfolio — AI Risk Distribution
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#8b8ba8" }}>
+              AI risk of {portfolioCompanies.length}{" "}hand-picked software names
+            </div>
+            <div className="text-[11px] mb-3" style={{ color: "#6b6b88" }}
+              title="A judgement typed in by hand in March 2026 for a short list of software borrowers. It is not read from any filing and is not a credit status.">
+              Hand-entered judgement, not from filings
             </div>
             <div className="space-y-3">
               {aiRiskBreakdown.map((r) => (

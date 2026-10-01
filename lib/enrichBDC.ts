@@ -11,9 +11,17 @@
 // BDCs without usable parsed history keep their hand-compiled catalog figures.
 // Non-accrual and PIK are both labelled "catalog estimate (as of …)" so neither
 // reads as a number parsed from the filings.
+//
+// Since 2026-10-01 the company count and the software share are parsed too
+// (they were hand-typed: MAIN 189 companies, OTF 56.5% software): the count is
+// the latest quarter's distinct portfolio companies in the funded book
+// (bdcs_history n_companies, scripts/50) and the software share is the
+// "Software & IT" share of the latest book at cost (bdc_sector_exposure). A BDC
+// we do not parse keeps the catalog figures, labelled "catalog, not parsed".
 
 import { bdcs, BDC } from "@/data/bdcs";
 import { bdcsHistory, BDCQuarter } from "@/data/bdcs_history";
+import { bdcSectorExposure } from "@/data/bdc_sector_exposure";
 import { isReliable } from "@/lib/reliability";
 import { hasReportedSize } from "@/lib/quarterCoverage";
 import {
@@ -71,6 +79,26 @@ export interface BDCEnriched extends Omit<BDC, "nonAccrualRate" | "pikRate">, No
   delta_fv_b?: number | null;     // QoQ change in total_fv_b
   delta_na_pct?: number | null;   // QoQ change in na_pct_at_cost
   delta_pik_pct?: number | null;  // QoQ change in pik_pct_at_cost
+  companiesParsed?: boolean;      // portfolioCompanies counted from the parsed book
+  softwareParsed?: boolean;       // softwareExposure measured from the parsed book
+  softwareAsOf?: string;          // quarter of the parsed software share
+}
+
+export const CATALOG_NOT_PARSED = "catalog, not parsed";
+
+/** Parsed software share (% of the latest book at cost in "Software & IT"),
+ *  or null when the BDC has no parsed sector mix. */
+export function parsedSoftwareShare(ticker: string): { pct: number; asOf: string } | null {
+  const rows = bdcSectorExposure.filter((r) => r.ticker === ticker);
+  if (!rows.length) return null;
+  const sw = rows.find((r) => r.sector === "Software & IT");
+  return { pct: sw ? Math.round(sw.share_of_bdc * 1000) / 10 : 0, asOf: rows[0].period_end };
+}
+
+/** Software exposure + where it came from, for any catalog BDC. */
+export function softwareExposureFor(bdc: BDC): { pct: number; parsed: boolean; asOf?: string } {
+  const parsed = parsedSoftwareShare(bdc.ticker);
+  return parsed ? { pct: parsed.pct, parsed: true, asOf: parsed.asOf } : { pct: bdc.softwareExposure, parsed: false };
 }
 
 // Index bdcsHistory by ticker once, sorted ascending by period_end.
@@ -105,7 +133,19 @@ function catalogEstimate(bdc: BDC): BDCEnriched {
     pikMetricVersion: null,
     parsed: false,
     catalogEstimate: true,
+    companiesParsed: false,
+    ...softwareFields(bdc),
   };
+}
+
+function parsedCompanies(row: BDCQuarter): number | null {
+  const n = (row as BDCQuarter & { n_companies?: number | null }).n_companies;
+  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function softwareFields(bdc: BDC) {
+  const sw = softwareExposureFor(bdc);
+  return { softwareExposure: sw.pct, softwareParsed: sw.parsed, softwareAsOf: sw.asOf };
 }
 
 export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriched {
@@ -141,6 +181,10 @@ export function enrichBDC(bdc: BDC, hist: Map<string, BDCQuarter[]>): BDCEnriche
     pikMetricVersion: latestPik.metricVersion,
     asOf: latest.period_end,
     parsed: true,
+    // distinct companies in the latest parsed book (absent on an older export)
+    portfolioCompanies: parsedCompanies(latest) ?? bdc.portfolioCompanies,
+    companiesParsed: parsedCompanies(latest) != null,
+    ...softwareFields(bdc),
     delta_fv_b:   prior ? latest.total_fv_b      - prior.total_fv_b      : null,
     delta_na_pct: prior && comparableNaBasis && latest.na_pct_at_cost != null && prior.na_pct_at_cost != null
       ? latest.na_pct_at_cost - prior.na_pct_at_cost : null,

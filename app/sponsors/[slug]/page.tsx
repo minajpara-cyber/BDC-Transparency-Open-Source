@@ -28,6 +28,14 @@ export async function generateStaticParams() {
   return sponsors.map((s) => ({ slug: s.sponsor_slug }));
 }
 
+type SponsorCompany = { name: string; slug: string | null; fv: number; n_holders: number; tickers: string[] };
+
+/** The sponsor's attributed companies (absent on an export older than 2026-10-01). */
+function sponsorCompanies(s: object): SponsorCompany[] {
+  const list = (s as { companies?: SponsorCompany[] }).companies;
+  return Array.isArray(list) ? [...list].sort((a, b) => b.fv - a.fv) : [];
+}
+
 const fmtUSD = (v: number) => {
   if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
   if (v >= 1e6) return `$${(v / 1e6).toFixed(1)}M`;
@@ -40,18 +48,18 @@ export default async function SponsorDetailPage({ params }: PageProps) {
   const s = sponsors.find((x) => x.sponsor_slug === slug);
   if (!s) notFound();
 
-  // Borrowers attributed to this sponsor — match by exact substring within the
-  // semicolon-separated sponsors field.
-  const attributed = borrowers
-    .filter((b) => {
-      if (!b.sponsors) return false;
-      return b.sponsors.split(";").map((x) => x.trim()).includes(s.sponsor);
-    })
-    .sort((a, b) => b.total_fv - a.total_fv);
-
-  const totalFV = attributed.reduce((sum, b) => sum + b.total_fv, 0);
+  // The companies the sponsors list counted for this sponsor (sponsors_index:
+  // funded debt in each BDC's latest book, attributed through the entity
+  // matcher), so this page and the list show the same companies and dollars.
+  // (Before 2026-10-01 this page summed /borrowers by a different sponsor
+  // field: 54 sponsors showed 0 companies and $0.)
+  const attributed = sponsorCompanies(s);
+  const totalFV = s.total_fv;
   const crossHeld = attributed.filter((b) => b.n_holders >= 2).length;
-  const categories = Array.from(new Set(attributed.map((b) => b.category).filter(Boolean)));
+  const bySlug = new Map(borrowers.map((b) => [b.slug, b]));
+  const categories = Array.from(new Set(attributed
+    .map((b) => (b.slug ? bySlug.get(b.slug)?.category : undefined))
+    .filter((c): c is string => !!c)));
   const pik = sponsorPikPublication(s);
   const pikCounts = s as typeof s & SponsorPikCounts;
   const pikUnavailable = pik.lower == null;
@@ -88,7 +96,7 @@ export default async function SponsorDetailPage({ params }: PageProps) {
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{s.sponsor}</h1>
         <p className="text-sm" style={{ color: "#9ca3af" }}>
-          {attributed.length}{" "}portfolio companies in our index funded by BDCs we cover.
+          {s.n_companies}{" "}portfolio companies with loans from the BDCs we cover (each BDC&apos;s latest filing).
         </p>
       </div>
 
@@ -112,9 +120,9 @@ export default async function SponsorDetailPage({ params }: PageProps) {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <StatCard label="Companies" value={attributed.length.toString()} />
+        <StatCard label="Companies" value={s.n_companies.toString()} />
         <StatCard label="Cross-held (≥2 BDCs)" value={crossHeld.toString()} color="#a5b4fc" />
-        <StatCard label="Aggregate FV" value={fmtUSD(totalFV)} />
+        <StatCard label="Loans at fair value" value={fmtUSD(totalFV)} />
         <StatCard label="Avg # holders" value={s.avg_holders.toFixed(1)} />
       </div>
 
@@ -190,7 +198,7 @@ export default async function SponsorDetailPage({ params }: PageProps) {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                {["Company", "Category", "Segment", "Holders", "Latest FV", "Latest period"].map((h) => (
+                {["Company", "Category", "Segment", "Holders", "Loans at fair value", "BDCs"].map((h) => (
                   <th
                     key={h}
                     className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap"
@@ -202,9 +210,11 @@ export default async function SponsorDetailPage({ params }: PageProps) {
               </tr>
             </thead>
             <tbody>
-              {attributed.map((b, i) => (
+              {attributed.map((b, i) => {
+                const meta = b.slug ? bySlug.get(b.slug) : undefined;
+                return (
                 <tr
-                  key={b.slug}
+                  key={`${b.slug ?? b.name}-${i}`}
                   className="border-t"
                   style={{
                     borderColor: "#1a1a28",
@@ -212,24 +222,29 @@ export default async function SponsorDetailPage({ params }: PageProps) {
                   }}
                 >
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/borrowers/${b.slug}`}
-                      className="text-sm font-medium text-white hover:text-indigo-400"
-                    >
-                      {b.name}
-                    </Link>
+                    {b.slug ? (
+                      <Link
+                        href={`/borrowers/${b.slug}`}
+                        className="text-sm font-medium text-white hover:text-indigo-400"
+                      >
+                        {b.name}
+                      </Link>
+                    ) : (
+                      <span className="text-sm font-medium text-white">{b.name}</span>
+                    )}
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{b.category || "—"}</td>
-                  <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{b.segment || "—"}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{meta?.category || "—"}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: "#9ca3af" }}>{meta?.segment || "—"}</td>
                   <td className="px-4 py-3 text-sm" style={{
                     color: b.n_holders >= 3 ? "#ef4444" : b.n_holders === 2 ? "#a5b4fc" : "#6b6b88",
                   }}>
                     {b.n_holders}
                   </td>
-                  <td className="px-4 py-3 text-sm font-medium text-white">{fmtUSD(b.total_fv)}</td>
-                  <td className="px-4 py-3 text-xs font-mono" style={{ color: "#9ca3af" }}>{b.latest_period}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-white">{fmtUSD(b.fv)}</td>
+                  <td className="px-4 py-3 text-xs font-mono" style={{ color: "#9ca3af" }}>{b.tickers.join(", ")}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

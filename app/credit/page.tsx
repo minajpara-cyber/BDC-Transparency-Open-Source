@@ -274,14 +274,11 @@ function buildCompositionSeries(ticker: string) {
     }));
 }
 
-/** Industry stacked-composition: cost-weighted average across BDCs. We don't
- *  have absolute dollar weights in asset_composition, so use n_positions from
- *  creditQuality as a proxy weight per BDC per quarter. */
+/** Industry stacked-composition: each BDC weighted by its funded book
+ *  (total_cost_m, USD millions, from the same export), so the industry mix is
+ *  the share of all BDC dollars — not of position counts, which overweighted
+ *  BDCs with many small loans and undrawn revolvers. */
 function buildIndustryComposition() {
-  const weightLookup = new Map<string, number>();
-  for (const r of creditQuality) {
-    weightLookup.set(`${r.ticker}|${r.period_end}`, r.n_positions);
-  }
   const byPeriod = new Map<string, {
     weight: number; first: number; second: number; unsec: number; sub: number;
     sjv: number; eq: number; other: number;
@@ -289,7 +286,10 @@ function buildIndustryComposition() {
   for (const r of assetComposition) {
     if (!isQuarterEnd(r.period_end)) continue;
     if (!isReliable(r.ticker, r.period_end, "mark")) continue;
-    const w = weightLookup.get(`${r.ticker}|${r.period_end}`) ?? 1;
+    // funded book at cost, USD m (absent on an export older than 2026-10-01)
+    const book = (r as typeof r & { total_cost_m?: number }).total_cost_m;
+    const w = typeof book === "number" && book > 0 ? book : 0;
+    if (!w) continue;
     if (!byPeriod.has(r.period_end))
       byPeriod.set(r.period_end, { weight: 0, first: 0, second: 0, unsec: 0, sub: 0, sjv: 0, eq: 0, other: 0 });
     const s = byPeriod.get(r.period_end)!;
@@ -587,6 +587,8 @@ export default function CreditPage() {
     .pop() ?? "";
   const topStressed = stressedPositions
     .filter((p) => p.period_end === stressedLatestPeriod)
+    // loans only (the extract also lists non-accrual equity for the NA cells)
+    .filter((p) => (p as typeof p & { instrument?: string }).instrument !== "equity")
     .map((p) => ({ ...p, markdown_m: p.cost_m - p.fv_m }))
     .sort((a, b) => b.markdown_m - a.markdown_m)
     .slice(0, 25);
@@ -1140,7 +1142,7 @@ export default function CreditPage() {
           <AssetCompositionChart
             data={industryComposition}
             title="Industry composition mix over time"
-            subtitle="Position-weighted average composition across reliable BDCs each quarter (stacked-area, normalized to 100%)."
+            subtitle="Share of all BDC dollars (each BDC weighted by its funded book at cost, undrawn commitments left out) across reliable BDCs each quarter. Stacked, normalized to 100%."
           />
         </div>
       </section>

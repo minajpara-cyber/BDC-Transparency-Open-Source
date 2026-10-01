@@ -12,7 +12,7 @@ import BDCHoldingsTable from "@/components/BDCHoldingsTable";
 import { bdcs } from "@/data/bdcs";
 import { bdcsHistory } from "@/data/bdcs_history";
 import { hasReportedSize, reportedCostB, reportedFvB, reportedMarkPct } from "@/lib/quarterCoverage";
-import { naPublicationDisplay, type NonAccrualPublicationMetadata } from "@/lib/enrichBDC";
+import { naPublicationDisplay, softwareExposureFor, CATALOG_NOT_PARSED, type NonAccrualPublicationMetadata } from "@/lib/enrichBDC";
 import { creditPikPublication, exactPikDelta, formatPikPublication, historyPikPublication, pikPublicationLabel } from "@/lib/pikPublication";
 import { ewsByBdc, ewsTopByBdc, ewsHistory } from "@/data/early_warning_scores";
 import { holdingsAsOfByTicker } from "@/data/bdc_holdings";
@@ -53,7 +53,13 @@ export default async function BDCDetailPage({ params }: PageProps) {
   // Live market figures (scripts/81) win over the curated ones in data/bdcs.ts.
   const pnav = pnavSnapshots.find((s) => s.ticker === bdc.ticker);
 
-  const softwareRisk = bdc.softwareExposure >= 50 ? "Critical" : bdc.softwareExposure >= 25 ? "High" : bdc.softwareExposure >= 15 ? "Medium" : "Low";
+  // Software share of the latest parsed book at cost (bdc_sector_exposure);
+  // a BDC we do not parse keeps its catalog figure, labelled as such.
+  const software = softwareExposureFor(bdc);
+  const softwareRisk = software.pct >= 50 ? "Critical" : software.pct >= 25 ? "High" : software.pct >= 15 ? "Medium" : "Low";
+  const softwareTitle = software.parsed
+    ? `Software risk: ${software.pct.toFixed(1)}% of the ${software.asOf} book at cost is software (parsed from the filing)`
+    : `Software risk: ${software.pct.toFixed(1)}% software exposure (${CATALOG_NOT_PARSED})`;
 
   const hasTimeline = bdcsHistory.some((r) => r.ticker === bdc.ticker);
 
@@ -290,7 +296,12 @@ export default async function BDCDetailPage({ params }: PageProps) {
             }}>
               {bdc.type}{" "}BDC
             </span>
-            <AlertBadge severity={softwareRisk as "Critical" | "High" | "Medium" | "Low"} label />
+            <span title={softwareTitle} className="inline-flex items-center gap-1.5">
+              <AlertBadge severity={softwareRisk as "Critical" | "High" | "Medium" | "Low"} label />
+              <span className="text-xs" style={{ color: "#8b8ba8" }}>
+                software {software.pct.toFixed(1)}%{software.parsed ? "" : ` · ${CATALOG_NOT_PARSED}`}
+              </span>
+            </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{bdc.name}</h1>
           <p className="text-sm" style={{ color: "#9ca3af" }}>Managed by {bdc.manager}</p>
@@ -1326,10 +1337,14 @@ export default async function BDCDetailPage({ params }: PageProps) {
                           background: i % 2 === 0 ? "#111118" : "#0f0f16",
                         }}>
                           <td className="px-4 py-2.5">
-                            <Link href={`/sponsors/${e.sponsor_slug}`}
-                                  className="text-sm font-medium text-white hover:text-indigo-400">
-                              {e.sponsor}
-                            </Link>
+                            {(e as typeof e & { has_page?: boolean }).has_page === false ? (
+                              <span className="text-sm font-medium text-white">{e.sponsor}</span>
+                            ) : (
+                              <Link href={`/sponsors/${e.sponsor_slug}`}
+                                    className="text-sm font-medium text-white hover:text-indigo-400">
+                                {e.sponsor}
+                              </Link>
+                            )}
                           </td>
                           <td className="px-3 py-2.5 text-right text-sm font-mono text-white">
                             ${(e.total_fv / 1e6).toFixed(1)}M
