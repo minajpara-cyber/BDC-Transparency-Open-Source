@@ -21,7 +21,7 @@ const COLS: { key: keyof StressedPosition | "_calc_mark"; label: string; align?:
   { key: "industry", label: "Industry", align: "left" },
   { key: "cost_m", label: "Cost ($M)", align: "right" },
   { key: "fv_m", label: "FV ($M)", align: "right" },
-  { key: "mark_at_par", label: "Mark", align: "right" },
+  { key: "mark_at_par", label: "Mark (¢ of par)", align: "right" },
   { key: "coupon", label: "Coupon", align: "left" },
   { key: "maturity_date", label: "Maturity", align: "left" },
 ];

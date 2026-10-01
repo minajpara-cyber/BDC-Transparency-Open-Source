@@ -50,15 +50,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
   const costData = Array.from(costByPeriod.values());
 
   // Latest per-holder snapshot
-  type Snapshot = {
-    ticker: string;
-    cost: number;
-    fv: number;
-    par: number;
-    period_end: string;
-    is_non_accrual: number | null;
-    has_pik: number | null;
-  };
+  type Snapshot = (typeof rows)[number];
   const lastByTicker = new Map<string, Snapshot>();
   for (const h of rows) {
     const prev = lastByTicker.get(h.ticker);
@@ -72,16 +64,20 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
   const latestTotalFV = latestRows.reduce((s, r) => s + r.fv, 0);
   const latestTotalCost = latestRows.reduce((s, r) => s + r.cost, 0);
 
-  // Mark dispersion at latest quarter (cents/par if par > 0, else cents/cost)
+  // Debt-mark spread at the latest quarter: each current holder's DEBT mark
+  // (fair value ÷ par of its loans, data/borrowers_history debt_mark). Equity,
+  // preferred and holders with no usable par are left out — never fair value
+  // ÷ cost in cents, never equity over the loans' par.
   const dispersion = latestRows
-    .map((r) => {
-      const denom = r.par > 0 ? r.par : r.cost;
-      return denom > 0 ? (100 * r.fv) / denom : null;
-    })
+    .map((r) => (r.debt_mark != null ? 100 * r.debt_mark : null))
     .filter((v): v is number => v !== null);
   const minMark = dispersion.length ? Math.min(...dispersion) : null;
   const maxMark = dispersion.length ? Math.max(...dispersion) : null;
   const spreadBps = minMark !== null && maxMark !== null ? Math.round((maxMark - minMark) * 100) : null;
+  const anyEquity = latestRows.some((r) => r.equity_fv !== 0 || r.equity_cost > 0);
+  const noMarkReason = (r: Snapshot) => r.mark_status === "no_debt"
+    ? "This BDC holds no loans to the borrower here (equity or other interests only), so there is no mark in cents of par."
+    : "This BDC's loans to the borrower have no usable par in US dollars (missing, in another currency, or the whole commitment of a partly drawn facility), so no mark is shown.";
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -205,11 +201,11 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
           value={`${latestTotalCost ? ((100 * latestTotalFV) / latestTotalCost).toFixed(1) : "—"}%`}
           color={latestTotalCost && latestTotalFV / latestTotalCost >= 0.98 ? "#22c55e" : latestTotalFV / latestTotalCost >= 0.9 ? "#eab308" : "#ef4444"}
         />
-        {latestRows.length >= 2 && spreadBps !== null && (
+        {dispersion.length >= 2 && spreadBps !== null && (
           <StatCard
-            label="Mark dispersion (latest)"
+            label="Loan mark spread (latest)"
             value={`${spreadBps} bps`}
-            sub={`${minMark?.toFixed(1)}¢ → ${maxMark?.toFixed(1)}¢`}
+            sub={`${minMark?.toFixed(1)}¢ → ${maxMark?.toFixed(1)}¢ of par, ${dispersion.length} holders`}
             color={spreadBps > 500 ? "#ef4444" : spreadBps > 200 ? "#eab308" : "#9ca3af"}
           />
         )}
@@ -224,9 +220,18 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
           <table className="w-full text-sm">
             <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
               <tr>
-                {["BDC", "Period", "Cost", "Fair value", "FV / cost", "Mark¢", "Non-accrual", "PIK"].map((h) => (
+                {[
+                  ["BDC", ""], ["Period", ""], ["Cost", "Every instrument the BDC holds in the borrower"],
+                  ["Fair value", "Every instrument the BDC holds in the borrower"],
+                  ["FV / cost", "Fair value as % of cost, every instrument"],
+                  ["Loan mark", "Fair value ÷ par of the BDC's loans to the borrower, in cents per dollar of par. Equity and preferred are not in it."],
+                  ["Equity & other", "Preferred, common, warrants, units and fund interests: fair value, and fair value as % of cost"],
+                  ["Non-accrual", "Whether a loan is on non-accrual"],
+                  ["PIK", "Whether a loan pays interest in kind"],
+                ].map(([h, tip]) => (
                   <th
                     key={h}
+                    title={tip || undefined}
                     className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-left whitespace-nowrap"
                     style={{ color: "#8b8ba8" }}
                   >
@@ -239,8 +244,8 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
               {latestRows.map((r, i) => {
                 const fvc = r.cost ? (100 * r.fv) / r.cost : 0;
                 const fvcColor = fvc >= 98 ? "#22c55e" : fvc >= 90 ? "#eab308" : "#ef4444";
-                const denom = r.par > 0 ? r.par : r.cost;
-                const markCent = denom ? (100 * r.fv) / denom : null;
+                const markCent = r.debt_mark != null ? 100 * r.debt_mark : null;
+                const eqPct = r.equity_cost > 0 ? (100 * r.equity_fv) / r.equity_cost : null;
                 return (
                   <tr
                     key={r.ticker}
@@ -266,13 +271,25 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
                     <td className="px-4 py-3 text-sm font-semibold" style={{ color: fvcColor }}>
                       {fvc.toFixed(1)}%
                     </td>
-                    <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}>
+                    <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}
+                        title={markCent === null ? noMarkReason(r) : undefined}>
                       {markCent !== null ? `${markCent.toFixed(1)}¢` : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}>
+                      {r.equity_fv !== 0 || r.equity_cost > 0
+                        ? `${fmtUSD(r.equity_fv)}${eqPct !== null ? ` · ${eqPct.toFixed(0)}% of cost` : ""}`
+                        : "—"}
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold" style={{
                       color: r.is_non_accrual === 1 ? "#ef4444" : r.is_non_accrual === 0 ? "#9ca3af" : "#6b6b88",
                     }}>
                       {r.is_non_accrual === 1 ? "YES" : r.is_non_accrual === 0 ? "no" : "—"}
+                      {r.equity_na === 1 && (
+                        <div className="text-[10px] font-normal" style={{ color: "#f97316" }}
+                             title="A preferred or other equity holding is on non-accrual; the loans are judged on their own">
+                          equity on non-accrual
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold" style={{
                       color: r.has_pik === 1 ? "#f97316" : r.has_pik === 0 ? "#9ca3af" : "#6b6b88",
@@ -285,6 +302,17 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
             </tbody>
           </table>
         </div>
+        <p className="px-5 py-3 text-xs border-t" style={{ color: "#8b8ba8", borderColor: "#1e1e2e" }}>
+          Loan mark = fair value ÷ par of each BDC&apos;s loans to the borrower, in cents per dollar of par, over the
+          loans that have a par in US dollars (a non-dollar par is converted at the balance-sheet date&apos;s rate).
+          &quot;—&quot; means no such mark: the BDC holds only equity, or its loans have no usable par.
+          {anyEquity && (
+            <>
+              {" "}Preferred stock, common equity, warrants, units and fund interests are never in the loan mark; they are
+              shown in &quot;Equity &amp; other&quot; at fair value and as a % of what the BDC paid.
+            </>
+          )}
+        </p>
         {exitedRows.length > 0 && (
           <p className="px-5 py-3 text-xs border-t" style={{ color: "#8b8ba8", borderColor: "#1e1e2e" }}>
             Exited (not in the BDC&apos;s latest book, left out of the totals above):{" "}
@@ -320,7 +348,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
       )}
 
       <p className="text-xs mt-6" style={{ color: "#6b6b88" }}>
-        Source: SEC EDGAR 10-K / 10-Q Schedule of Investments parsing across our 10 covered BDCs.
+        Source: SEC EDGAR 10-K / 10-Q Schedule of Investments parsing across our 19 covered BDCs.
         Borrower-name dedup strips trailing footnote tokens (e.g. &quot;(2)(3)&quot;) so multiple
         loans to the same borrower roll up.
       </p>

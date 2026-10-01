@@ -204,14 +204,14 @@ export default function SponsorsIndexPage() {
                 <th
                   className="px-3 py-3 text-right border-l"
                   style={{ borderColor: "#1e1e2e", background: "rgba(239,68,68,0.04)" }}
-                  title="% of debt positions marked below 95¢ on the dollar"
+                  title="% of the sponsor's loans with a usable par marked below 95¢ per dollar of par (fair value ÷ par; equity and preferred stakes are left out)"
                 >
                   {renderSortButton({ k: "pct_below_95", label: "< 95¢", align: "right" })}
                 </th>
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.04)" }}
-                  title="% of debt positions marked below 90¢ on the dollar"
+                  title="% of the sponsor's loans with a usable par marked below 90¢ per dollar of par (fair value ÷ par; equity and preferred stakes are left out)"
                 >
                   {renderSortButton({ k: "pct_below_90", label: "< 90¢", align: "right" })}
                 </th>
@@ -300,15 +300,16 @@ export default function SponsorsIndexPage() {
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono border-l"
-                    style={{ borderColor: "#1a1a28", color: pctColor(s.pct_below_95, "pct_below_95", thin) }}
+                    style={{ borderColor: "#1a1a28", color: s.pct_below_95 == null ? "#6b6b88" : pctColor(s.pct_below_95, "pct_below_95", thin) }}
+                    title={`${s.n_positions_marked} of ${s.n_positions} loans have a usable par`}
                   >
-                    {s.pct_below_95.toFixed(1)}%
+                    {s.pct_below_95 == null ? "—" : `${s.pct_below_95.toFixed(1)}%`}
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono"
-                    style={{ color: pctColor(s.pct_below_90, "pct_below_90", thin) }}
+                    style={{ color: s.pct_below_90 == null ? "#6b6b88" : pctColor(s.pct_below_90, "pct_below_90", thin) }}
                   >
-                    {s.pct_below_90.toFixed(1)}%
+                    {s.pct_below_90 == null ? "—" : `${s.pct_below_90.toFixed(1)}%`}
                   </td>
                   <td
                     className="px-3 py-3 text-right text-sm font-mono"

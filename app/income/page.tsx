@@ -359,7 +359,7 @@ export default function IncomePage() {
           <StatCard label={`PIK booked since ${windowYear}`} value={`$${(pikLedgerMeta.pooled_accrued_bn ?? 0).toFixed(1)}bn`}
             sub={`${pikLedgerMeta.n_bdcs} BDCs · allocated loan by loan from disclosed PIK rates`} color="#a5b4fc" highlight />
           <StatCard label="Collected — estimate" value={`${(pikLedgerMeta.pooled_collected_pct ?? 0).toFixed(0)}%`}
-            sub="loans repaid at 97¢ or better, or refinanced at par" color="#86efac" />
+            sub="loans repaid valued at 97% of cost or more, or refinanced at the same BDC" color="#86efac" />
           <StatCard label="Still in the book — observed" value={`${inBookPct.toFixed(0)}%`}
             sub={`${(pikLedgerMeta.pooled_in_book_impaired_pct ?? 0).toFixed(0)} points of it in impaired loans`
               + ((pikLedgerMeta.pooled_in_book_unknown_pct ?? 0) >= 0.5
@@ -395,12 +395,12 @@ export default function IncomePage() {
             statement gives the PIK booked each quarter; the schedule of investments gives every loan&apos;s PIK
             rate. Each loan&apos;s PIK is followed to what happened to it.{" "}
             <span className="text-white">Still in the book</span>{" "}is observed: the loan is in the latest
-            schedule, still paying PIK, back on cash-pay, or impaired (non-accrual, marked under 80¢, or
+            schedule, still paying PIK, back on cash-pay, or impaired (non-accrual, valued under 80% of cost, or
             restructured).
           </p>
           <p className="mb-2">
-            <span className="text-white">Collected is an estimate.</span>{" "}A loan that left the book at a mark
-            of 97¢ or better, or was refinanced at par at the same BDC, is taken to have repaid its capitalized PIK
+            <span className="text-white">Collected is an estimate.</span>{" "}A loan that left the book valued at
+            97% of its cost or more (fair value ÷ cost — not cents of par), or was refinanced at the same BDC, is taken to have repaid its capitalized PIK
             as principal. PIK paid in cash while a loan stays on the book — partial paydowns, PIK toggles switching
             to cash — is not visible in the schedule, and an exit near par is not proof of cash received, so the
             estimate can be too low or too high.

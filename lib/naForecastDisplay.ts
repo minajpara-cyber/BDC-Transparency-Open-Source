@@ -120,9 +120,9 @@ export function fmtPct(value: number | null | undefined, digits = 2): string {
 }
 
 const FEATURE_LABELS: Record<string, string> = {
-  xh: "already on non-accrual at another BDC",
-  m90: "marked 80–90¢",
-  m95: "marked 90–95¢",
+  xh: "a loan already on non-accrual at another BDC",
+  m90: "loans marked 80–90¢ of par",
+  m95: "loans marked 90–95¢ of par",
   pik_flip: "switched from cash interest to PIK",
   pik_sev: "severe PIK of any type (preferred dividends included)",
   any_mod: "loan terms modified",

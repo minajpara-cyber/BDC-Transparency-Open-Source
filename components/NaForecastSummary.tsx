@@ -77,8 +77,8 @@ export default function NaForecastSummary({ ticker }: { ticker: string }) {
                 : "no number in this data release"}
               color={value == null ? "#8b8ba8" : value >= 3 ? "#ef4444" : value >= 1.5 ? "#f59e0b" : "#22c55e"} />
             <Stat label="Trailing 4Q actual" value={fmtPct(row.form_trailing)} sub="new NA over the past year" />
-            <Stat label="X-holder NA" value={fmtPct(row.xh_pp)} sub="cost in borrowers on NA at another BDC" />
-            <Stat label="Marked <90¢" value={fmtPct(row.b90_pp, 1)} sub="of cost" />
+            <Stat label="X-holder NA" value={fmtPct(row.xh_pp)} sub="cost in borrowers with a loan on NA at another BDC" />
+            <Stat label="Loans <90¢ of par" value={fmtPct(row.b90_pp, 1)} sub="of marked loan cost" />
             <Stat label={`NA rate ${row.q1_label}`} value={fmtPct(row.na_q1)}
               sub={row.lo_q1 != null && row.hi_q1 != null ? `80% range ${row.lo_q1.toFixed(2)}–${row.hi_q1.toFixed(2)}%` : undefined} />
             <Stat label="P(rise ≥0.5pp)" value={row.p_rise == null ? "—" : `${(100 * row.p_rise).toFixed(0)}%`}

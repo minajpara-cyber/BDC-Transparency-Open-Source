@@ -173,7 +173,7 @@ export default function NaForecastTable() {
           <thead style={{ background: "#0f0f16" }}>
             <tr>
               {["BDC", "NA now", "Expected new NA · next 4Q", "80% range", "Trailing 4Q actual",
-                "X-holder NA", "Marked <90¢", "Confidence",
+                "X-holder NA", "Loans <90¢ of par", "Confidence",
                 ...(showRate ? [`Rate ${q1Label}`, "P(rise ≥0.5pp)"] : [])]
                 .map((c, i) => (
                   <th key={c} className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider whitespace-nowrap ${i === 0 ? "text-left" : "text-right"}`}
@@ -225,11 +225,12 @@ export default function NaForecastTable() {
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums"
                     style={{ color: row.xh_pp == null ? "#6b6b88" : row.xh_pp >= 2 ? "#ef4444" : row.xh_pp >= 0.5 ? "#f59e0b" : "#6b6b88" }}
-                    title="Share of this BDC's cost in borrowers already on non-accrual at another BDC.">
+                    title="Share of this BDC's cost in borrowers with a loan already on non-accrual at another BDC (a preferred share on non-accrual does not count).">
                     {fmtPct(row.xh_pp)}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums"
-                    style={{ color: row.b90_pp != null && row.b90_pp >= 15 ? "#f59e0b" : "#6b6b88" }}>
+                    style={{ color: row.b90_pp != null && row.b90_pp >= 15 ? "#f59e0b" : "#6b6b88" }}
+                    title="Share of the loan cost of borrowers whose loans have a usable par, marked below 90¢ per dollar of par (fair value ÷ par; equity left out).">
                     {fmtPct(row.b90_pp, 1)}
                   </td>
                   <td className="px-3 py-2 text-right text-xs">

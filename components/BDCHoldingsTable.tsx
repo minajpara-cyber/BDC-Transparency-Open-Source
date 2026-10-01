@@ -154,7 +154,13 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
     { key: "structure", label: "Structure", sortable: true, render: (h) => <span className="text-xs" style={{ color: h.isSlice ? "#a5b4fc" : "#9ca3af" }}>{h.structure || "—"}</span> },
     { key: "fv_m", label: "Exposure", sortable: true, align: "right", render: (h) => <span className="text-white tabular-nums">${h.fv_m.toLocaleString(undefined, { maximumFractionDigits: 0 })}M</span> },
     { key: "pct_book", label: "% book", sortable: true, align: "right", render: (h) => <span className="tabular-nums" style={{ color: "#9ca3af" }}>{h.pct_book.toFixed(1)}%</span> },
-    { key: "mark", label: "Blended mark", sortable: true, align: "right", render: (h) => <span className="tabular-nums">{markCents(h.mark)}</span> },
+    { key: "mark", label: "Loan mark", sortable: true, align: "right", render: (h) => (
+      <span className="tabular-nums" title={h.mark == null
+        ? "No loan mark: no loans, or under half of the loans have a usable par in US dollars"
+        : "Fair value ÷ par of the BDC's loans to this borrower, in cents per dollar of par (equity left out)"}>
+        {markCents(h.mark)}
+      </span>
+    ) },
     { key: "maturity", label: "Nearest mat.", sortable: true, align: "right", render: (h) => <span className="text-xs tabular-nums" style={{ color: "#8b8ba8" }}>{h.maturity ?? "—"}</span> },
   ];
 
@@ -237,7 +243,9 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
         <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
           Each row is one capital-structure slice of a borrower — its own fair value, % of book, mark
           and maturity, <span className="text-white">not the borrower&apos;s blended total</span>.
-          Equity and structured/JV slices have no mark or maturity (no par), so those show &ldquo;—&rdquo;.
+          Equity and structured/JV slices have no mark or maturity (no par), so those show &ldquo;—&rdquo;;
+          a loan slice shows &ldquo;—&rdquo; when its par is not usable (missing, in another currency, or the
+          whole commitment of a partly drawn facility).
         </p>
       )}
 

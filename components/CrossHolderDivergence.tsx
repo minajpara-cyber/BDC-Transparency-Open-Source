@@ -16,9 +16,13 @@ import { managerOf } from "@/lib/managerMap";
 
 const cleanName = (s: string) => s.replace(/\s*\((?:\d+|[a-z])\)(?:\((?:\d+|[a-z])\))*\s*$/i, "").trim();
 const fmtM = (m: number) => (m >= 1000 ? `$${(m / 1000).toFixed(2)}B` : m >= 1 ? `$${m.toFixed(0)}M` : `$${m.toFixed(1)}M`);
-// marks come from fv÷par on the underlying tranches; par is misparsed in a few
-// BDCs (ARCC/GBDC), yielding impossible >110¢ marks. Hide those rather than show "200¢".
-const markStr = (m: number | null) => (m != null && m > 0 && m <= 1.1 ? `${Math.round(m * 100)}¢` : null);
+// mark_at_par is each holder's LOAN mark: fair value ÷ par over its loans to
+// the borrower that have a US-dollar par (scripts/marks.py). Equity and
+// preferred are never in it, and a holder without one carries null ("—").
+// (Before 2026-10-01 every row was summed — OCIC's Kaseya read 101¢ on loans
+// marked 73¢ because a preferred stake sat on top — and marks above 110¢ were
+// hidden here instead of fixed.)
+const markStr = (m: number | null) => (m != null ? `${Math.round(m * 100)}¢` : null);
 
 type SortKey = "fv_accruing" | "consensus" | "name";
 
@@ -32,7 +36,9 @@ export default function CrossHolderDivergence() {
       .map((d) => {
         const na = d.holders.filter((h) => h.is_non_accrual);
         const accruing = d.holders.filter((h) => !h.is_non_accrual);
-        const fvAccruing = accruing.reduce((s, h) => s + (h.fv_m || 0), 0);
+        // loans still accruing (funded debt at a positive fair value); equity
+        // and negative-value unfunded rows are not "still accruing"
+        const fvAccruing = accruing.reduce((s, h) => s + (h.debt_fv_m || 0), 0);
         const consensus = d.n_holders_na / d.n_holders;
         return {
           key: d.company_norm,
@@ -143,8 +149,8 @@ export default function CrossHolderDivergence() {
                         <Link key={h.ticker} href={`/bdcs/${h.ticker.toLowerCase()}`}
                           className="px-1.5 py-0.5 rounded text-xs font-mono font-medium"
                           style={{ background: "rgba(239,68,68,0.15)", color: "#fca5a5", border: "1px solid rgba(239,68,68,0.4)" }}
-                          title={`${managerOf(h.ticker)} · ${fmtM(h.fv_m)}${markStr(h.mark_at_par) ? ` · mark ${markStr(h.mark_at_par)}` : ""}`}>
-                          {h.ticker}{markStr(h.mark_at_par) ? ` ${markStr(h.mark_at_par)}` : ""}
+                          title={`${managerOf(h.ticker)} · ${fmtM(h.debt_fv_m)} of loans${markStr(h.mark_at_par) ? ` · loans marked ${markStr(h.mark_at_par)} of par` : " · no loan mark"}${h.equity_fv_m ? ` · ${fmtM(h.equity_fv_m)} of equity/preferred not in the mark` : ""}`}>
+                          {h.ticker}{markStr(h.mark_at_par) ? ` ${markStr(h.mark_at_par)}` : " —"}
                         </Link>
                       ))}
                     </div>
@@ -161,8 +167,8 @@ export default function CrossHolderDivergence() {
                               color: low ? "#fcd34d" : "#a5b4fc",
                               border: `1px solid ${low ? "rgba(245,158,11,0.45)" : "#2d2d50"}`,
                             }}
-                            title={`${managerOf(h.ticker)} · ${fmtM(h.fv_m)} still accruing${markStr(h.mark_at_par) ? ` · marked ${markStr(h.mark_at_par)}${low ? " (already marking it down)" : ""}` : ""}`}>
-                            {h.ticker} {fmtM(h.fv_m)}{markStr(h.mark_at_par) ? ` · ${markStr(h.mark_at_par)}` : ""}
+                            title={`${managerOf(h.ticker)} · ${fmtM(h.debt_fv_m)} of loans still accruing${markStr(h.mark_at_par) ? ` · loans marked ${markStr(h.mark_at_par)} of par${low ? " (already marking them down)" : ""}` : " · no loan mark (no usable par)"}${h.equity_fv_m ? ` · ${fmtM(h.equity_fv_m)} of equity/preferred not in the mark` : ""}${h.equity_na ? " · its preferred/equity is on non-accrual" : ""}`}>
+                            {h.ticker} {fmtM(h.debt_fv_m)}{markStr(h.mark_at_par) ? ` · ${markStr(h.mark_at_par)}` : " · —"}
                           </Link>
                         );
                       })}
@@ -179,8 +185,11 @@ export default function CrossHolderDivergence() {
       )}
       <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
         Borrowers matched by normalized name across covered BDCs (a conservative subset — different legal-entity names for the
-        same credit may not link). Marks are fair value ÷ par on the debt tranches; an <span style={{ color: "#fcd34d" }}>amber</span>{" "}holdout
-        is already carrying the loan below 85¢ while still accruing. A holder whose non-accrual status is unknown that quarter is left out.
+        same credit may not link). Only loans count: a BDC is &quot;on non-accrual&quot; when one of its loans to the borrower is, and a
+        preferred share that stopped accruing does not make a disagreement. Marks are each BDC&apos;s loan mark — fair value ÷ par of
+        its loans, in cents per dollar of par; equity and preferred are never in it, and &quot;—&quot; means the BDC&apos;s loans have no
+        usable par. &quot;$ still accruing&quot; is the fair value of the holdouts&apos; loans. An <span style={{ color: "#fcd34d" }}>amber</span>{" "}holdout
+        is already carrying its loans below 85¢ while still accruing them. A holder whose non-accrual status is unknown that quarter is left out.
       </p>
     </section>
   );

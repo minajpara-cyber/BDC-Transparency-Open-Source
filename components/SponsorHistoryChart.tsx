@@ -118,7 +118,7 @@ export default function SponsorHistoryChart({ rows, mode, height = 240 }: Props)
               <Line
                 type="monotone"
                 dataKey="pct_below_95"
-                name="< 95¢"
+                name="Loans < 95¢ of par"
                 stroke="#fbbf24"
                 strokeWidth={2}
                 dot={{ r: 2 }}

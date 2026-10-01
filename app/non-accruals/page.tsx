@@ -347,9 +347,12 @@ export default function NonAccrualsPage() {
             Cross-Issuer Disagreement ({crossIssuerDisagreement.length})
           </h2>
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-            Borrowers held by 2+ covered BDCs where at least one BDC flags non-accrual on at least
-            one tranche while another clearly shows it accruing (lenders whose status we can&apos;t read are left out). Names are normalized via the bdctransparency.io
-            alias dictionary so divergent legal-entity strings roll up to a single operating company.
+            Borrowers held by 2+ covered BDCs where at least one BDC has a loan to the borrower on non-accrual
+            while another clearly still accrues its loans (lenders whose status we can&apos;t read are left out). Only loans count: a
+            preferred share that stopped accruing is noted but does not create a disagreement. Each chip shows the BDC&apos;s loans at
+            fair value and their mark — fair value ÷ par in cents per dollar of par, never including equity (&quot;—&quot; when the
+            loans have no usable par). Names are normalized via the bdctransparency.io alias dictionary so divergent legal-entity
+            strings roll up to a single operating company.
           </p>
         </div>
         <div className="divide-y" style={{ borderColor: "#1a1a28" }}>
@@ -366,9 +369,9 @@ export default function NonAccrualsPage() {
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-semibold" style={{ color: "#f97316" }}>
-                    ${d.total_fv_na_m.toFixed(1)}M flagged
+                    ${d.total_fv_na_m.toFixed(1)}M of loans flagged
                   </div>
-                  <div className="text-xs" style={{ color: "#6b6b88" }}>of ${d.total_fv_m.toFixed(1)}M total FV</div>
+                  <div className="text-xs" style={{ color: "#6b6b88" }}>of ${d.total_fv_m.toFixed(1)}M of loans held</div>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 mt-1">
@@ -383,11 +386,15 @@ export default function NonAccrualsPage() {
                       }}
                     >
                       <span className="font-bold">{h.ticker}</span>
-                      <span style={{ color: "#d1d5db" }}>${h.fv_m.toFixed(1)}M</span>
-                      {h.mark_at_par != null && (
-                        <span style={{ color: "#8b8ba8" }}>· {(h.mark_at_par * 100).toFixed(0)}¢</span>
-                      )}
+                      <span style={{ color: "#d1d5db" }}>${h.debt_fv_m.toFixed(1)}M</span>
+                      <span style={{ color: "#8b8ba8" }}
+                            title={h.mark_at_par != null ? "Loan mark: fair value ÷ par of this BDC's loans" : "No loan mark: no usable par"}>
+                        · {h.mark_at_par != null ? `${(h.mark_at_par * 100).toFixed(0)}¢` : "—"}
+                      </span>
                       <span>{h.is_non_accrual ? "NA" : "perf"}</span>
+                      {h.equity_na && (
+                        <span style={{ color: "#f97316" }} title="This BDC's preferred or other equity in the borrower is on non-accrual">· equity NA</span>
+                      )}
                     </span>
                   </Link>
                 ))}

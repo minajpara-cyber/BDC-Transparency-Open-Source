@@ -42,7 +42,7 @@ const METRIC_META: Record<Metric, { label: string; sub: string; color: string }>
   },
   pct_b90_alive: {
     label: "% Surviving Cost Marked < 90¢",
-    sub: "Point-in-time — share of the cost still on the book at age T that is marked below 90¢ (leading indicator).",
+    sub: "Point-in-time — share of the cost still on the book at age T, among loans with a price mark (fair value ÷ par; equity and loans without a usable par are left out), that is marked below 90¢ of par (leading indicator).",
     color: "#eab308",
   },
 };
@@ -548,7 +548,7 @@ export default function VintagePage() {
                 const modColor = modValue == null ? "#444" : modValue >= 12 ? "#a855f7" : modValue >= 6 ? "#c084fc" : "#9ca3af";
                 const naColor = r.pct_ever_na == null ? "#444" : r.pct_ever_na >= 3 ? "#ef4444" : r.pct_ever_na >= 1 ? "#f97316" : "#22c55e";
                 const b80Color = r.pct_ever_b80 == null ? "#444" : r.pct_ever_b80 >= 5 ? "#ef4444" : r.pct_ever_b80 >= 2 ? "#f97316" : "#22c55e";
-                const b90Color = r.pct_b90_alive >= 10 ? "#ef4444" : r.pct_b90_alive >= 5 ? "#f97316" : "#22c55e";
+                const b90Color = r.pct_b90_alive == null ? "#444" : r.pct_b90_alive >= 10 ? "#ef4444" : r.pct_b90_alive >= 5 ? "#f97316" : "#22c55e";
                 const discPct = pctOf(r.cohort_high_conf_b ?? 0, r.cohort_entry_cost_b);
                 const discColor = discPct >= 75 ? "#22c55e" : discPct >= 50 ? "#eab308" : "#ef4444";
                 const altDef = (l1Only || hcOnly) ? r.pct_ever_default : r.pct_ever_default_hc;
@@ -605,7 +605,10 @@ export default function VintagePage() {
                     </td>
                     <td className="px-4 py-3 text-sm" style={{ color: naColor }}>{r.pct_ever_na == null ? "—" : `${r.pct_ever_na.toFixed(2)}%`}</td>
                     <td className="px-4 py-3 text-sm" style={{ color: b80Color }}>{r.pct_ever_b80 == null ? "—" : `${r.pct_ever_b80.toFixed(2)}%`}</td>
-                    <td className="px-4 py-3 text-sm" style={{ color: b90Color }}>{r.pct_b90_alive.toFixed(2)}%</td>
+                    <td className="px-4 py-3 text-sm" style={{ color: b90Color }}
+                        title={r.b90_mark_coverage_pct != null ? `${r.b90_mark_coverage_pct.toFixed(0)}% of the surviving cost has a price mark` : undefined}>
+                      {r.pct_b90_alive == null ? "—" : `${r.pct_b90_alive.toFixed(2)}%`}
+                    </td>
                     <td className="px-4 py-3 text-xs" title={`Left out (status unknown now): ${r.pct_na_unknown.toFixed(1)}% · counted but with an earlier unknown quarter: ${r.pct_na_history_gap.toFixed(1)}%`}>
                       {r.na_partial
                         ? <span style={{ color: "#eab308" }}>partial ({unk.toFixed(0)}% unknown)</span>

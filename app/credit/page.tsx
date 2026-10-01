@@ -21,7 +21,7 @@ import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
 import { stressedPositions } from "@/data/stressed_positions";
 import { borrowers } from "@/data/borrowers_index";
-import { borrowerHistory } from "@/data/borrowers_history";
+import { borrowerHistory, latestBookByTicker } from "@/data/borrowers_history";
 import { pikCascade, type PIKCascadeRow } from "@/data/pik_cascade";
 import { sectorCredit } from "@/data/sector_credit";
 import { macroContext } from "@/data/macro_context";
@@ -49,8 +49,10 @@ const COVERAGE_CAVEATS: Array<{
   // CCAP's books 2015-06..2021-12 are read from its schedules of investments
   // (header-mapped, 2026-09) and add up to each filing's printed total, and its
   // decoded non-accrual rate matches CCAP's own figure, so no CCAP caveat
-  // remains. ARCC's parsed books before 2022-09 carry no par: its below-95/90¢
-  // rates for those quarters are exported as unknown (null), not muted here.
+  // remains. ARCC's books before 2022-09 print par only inside the loan label
+  // ("($18.8 par due 1/2022)"); the loader reads it there since 2026-10-01, so
+  // ARCC's below-95/90¢ history is published back to 2016. A quarter with par
+  // on under half of its debt is still exported as unknown (null), not muted here.
   // OCSL's legacy schedules (books to 2022-12-31) are parsed with par, cost,
   // fair value, maturity and PIK read from each loan's description
   // (scripts/26, 2026-09-25), so no OCSL caveat remains. Its non-accrual
@@ -609,39 +611,46 @@ export default function CreditPage() {
   );
 
   // ---------- Cross-BDC mark dispersion (C.5) ----------
-  // For each borrower with ≥3 BDC holders in the latest available quarter,
-  // compute the spread between max and min mark (fv/cost). Big dispersion
-  // means BDCs disagree on the credit — worth investigating.
-  const dispersionLatest = borrowerHistory
-    .map((r) => r.period_end)
-    .sort()
-    .pop() ?? "";
+  // For each borrower held by 3+ BDCs in their latest books, the spread
+  // between the highest and lowest LOAN mark: each holder's fair value ÷ par
+  // over its loans to the borrower (borrowers_history.debt_mark). Equity and
+  // preferred are never in a mark; a holder whose loans have no usable par is
+  // left out of the min/max (and shown as "—"); a loan written to zero keeps
+  // its 0¢ — that is exactly the disagreement this table looks for. Each BDC
+  // is read at its OWN latest book, so early filers do not crowd out the rest
+  // in reporting season. (Before 2026-10-01 the "mark" was fair value ÷ cost
+  // of every instrument, with marks above 150% of cost or at zero dropped:
+  // Marcone Supply's 87-point spread was a worthless equity stake beside an
+  // 83¢ loan; on loans alone it was 11 points.)
+  const dispersionLatest = Object.values(latestBookByTicker).sort().pop() ?? "";
   type DispersionRow = {
     slug: string; name: string;
-    holders: Array<{ ticker: string; mark: number; cost: number; fv: number }>;
-    min_mark: number; max_mark: number; spread: number; total_cost: number;
+    holders: Array<{ ticker: string; mark: number | null; cost: number; fv: number }>;
+    min_mark: number; max_mark: number; spread: number; total_cost: number; n_marked: number;
   };
   const borrowerNameBySlug = new Map(borrowers.map((b) => [b.slug, b.name]));
   const byBorrower = new Map<string, DispersionRow>();
   for (const r of borrowerHistory) {
-    if (r.period_end !== dispersionLatest) continue;
-    if (r.cost <= 0 || r.fv <= 0) continue;
-    const mark = r.fv / r.cost;
-    if (mark > 1.5 || mark < 0.0) continue;
+    if (latestBookByTicker[r.ticker] !== r.period_end) continue;
+    if (r.slug === "unknown") continue;
     const name = borrowerNameBySlug.get(r.slug) ?? r.slug;
     if (AGGREGATOR_PATTERNS.some((p) => p.test(name))) continue;
     let row = byBorrower.get(r.slug);
     if (!row) {
-      row = { slug: r.slug, name, holders: [], min_mark: 99, max_mark: -1, spread: 0, total_cost: 0 };
+      row = { slug: r.slug, name, holders: [], min_mark: Infinity, max_mark: -Infinity, spread: 0, total_cost: 0, n_marked: 0 };
       byBorrower.set(r.slug, row);
     }
+    const mark = r.debt_mark;
     row.holders.push({ ticker: r.ticker, mark, cost: r.cost, fv: r.fv });
     row.total_cost += r.cost;
-    if (mark < row.min_mark) row.min_mark = mark;
-    if (mark > row.max_mark) row.max_mark = mark;
+    if (mark != null) {
+      row.n_marked += 1;
+      if (mark < row.min_mark) row.min_mark = mark;
+      if (mark > row.max_mark) row.max_mark = mark;
+    }
   }
   const dispersionRows = Array.from(byBorrower.values())
-    .filter((r) => r.holders.length >= 3)
+    .filter((r) => r.n_marked >= 3)
     .map((r) => ({ ...r, spread: r.max_mark - r.min_mark }))
     .sort((a, b) => b.spread - a.spread)
     .slice(0, 15);
@@ -725,8 +734,9 @@ export default function CreditPage() {
           Caveats now apply per metric family rather than per BDC-quarter as a whole — mark-based
           data (below 95¢ / 90¢, asset mix, spread) surfaces back to 2013 for FSK and 2016 for OBDC
           because those parsers capture par / cost / fv cleanly even pre-XBRL. The below-95¢ / 90¢
-          share needs par (the mark is fair value ÷ par): where par was read for under half of a
-          quarter&apos;s debt (ARCC before 2022-09) the share is shown as unknown (&quot;—&quot;), not zero, and
+          share needs a usable par (the mark is fair value ÷ par, in US dollars — a par printed in
+          another currency is converted at the balance-sheet date&apos;s rate): where under half of a
+          quarter&apos;s loan cost has one, the share is shown as unknown (&quot;—&quot;), not zero, and
           left out of the industry line. FSK&apos;s
           non-accrual before mid-2022 is muted as approximate: those filings don&apos;t mark unfunded
           commitments, so the rate can drift from FSK&apos;s own figure, and a quarter joins the industry
@@ -1205,8 +1215,10 @@ export default function CreditPage() {
           headerSlot={
             <div className="px-5 py-4 flex items-start justify-between gap-3">
               <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
-                Ranked by absolute markdown (cost − fair value) in the most recent quarter we have
-                position-level data for. Click any column header to sort.
+                Loans only, ranked by absolute markdown (cost − fair value) in the most recent quarter we have
+                position-level data for. Mark = fair value ÷ par in cents per dollar of par — the same mark the
+                heatmaps above count; &quot;—&quot; when the loan has no usable par (a commitment-sized or
+                foreign-currency par). Click any column header to sort.
               </p>
               <CsvDownloadButton
                 filename={`credit-top-stressed-loans-${stressedLatestPeriod}`}
@@ -1238,7 +1250,7 @@ export default function CreditPage() {
             { key: "markdown_m", label: "Markdown ($M)", align: "right", render: (r) => (
               <span className="font-mono font-semibold" style={{ color: "#fca5a5" }}>{r.markdown_m.toFixed(1)}</span>
             ) },
-            { key: "mark_at_par", label: "Mark", align: "right", render: (r) => (
+            { key: "mark_at_par", label: "Mark (¢ of par)", align: "right", render: (r) => (
               <span className="font-mono" style={{
                 color: r.mark_at_par === null ? "#6b6b88" :
                   r.mark_at_par < 0.8 ? "#fca5a5" :
@@ -1275,17 +1287,18 @@ export default function CreditPage() {
             <div className="px-5 py-4 flex items-start justify-between gap-3">
               <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
                 Free-text industry tags from each SOI normalized to ~10 canonical sectors.
-                Mark-based metrics use the same debt-shape filter as the main heatmaps
-                (par ≈ cost). &quot;Unclassified&quot; is positions whose SOI didn&apos;t carry
+                Below 95¢ / 90¢ use the same mark as the main heatmaps: loans with a usable par in US dollars,
+                fair value ÷ par, as a share of those loans&apos; cost (&quot;—&quot; when under half a sector&apos;s
+                loans can be marked). &quot;Unclassified&quot; is positions whose SOI didn&apos;t carry
                 an industry tag; &quot;Other&quot; is industry tags that didn&apos;t match any
                 canonical sector. PIK is the known-positive lower bound because this legacy
                 sector rollup does not yet publish an unknown-exposure upper bound. See <Link href="/methodology" className="hover:text-white underline" style={{ color: "#a5b4fc" }}>methodology</Link>{" "}for the mapping.
               </p>
               <CsvDownloadButton
                 filename={`credit-by-sector-${sectorCredit[0]?.period_end ?? "latest"}`}
-                columns={["sector", "period_end", "n_positions", "total_cost_b", "debt_cost_b", "pct_below_95", "pct_below_90", "pct_non_accrual", "pct_pik"]}
+                columns={["sector", "period_end", "n_positions", "total_cost_b", "marked_debt_cost_b", "mark_coverage_pct", "pct_below_95", "pct_below_90", "pct_non_accrual", "pct_pik"]}
                 rows={sectorCredit.map((r) => [
-                  r.sector, r.period_end, r.n_positions, r.total_cost_b, r.debt_cost_b,
+                  r.sector, r.period_end, r.n_positions, r.total_cost_b, r.debt_cost_b, r.mark_coverage_pct,
                   r.pct_below_95, r.pct_below_90, r.pct_non_accrual, r.pct_pik,
                 ])}
               />
@@ -1310,14 +1323,18 @@ export default function CreditPage() {
               }}>{r.pct_non_accrual.toFixed(2)}%</span>
             ) },
             { key: "pct_below_95", label: "% below 95¢", align: "right", render: (r) => (
+              r.pct_below_95 == null ? <span className="font-mono" style={{ color: "#6b6b88" }}
+                title="Under half of this sector's loans have a usable par">—</span> : (
               <span className="font-mono" style={{
                 color: r.pct_below_95 >= 20 ? "#fca5a5" : r.pct_below_95 >= 10 ? "#fdba74" : r.pct_below_95 >= 5 ? "#fde68a" : "#9ca3af",
-              }}>{r.pct_below_95.toFixed(2)}%</span>
+              }} title={r.mark_coverage_pct != null ? `${r.mark_coverage_pct.toFixed(0)}% of the sector's loan cost has a mark` : undefined}>
+                {r.pct_below_95.toFixed(2)}%</span>)
             ) },
             { key: "pct_below_90", label: "% below 90¢", align: "right", render: (r) => (
+              r.pct_below_90 == null ? <span className="font-mono" style={{ color: "#6b6b88" }}>—</span> : (
               <span className="font-mono" style={{
                 color: r.pct_below_90 >= 10 ? "#fca5a5" : r.pct_below_90 >= 5 ? "#fdba74" : "#9ca3af",
-              }}>{r.pct_below_90.toFixed(2)}%</span>
+              }}>{r.pct_below_90.toFixed(2)}%</span>)
             ) },
             { key: "pct_pik", label: "% PIK lower", align: "right", render: (r) => (
               <span className="font-mono" style={{
@@ -1346,8 +1363,10 @@ export default function CreditPage() {
                 For each PE sponsor in our mapping, every borrower we&apos;ve attributed to that
                 sponsor — across all 19 BDCs — rolled up into a single credit snapshot. Sponsors
                 with fewer than 30 positions across the universe are excluded as too thin a sample.
-                Mark-based percentages are position-count weighted (not dollar-weighted) so a
-                single mega-deal doesn&apos;t dominate. Sponsor → company mapping comes from
+                Percentages are position-count weighted (not dollar-weighted) so a single mega-deal
+                doesn&apos;t dominate, and count loans only (equity and preferred stakes are left out). Below
+                95¢ / 90¢ is the share of loans with a usable par marked below 95 / 90 cents per dollar of par
+                (fair value ÷ par). Sponsor → company mapping comes from
                 bdctransparency.io. Current PIK is the share of positions known to pay PIK; where some
                 positions&apos; PIK status is unknown and counting them all as PIK would add more than 1pp, the
                 range is shown (hover for coverage).
@@ -1386,14 +1405,16 @@ export default function CreditPage() {
               }}>{s.pct_non_accrual.toFixed(2)}%</span>
             ) },
             { key: "pct_below_95", label: "% below 95¢", align: "right", render: (s) => (
+              s.pct_below_95 == null ? <span className="font-mono" style={{ color: "#6b6b88" }}>—</span> : (
               <span className="font-mono" style={{
                 color: s.pct_below_95 >= 25 ? "#fca5a5" : s.pct_below_95 >= 15 ? "#fdba74" : s.pct_below_95 >= 8 ? "#fde68a" : "#9ca3af",
-              }}>{s.pct_below_95.toFixed(2)}%</span>
+              }} title={`${s.n_positions_marked} of ${s.n_positions} loans have a usable par`}>{s.pct_below_95.toFixed(2)}%</span>)
             ) },
             { key: "pct_below_90", label: "% below 90¢", align: "right", render: (s) => (
+              s.pct_below_90 == null ? <span className="font-mono" style={{ color: "#6b6b88" }}>—</span> : (
               <span className="font-mono" style={{
                 color: s.pct_below_90 >= 15 ? "#fca5a5" : s.pct_below_90 >= 8 ? "#fdba74" : "#9ca3af",
-              }}>{s.pct_below_90.toFixed(2)}%</span>
+              }}>{s.pct_below_90.toFixed(2)}%</span>)
             ) },
             { key: "pct_pik_now", label: "% currently PIK", align: "right", render: (s) => {
               const pik = sponsorPikPublication(s);
@@ -1487,8 +1508,8 @@ export default function CreditPage() {
       {/* Section 9 — Cross-BDC mark dispersion */}
       <section id="dispersion" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
-          Cross-BDC mark dispersion <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            · {dispersionLatest}{" "}· same loan, different BDCs, different marks
+          Cross-BDC loan mark dispersion <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
+            · each BDC&apos;s latest book (newest {dispersionLatest}) · same borrower, different BDCs, different marks
           </span>
         </h2>
         <SortableTable
@@ -1497,8 +1518,8 @@ export default function CreditPage() {
             n_holders: r.holders.length,
             spread_pp: r.spread * 100,
             holder_detail: r.holders
-              .slice().sort((a, b) => a.mark - b.mark)
-              .map((h) => `${h.ticker}: ${(h.mark * 100).toFixed(0)}¢`)
+              .slice().sort((a, b) => (a.mark ?? Infinity) - (b.mark ?? Infinity))
+              .map((h) => `${h.ticker}: ${h.mark != null ? `${(h.mark * 100).toFixed(0)}¢` : "—"}`)
               .join(" · "),
           }))}
           rowKey={(r) => r.slug}
@@ -1507,9 +1528,11 @@ export default function CreditPage() {
           headerSlot={
             <div className="px-5 py-4 flex items-start justify-between gap-3">
               <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
-                When three or more BDCs hold the same borrower, their marks should agree
+                When three or more BDCs hold loans to the same borrower, their marks should agree
                 (it&apos;s the same credit). Large dispersion means BDCs disagree on the credit
-                quality — worth investigating. Marks are fair value / cost.
+                quality — worth investigating. A mark is a BDC&apos;s loan mark: fair value ÷ par of its
+                loans to the borrower, in cents per dollar of par. Equity and preferred stakes are never in
+                it; a BDC whose loans have no usable par shows &quot;—&quot; and is left out of the min and max.
               </p>
               <CsvDownloadButton
                 filename={`credit-mark-dispersion-${dispersionLatest}`}
@@ -1518,8 +1541,8 @@ export default function CreditPage() {
                   r.name, r.holders.length,
                   r.min_mark, r.max_mark, r.spread * 100,
                   r.total_cost,
-                  r.holders.slice().sort((a, b) => a.mark - b.mark)
-                    .map((h) => `${h.ticker}=${(h.mark * 100).toFixed(1)}c`).join("; "),
+                  r.holders.slice().sort((a, b) => (a.mark ?? Infinity) - (b.mark ?? Infinity))
+                    .map((h) => `${h.ticker}=${h.mark != null ? `${(h.mark * 100).toFixed(1)}c` : "no loan mark"}`).join("; "),
                 ])}
               />
             </div>
@@ -1533,10 +1556,10 @@ export default function CreditPage() {
             { key: "n_holders", label: "Holders", align: "right", render: (r) => (
               <span className="font-mono" style={{ color: "#d1d5db" }}>{r.n_holders}</span>
             ) },
-            { key: "min_mark", label: "Min mark", align: "right", render: (r) => (
+            { key: "min_mark", label: "Lowest loan mark", align: "right", render: (r) => (
               <span className="font-mono" style={{ color: "#fca5a5" }}>{(r.min_mark * 100).toFixed(1)}¢</span>
             ) },
-            { key: "max_mark", label: "Max mark", align: "right", render: (r) => (
+            { key: "max_mark", label: "Highest loan mark", align: "right", render: (r) => (
               <span className="font-mono" style={{ color: "#86efac" }}>{(r.max_mark * 100).toFixed(1)}¢</span>
             ) },
             { key: "spread_pp", label: "Spread (pp)", align: "right", render: (r) => (

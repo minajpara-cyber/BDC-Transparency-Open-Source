@@ -35,12 +35,12 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
     ["ticker", "BDC", ""],
     ["pik_accrued_m", "PIK booked ($m)", "PIK allocated to each loan from its disclosed PIK rate × principal since the window start (a floating loan that pays its whole coupon in kind but is printed as a spread accrues at the quarter-end reference rate plus the spread, or at the filer's all-in rate where one is printed); scaled to the cash-flow statement's PIK in quarters where at least 97% of the book's cost has a known PIK status and rate"],
     ["pik_pct_nii_window", "% of NII", "PIK income as a share of NII over the window"],
-    ["collected_pct", "Collected (est.)", "estimate: loans that left the book at 97¢ or better, or were refinanced at par at the same BDC, plus the recovered part of loans exited below par"],
+    ["collected_pct", "Collected (est.)", "estimate: loans that left the book valued at 97% of cost or more, or were refinanced at the same BDC, plus the recovered part of loans that left below that"],
     ["refinanced_pct", "of which refinanced", "included in Collected: loans that left at par while the borrower kept a position at the same BDC — the old loan was repaid from the new facility"],
     ["still_pik_pct", "Still PIK", "observed: loans still on the book and still accruing PIK"],
     ["cured_pct", "Cured", "observed: loans back on cash-pay; the PIK already capitalized is still owed as principal"],
     ["relabelled_pct", "Relabelled", "observed: PIK equity whose cost moved onto another equity line at the same borrower (for example preferred restated as an LP interest) — still in the book, not collected"],
-    ["in_book_impaired_pct", "Impaired", "observed: loans on non-accrual or marked under 80¢, and restructurings at the same BDC"],
+    ["in_book_impaired_pct", "Impaired", "observed: loans on non-accrual or valued under 80% of cost, and restructurings at the same BDC"],
     ["in_book_unknown_pct", "Status unknown", "still on the book, but the latest schedule does not show whether the loan pays PIK"],
     ["lost_pct", "Lost (est.)", "estimated from the last mark: the part of exits below par not recovered"],
     ["unresolved_pct_book", "Uncollected, % of book", "PIK not yet collected or lost, as a share of the portfolio at cost"],
@@ -138,8 +138,9 @@ export default function PikLedgerTable({ rows }: { rows: PikLedgerRow[] }) {
         &quot;of which refinanced&quot; is the part of Collected that was rolled into a new loan at the same BDC. Still
         PIK, cured, relabelled and impaired are what the latest schedule shows; relabelled is PIK equity whose cost
         moved onto another equity line at the same borrower, so it is still owed. Collected and lost are estimates from how each loan left
-        the book: collected counts loans that exited at 97¢ or better or were refinanced at par, and lost is taken
-        from the last reported mark, not from sale proceeds. PIK paid in cash while a loan stays on the book is
+        the book: collected counts loans that exited valued at 97% of cost or more (fair value ÷ cost, not cents of
+        par) or were refinanced at the same BDC, and lost is taken from the last reported value against cost, not
+        from sale proceeds. PIK paid in cash while a loan stays on the book is
         not visible in the schedule
         {calibration.length > 0
           ? `, so check the estimate against the BDCs that report their PIK collections: ${calibration.join("; ")}`

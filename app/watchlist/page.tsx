@@ -644,14 +644,17 @@ export default function WatchlistPage() {
           emptyMessage="No positions match these filters."
         />
         <p className="text-xs mt-4 max-w-3xl" style={{ color: "#6b6b88" }}>
-          How the screen works: a loan scores points for a mark below 90¢ (more below 80¢), a mark drop of 3+
+          How the screen works: a loan scores points for a mark below 90¢ of par (more below 80¢), a mark drop of 3+
           points in a quarter (more if it falls two quarters running), a switch from cash to PIK interest, heavy
-          PIK, non-accrual at another BDC and — lightly — an amend-and-extend. A stressed cut to the loan amount
+          PIK, a loan of the same borrower on non-accrual at another BDC (a preferred share on non-accrual there
+          does not count) and — lightly — an amend-and-extend. The mark is fair value ÷ par, counted only when par
+          is a price basis (not the whole commitment of a partly drawn revolver or delayed draw, not a par in
+          another currency), the same mark as the credit heatmaps. A stressed cut to the loan amount
           adds points only alongside another signal; spread cuts are shown as a tag but do not score, because
           most are healthy repricings. The same loan is followed quarter to quarter through extensions and
           label changes; that matching is automated, so treat a signal as a prompt to look, not proof of an
-          amendment or default. Loans already on non-accrual, loans marked below 2¢ and equity are excluded,
-          and JV/structured vehicles are hidden by default. A score shown as &ldquo;≥&rdquo; had some signals we
+          amendment or default. Loans already on non-accrual, loans marked below 2¢, equity and CLO / structured /
+          fund positions are not scored. A score shown as &ldquo;≥&rdquo; had some signals we
           couldn&apos;t observe, so it may be higher. A loan whose non-accrual status could not be read from its
           filing that quarter is screened like a performing loan, so it may already be on non-accrual.
         </p>
