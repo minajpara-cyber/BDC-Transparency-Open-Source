@@ -21,7 +21,7 @@ import { assetComposition } from "@/data/asset_composition";
 import { spreadAnalysis } from "@/data/spread_analysis";
 import { stressedPositions } from "@/data/stressed_positions";
 import { borrowers } from "@/data/borrowers_index";
-import { borrowerHistory, latestBookByTicker } from "@/data/borrowers_history";
+import { borrowerMarksLatest } from "@/data/borrower_marks_latest";
 import { pikCascade, type PIKCascadeRow } from "@/data/pik_cascade";
 import { sectorCredit } from "@/data/sector_credit";
 import { macroContext } from "@/data/macro_context";
@@ -621,28 +621,32 @@ export default function CreditPage() {
   // in reporting season. (Before 2026-10-01 the "mark" was fair value ÷ cost
   // of every instrument, with marks above 150% of cost or at zero dropped:
   // Marcone Supply's 87-point spread was a worthless equity stake beside an
-  // 83¢ loan; on loans alone it was 11 points.)
-  const dispersionLatest = Object.values(latestBookByTicker).sort().pop() ?? "";
+  // 83¢ loan; on loans alone it was 11 points.) Rows come from
+  // data/borrower_marks_latest (each BDC's latest book only): the full
+  // borrower history is ~13 MB. Holders and cost count LOANS only; a BDC with
+  // equity only is named apart in the detail, never as a "—" loan mark.
+  const dispersionLatest = borrowerMarksLatest.reduce((m, r) => (r.period_end > m ? r.period_end : m), "");
   type DispersionRow = {
     slug: string; name: string;
-    holders: Array<{ ticker: string; mark: number | null; cost: number; fv: number }>;
+    holders: Array<{ ticker: string; mark: number | null; status: string; loan_cost: number }>;
+    equity_only: string[];
     min_mark: number; max_mark: number; spread: number; total_cost: number; n_marked: number;
   };
   const borrowerNameBySlug = new Map(borrowers.map((b) => [b.slug, b.name]));
   const byBorrower = new Map<string, DispersionRow>();
-  for (const r of borrowerHistory) {
-    if (latestBookByTicker[r.ticker] !== r.period_end) continue;
+  for (const r of borrowerMarksLatest) {
     if (r.slug === "unknown") continue;
     const name = borrowerNameBySlug.get(r.slug) ?? r.slug;
     if (AGGREGATOR_PATTERNS.some((p) => p.test(name))) continue;
     let row = byBorrower.get(r.slug);
     if (!row) {
-      row = { slug: r.slug, name, holders: [], min_mark: Infinity, max_mark: -Infinity, spread: 0, total_cost: 0, n_marked: 0 };
+      row = { slug: r.slug, name, holders: [], equity_only: [], min_mark: Infinity, max_mark: -Infinity, spread: 0, total_cost: 0, n_marked: 0 };
       byBorrower.set(r.slug, row);
     }
+    if (r.mark_status === "no_debt") { row.equity_only.push(r.ticker); continue; }
     const mark = r.debt_mark;
-    row.holders.push({ ticker: r.ticker, mark, cost: r.cost, fv: r.fv });
-    row.total_cost += r.cost;
+    row.holders.push({ ticker: r.ticker, mark, status: r.mark_status, loan_cost: r.loan_cost });
+    row.total_cost += r.loan_cost;
     if (mark != null) {
       row.n_marked += 1;
       if (mark < row.min_mark) row.min_mark = mark;
@@ -654,6 +658,11 @@ export default function CreditPage() {
     .map((r) => ({ ...r, spread: r.max_mark - r.min_mark }))
     .sort((a, b) => b.spread - a.spread)
     .slice(0, 15);
+  const noMarkText = (status: string) => (status === "partial" ? "— (partly marked)" : "— (no usable par)");
+  const holderDetail = (r: DispersionRow, cents: (m: number) => string, none: (s: string) => string) =>
+    r.holders.slice().sort((a, b) => (a.mark ?? Infinity) - (b.mark ?? Infinity))
+      .map((h) => `${h.ticker}: ${h.mark != null ? cents(h.mark) : none(h.status)}`)
+      .concat(r.equity_only.length ? [`equity only: ${r.equity_only.join(", ")}`] : []);
 
   return (
     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1516,33 +1525,33 @@ export default function CreditPage() {
           data={dispersionRows.map((r) => ({
             ...r,
             n_holders: r.holders.length,
-            spread_pp: r.spread * 100,
-            holder_detail: r.holders
-              .slice().sort((a, b) => (a.mark ?? Infinity) - (b.mark ?? Infinity))
-              .map((h) => `${h.ticker}: ${h.mark != null ? `${(h.mark * 100).toFixed(0)}¢` : "—"}`)
-              .join(" · "),
+            spread_c: r.spread * 100,
+            holder_detail: holderDetail(r, (m) => `${(m * 100).toFixed(0)}¢`, noMarkText).join(" · "),
           }))}
           rowKey={(r) => r.slug}
           dense
-          initialSort={{ key: "spread_pp", dir: "desc" }}
+          initialSort={{ key: "spread_c", dir: "desc" }}
           headerSlot={
             <div className="px-5 py-4 flex items-start justify-between gap-3">
               <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
                 When three or more BDCs hold loans to the same borrower, their marks should agree
                 (it&apos;s the same credit). Large dispersion means BDCs disagree on the credit
                 quality — worth investigating. A mark is a BDC&apos;s loan mark: fair value ÷ par of its
-                loans to the borrower, in cents per dollar of par. Equity and preferred stakes are never in
-                it; a BDC whose loans have no usable par shows &quot;—&quot; and is left out of the min and max.
+                loans to the borrower, in cents per dollar of par, and the spread is in cents too. Equity and
+                preferred stakes are never in it. &quot;Holders with loans&quot; and &quot;Loan cost&quot; count loans
+                only; a BDC whose loans have no usable par shows &quot;— (no usable par)&quot; (or &quot;— (partly
+                marked)&quot; when the loans without one could move the mark) and is left out of the min and max; a
+                BDC holding only equity is listed as &quot;equity only&quot;.
               </p>
               <CsvDownloadButton
                 filename={`credit-mark-dispersion-${dispersionLatest}`}
-                columns={["name", "n_holders", "min_mark", "max_mark", "spread_pp", "total_cost_usd", "holder_detail"]}
+                columns={["name", "holders_with_loans", "min_mark", "max_mark", "spread_cents", "loan_cost_usd", "holder_detail"]}
                 rows={dispersionRows.map((r) => [
                   r.name, r.holders.length,
                   r.min_mark, r.max_mark, r.spread * 100,
                   r.total_cost,
-                  r.holders.slice().sort((a, b) => (a.mark ?? Infinity) - (b.mark ?? Infinity))
-                    .map((h) => `${h.ticker}=${h.mark != null ? `${(h.mark * 100).toFixed(1)}c` : "no loan mark"}`).join("; "),
+                  holderDetail(r, (m) => `${(m * 100).toFixed(1)}c`,
+                    (st) => (st === "partial" ? "no loan mark (partly marked)" : "no loan mark (no usable par)")).join("; "),
                 ])}
               />
             </div>
@@ -1553,7 +1562,7 @@ export default function CreditPage() {
                 {r.name}
               </Link>
             ) },
-            { key: "n_holders", label: "Holders", align: "right", render: (r) => (
+            { key: "n_holders", label: "Holders with loans", align: "right", render: (r) => (
               <span className="font-mono" style={{ color: "#d1d5db" }}>{r.n_holders}</span>
             ) },
             { key: "min_mark", label: "Lowest loan mark", align: "right", render: (r) => (
@@ -1562,18 +1571,18 @@ export default function CreditPage() {
             { key: "max_mark", label: "Highest loan mark", align: "right", render: (r) => (
               <span className="font-mono" style={{ color: "#86efac" }}>{(r.max_mark * 100).toFixed(1)}¢</span>
             ) },
-            { key: "spread_pp", label: "Spread (pp)", align: "right", render: (r) => (
+            { key: "spread_c", label: "Spread (¢)", align: "right", render: (r) => (
               <span className="font-mono font-semibold" style={{
-                color: r.spread_pp > 15 ? "#fca5a5" : r.spread_pp > 5 ? "#fdba74" : "#9ca3af",
-              }}>{r.spread_pp.toFixed(1)}</span>
+                color: r.spread_c > 15 ? "#fca5a5" : r.spread_c > 5 ? "#fdba74" : "#9ca3af",
+              }}>{r.spread_c.toFixed(1)}¢</span>
             ) },
-            { key: "total_cost", label: "Total cost ($M)", align: "right", render: (r) => (
+            { key: "total_cost", label: "Loan cost ($M)", align: "right", render: (r) => (
               <span className="font-mono" style={{ color: "#9ca3af" }}>{(r.total_cost / 1e6).toFixed(0)}</span>
             ) },
             { key: "holder_detail", label: "Detail", sortable: false, render: (r) => (
               <span className="text-[10px]" style={{ color: "#8b8ba8" }}>{r.holder_detail}</span>
             ) },
-          ] as Column<typeof dispersionRows[number] & { n_holders: number; spread_pp: number; holder_detail: string }>[]}
+          ] as Column<typeof dispersionRows[number] & { n_holders: number; spread_c: number; holder_detail: string }>[]}
         />
       </section>
 

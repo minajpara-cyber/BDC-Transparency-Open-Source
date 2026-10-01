@@ -106,6 +106,9 @@ export default function WatchlistPage() {
   const [q, setQ] = useState<string>("");
   const [newOnly, setNewOnly] = useState(false);
   const [hideStructured, setHideStructured] = useState(true);
+  // CLO / structured / fund positions are not scored, so the toggle only
+  // shows when the export carries such rows
+  const anyStructured = watchlist.some((r) => r.is_structured);
   const [valTab, setValTab] = useState<"lifts" | "oos">("lifts");
   const [wlCut, setWlCut] = useState<WlCut>("watch_plus");
 
@@ -626,9 +629,11 @@ export default function WatchlistPage() {
           <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "#9ca3af" }}>
             <input type="checkbox" checked={newOnly} onChange={(e) => setNewOnly(e.target.checked)} />{" "}New only
           </label>
-          <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "#9ca3af" }}>
-            <input type="checkbox" checked={hideStructured} onChange={(e) => setHideStructured(e.target.checked)} />{" "}Hide JV/structured
-          </label>
+          {anyStructured && (
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: "#9ca3af" }}>
+              <input type="checkbox" checked={hideStructured} onChange={(e) => setHideStructured(e.target.checked)} />{" "}Hide JV/structured
+            </label>
+          )}
           <CsvDownloadButton filename={`watchlist_${latest}`}
             columns={["tier", "score", "score_observation_status", "company", "ticker", "manager", "parent", "industry",
               "maturity", "mark", "fv_m", "cost_m", "is_new", "signals"]}
@@ -647,9 +652,15 @@ export default function WatchlistPage() {
           How the screen works: a loan scores points for a mark below 90¢ of par (more below 80¢), a mark drop of 3+
           points in a quarter (more if it falls two quarters running), a switch from cash to PIK interest, heavy
           PIK, a loan of the same borrower on non-accrual at another BDC (a preferred share on non-accrual there
-          does not count) and — lightly — an amend-and-extend. The mark is fair value ÷ par, counted only when par
-          is a price basis (not the whole commitment of a partly drawn revolver or delayed draw, not a par in
-          another currency), the same mark as the credit heatmaps. A stressed cut to the loan amount
+          does not count) and — lightly — an amend-and-extend. The mark is fair value ÷ par, the same mark as the
+          credit heatmaps, and a loan with no mark is not on this list. A loan has no mark when: it is an unfunded
+          commitment; its par is missing, or in a currency we cannot convert; its par is the whole commitment of a
+          partly drawn revolver or delayed draw (fair value close to its drawn cost, or par above twice cost —
+          MFIC and ADS loans from 2021–2024 are read this way, because those schedules printed the commitment as
+          the par); its par is more than fifty times cost, or more than twice cost on a loan that is neither on
+          non-accrual nor paying PIK and is valued near its cost; its cost is more than 1.06× par (1.35× for a
+          par converted from another currency); or it is marked above 150¢. A written-down or restructured loan
+          keeps its own low mark. A stressed cut to the loan amount
           adds points only alongside another signal; spread cuts are shown as a tag but do not score, because
           most are healthy repricings. The same loan is followed quarter to quarter through extensions and
           label changes; that matching is automated, so treat a signal as a prompt to look, not proof of an

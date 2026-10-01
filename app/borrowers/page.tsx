@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { borrowers } from "@/data/borrowers_index";
 import { borrowerEnrichment } from "@/data/borrower_enrichment";
+import { borrowerMarksLatest } from "@/data/borrower_marks_latest";
 
 const fmtUSD = (v: number) => {
   if (v >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
@@ -15,6 +16,8 @@ export default function BorrowersIndexPage() {
   const crossHeld = rows.filter((r) => r.n_holders >= 2);
   const totalFV = rows.reduce((s, r) => s + r.total_fv, 0);
   const profiledCount = rows.filter((r) => borrowerEnrichment[r.slug]).length;
+  // BDCs whose latest book is in the borrower data (was a hard-coded "10")
+  const nCovered = new Set(borrowerMarksLatest.map((r) => r.ticker)).size;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -43,7 +46,7 @@ export default function BorrowersIndexPage() {
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Tracked borrowers</h1>
         <p className="text-sm" style={{ color: "#9ca3af" }}>
-          Borrowers extracted from the Schedule of Investments of our 10 covered BDCs. Cross-held names
+          Borrowers extracted from the Schedule of Investments of our {nCovered}{" "}covered BDCs. Cross-held names
           (held by 2+ BDCs) are flagged — those are where mark-dispersion analysis becomes possible.
         </p>
       </div>

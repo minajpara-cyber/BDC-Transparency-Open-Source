@@ -167,7 +167,7 @@ export default function CrossHolderDivergence() {
                               color: low ? "#fcd34d" : "#a5b4fc",
                               border: `1px solid ${low ? "rgba(245,158,11,0.45)" : "#2d2d50"}`,
                             }}
-                            title={`${managerOf(h.ticker)} · ${fmtM(h.debt_fv_m)} of loans still accruing${markStr(h.mark_at_par) ? ` · loans marked ${markStr(h.mark_at_par)} of par${low ? " (already marking them down)" : ""}` : " · no loan mark (no usable par)"}${h.equity_fv_m ? ` · ${fmtM(h.equity_fv_m)} of equity/preferred not in the mark` : ""}${h.equity_na ? " · its preferred/equity is on non-accrual" : ""}`}>
+                            title={`${managerOf(h.ticker)} · ${fmtM(h.debt_fv_m)} of loans still accruing${markStr(h.mark_at_par) ? ` · loans marked ${markStr(h.mark_at_par)} of par${low ? " (already marking them down)" : ""}` : " · no loan mark (no usable par, or only part of the loans has one)"}${h.equity_fv_m ? ` · ${fmtM(h.equity_fv_m)} of equity/preferred not in the mark` : ""}${h.equity_na ? " · its preferred/equity is on non-accrual" : ""}`}>
                             {h.ticker} {fmtM(h.debt_fv_m)}{markStr(h.mark_at_par) ? ` · ${markStr(h.mark_at_par)}` : " · —"}
                           </Link>
                         );
@@ -188,7 +188,7 @@ export default function CrossHolderDivergence() {
         same credit may not link). Only loans count: a BDC is &quot;on non-accrual&quot; when one of its loans to the borrower is, and a
         preferred share that stopped accruing does not make a disagreement. Marks are each BDC&apos;s loan mark — fair value ÷ par of
         its loans, in cents per dollar of par; equity and preferred are never in it, and &quot;—&quot; means the BDC&apos;s loans have no
-        usable par. &quot;$ still accruing&quot; is the fair value of the holdouts&apos; loans. An <span style={{ color: "#fcd34d" }}>amber</span>{" "}holdout
+        usable par, or loans without one (or a left-out loan on non-accrual) are big enough to move the mark. &quot;$ still accruing&quot; is the fair value of the holdouts&apos; loans. An <span style={{ color: "#fcd34d" }}>amber</span>{" "}holdout
         is already carrying its loans below 85¢ while still accruing them. A holder whose non-accrual status is unknown that quarter is left out.
       </p>
     </section>

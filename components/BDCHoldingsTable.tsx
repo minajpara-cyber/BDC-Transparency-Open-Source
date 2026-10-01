@@ -156,7 +156,7 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
     { key: "pct_book", label: "% book", sortable: true, align: "right", render: (h) => <span className="tabular-nums" style={{ color: "#9ca3af" }}>{h.pct_book.toFixed(1)}%</span> },
     { key: "mark", label: "Loan mark", sortable: true, align: "right", render: (h) => (
       <span className="tabular-nums" title={h.mark == null
-        ? "No loan mark: no loans, or under half of the loans have a usable par in US dollars"
+        ? "No loan mark: no loans, no loan with a usable par in US dollars, or loans without one (or a left-out loan on non-accrual) big enough to move the mark"
         : "Fair value ÷ par of the BDC's loans to this borrower, in cents per dollar of par (equity left out)"}>
         {markCents(h.mark)}
       </span>
@@ -244,8 +244,8 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
           Each row is one capital-structure slice of a borrower — its own fair value, % of book, mark
           and maturity, <span className="text-white">not the borrower&apos;s blended total</span>.
           Equity and structured/JV slices have no mark or maturity (no par), so those show &ldquo;—&rdquo;;
-          a loan slice shows &ldquo;—&rdquo; when its par is not usable (missing, in another currency, or the
-          whole commitment of a partly drawn facility).
+          a loan slice shows &ldquo;—&rdquo; when its par is not usable (missing, in a currency we cannot convert,
+          or the whole commitment of a partly drawn facility). Written-down loans keep their own low marks.
         </p>
       )}
 

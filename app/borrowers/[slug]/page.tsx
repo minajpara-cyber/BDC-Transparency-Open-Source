@@ -73,11 +73,16 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
     .filter((v): v is number => v !== null);
   const minMark = dispersion.length ? Math.min(...dispersion) : null;
   const maxMark = dispersion.length ? Math.max(...dispersion) : null;
-  const spreadBps = minMark !== null && maxMark !== null ? Math.round((maxMark - minMark) * 100) : null;
+  // the spread in cents of par, the same unit as the marks and the /credit table
+  const spreadCents = minMark !== null && maxMark !== null ? maxMark - minMark : null;
   const anyEquity = latestRows.some((r) => r.equity_fv !== 0 || r.equity_cost > 0);
   const noMarkReason = (r: Snapshot) => r.mark_status === "no_debt"
     ? "This BDC holds no loans to the borrower here (equity or other interests only), so there is no mark in cents of par."
-    : "This BDC's loans to the borrower have no usable par in US dollars (missing, in another currency, or the whole commitment of a partly drawn facility), so no mark is shown.";
+    : r.mark_status === "partial"
+      ? "Some of this BDC's loans to the borrower have no usable par (or one of them is on non-accrual), and they are big enough to move the mark, so no mark is shown rather than a mark over the rest."
+      : "This BDC's loans to the borrower have no usable par in US dollars (missing, or the whole commitment of a partly drawn facility), so no mark is shown.";
+  const noMarkLabel = (r: Snapshot) => r.mark_status === "no_debt" ? "— (equity only)"
+    : r.mark_status === "partial" ? "— (partly marked)" : "— (no usable par)";
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -201,12 +206,12 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
           value={`${latestTotalCost ? ((100 * latestTotalFV) / latestTotalCost).toFixed(1) : "—"}%`}
           color={latestTotalCost && latestTotalFV / latestTotalCost >= 0.98 ? "#22c55e" : latestTotalFV / latestTotalCost >= 0.9 ? "#eab308" : "#ef4444"}
         />
-        {dispersion.length >= 2 && spreadBps !== null && (
+        {dispersion.length >= 2 && spreadCents !== null && (
           <StatCard
             label="Loan mark spread (latest)"
-            value={`${spreadBps} bps`}
+            value={`${spreadCents.toFixed(1)}¢`}
             sub={`${minMark?.toFixed(1)}¢ → ${maxMark?.toFixed(1)}¢ of par, ${dispersion.length} holders`}
-            color={spreadBps > 500 ? "#ef4444" : spreadBps > 200 ? "#eab308" : "#9ca3af"}
+            color={spreadCents > 5 ? "#ef4444" : spreadCents > 2 ? "#eab308" : "#9ca3af"}
           />
         )}
       </div>
@@ -273,7 +278,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
                     </td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}
                         title={markCent === null ? noMarkReason(r) : undefined}>
-                      {markCent !== null ? `${markCent.toFixed(1)}¢` : "—"}
+                      {markCent !== null ? `${markCent.toFixed(1)}¢` : noMarkLabel(r)}
                     </td>
                     <td className="px-4 py-3 text-sm" style={{ color: "#d1d5db" }}>
                       {r.equity_fv !== 0 || r.equity_cost > 0
@@ -295,6 +300,12 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
                       color: r.has_pik === 1 ? "#f97316" : r.has_pik === 0 ? "#9ca3af" : "#6b6b88",
                     }}>
                       {r.has_pik === 1 ? "YES" : r.has_pik === 0 ? "no" : "—"}
+                      {r.equity_pik === 1 && (
+                        <div className="text-[10px] font-normal" style={{ color: "#f97316" }}
+                             title="A preferred or other equity holding pays its dividend in kind; the PIK column is about the loans">
+                          equity pays PIK
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -304,8 +315,10 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
         </div>
         <p className="px-5 py-3 text-xs border-t" style={{ color: "#8b8ba8", borderColor: "#1e1e2e" }}>
           Loan mark = fair value ÷ par of each BDC&apos;s loans to the borrower, in cents per dollar of par, over the
-          loans that have a par in US dollars (a non-dollar par is converted at the balance-sheet date&apos;s rate).
-          &quot;—&quot; means no such mark: the BDC holds only equity, or its loans have no usable par.
+          loans that have a par in US dollars (a non-dollar par is converted at the balance-sheet date&apos;s rate);
+          written-down and restructured loans count at their own low marks. &quot;—&quot; means no such mark: the
+          BDC holds only equity, its loans have no usable par, or loans without a usable par (or a left-out loan on
+          non-accrual) are big enough to move it.
           {anyEquity && (
             <>
               {" "}Preferred stock, common equity, warrants, units and fund interests are never in the loan mark; they are

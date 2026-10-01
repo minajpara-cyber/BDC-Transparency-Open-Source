@@ -22,12 +22,12 @@ export interface NavPoint { ticker: string; period_end: string; nav_ps: number; 
 
 export const dividendSupport: DividendSupportRow[] = [
   {"ticker": "ADS", "period_end": "2026-06-30", "nii_cov": 0.895, "cov_ex_pik": 0.848, "pik_pct_nii": 5.21, "pik_collected_pct": null, "spillover_m": 77.0, "spillover_fy": "2024-12-31", "spillover_q": 0.24, "nav_ps": 23.83, "nav_chg_1y": -3.13, "nav_chg_3y": -1.45, "div_yield_nav": 9.04, "nav_tr_1y": 5.91, "shadow_default": 1.79, "hard_default": 0.84, "default_window_status": "fully_observed", "switched_pik_pct_nii": 1.07, "switched_pct_book": 1.31, "n_flags": 2, "flags": ["reported NII below 95% of the dividend", "under-covered with under a quarter of spillover"], "pressure": "elevated"},
-  {"ticker": "ARCC", "period_end": "2026-06-30", "nii_cov": 1.065, "cov_ex_pik": 0.719, "pik_pct_nii": 32.42, "pik_collected_pct": 64.6, "spillover_m": 988.0, "spillover_fy": "2025-12-31", "spillover_q": 2.86, "nav_ps": 19.35, "nav_chg_1y": -2.76, "nav_chg_3y": 4.14, "div_yield_nav": 9.64, "nav_tr_1y": 6.87, "shadow_default": 5.07, "hard_default": 3.27, "default_window_status": "fully_observed", "switched_pik_pct_nii": 1.08, "switched_pct_book": 0.35, "n_flags": 1, "flags": ["NII ex-PIK below 80% of the dividend"], "pressure": "low"},
+  {"ticker": "ARCC", "period_end": "2026-06-30", "nii_cov": 1.065, "cov_ex_pik": 0.719, "pik_pct_nii": 32.42, "pik_collected_pct": 64.6, "spillover_m": 988.0, "spillover_fy": "2025-12-31", "spillover_q": 2.86, "nav_ps": 19.35, "nav_chg_1y": -2.76, "nav_chg_3y": 4.14, "div_yield_nav": 9.64, "nav_tr_1y": 6.87, "shadow_default": 5.2, "hard_default": 3.41, "default_window_status": "fully_observed", "switched_pik_pct_nii": 1.08, "switched_pct_book": 0.35, "n_flags": 1, "flags": ["NII ex-PIK below 80% of the dividend"], "pressure": "low"},
   {"ticker": "ASIF", "period_end": "2026-06-30", "nii_cov": 0.947, "cov_ex_pik": 0.819, "pik_pct_nii": 13.54, "pik_collected_pct": 2.6, "spillover_m": 3.3, "spillover_fy": "2025-12-31", "spillover_q": 0.01, "nav_ps": 26.71, "nav_chg_1y": -2.91, "nav_chg_3y": -0.15, "div_yield_nav": 9.17, "nav_tr_1y": 6.27, "shadow_default": 2.15, "hard_default": 0.83, "default_window_status": "fully_observed", "switched_pik_pct_nii": 0.38, "switched_pct_book": 0.27, "n_flags": 2, "flags": ["reported NII below 95% of the dividend", "under-covered with under a quarter of spillover"], "pressure": "elevated"},
   {"ticker": "BBDC", "period_end": "2026-06-30", "nii_cov": 1.018, "cov_ex_pik": 0.804, "pik_pct_nii": 21.06, "pik_collected_pct": null, "spillover_m": 86.9, "spillover_fy": "2025-12-31", "spillover_q": 3.19, "nav_ps": 10.94, "nav_chg_1y": -2.15, "nav_chg_3y": -3.53, "div_yield_nav": 9.76, "nav_tr_1y": 7.61, "shadow_default": 10.85, "hard_default": 2.28, "default_window_status": "fully_observed", "switched_pik_pct_nii": 2.55, "switched_pct_book": 3.17, "n_flags": 1, "flags": ["shadow default rate above 7%"], "pressure": "low"},
-  {"ticker": "BCRED", "period_end": "2026-06-30", "nii_cov": 0.913, "cov_ex_pik": 0.811, "pik_pct_nii": 11.18, "pik_collected_pct": null, "spillover_m": 470.5, "spillover_fy": "2025-12-31", "spillover_q": 0.43, "nav_ps": 23.65, "nav_chg_1y": -6.04, "nav_chg_3y": -4.87, "div_yield_nav": 9.79, "nav_tr_1y": 3.75, "shadow_default": 7.5, "hard_default": 4.1, "default_window_status": "fully_observed", "switched_pik_pct_nii": 2.71, "switched_pct_book": 2.49, "n_flags": 4, "flags": ["reported NII below 95% of the dividend", "under-covered with under a quarter of spillover", "NAV per share down more than 5% in a year", "shadow default rate above 7%"], "pressure": "high"},
+  {"ticker": "BCRED", "period_end": "2026-06-30", "nii_cov": 0.913, "cov_ex_pik": 0.811, "pik_pct_nii": 11.18, "pik_collected_pct": null, "spillover_m": 470.5, "spillover_fy": "2025-12-31", "spillover_q": 0.43, "nav_ps": 23.65, "nav_chg_1y": -6.04, "nav_chg_3y": -4.87, "div_yield_nav": 9.79, "nav_tr_1y": 3.75, "shadow_default": 7.51, "hard_default": 4.1, "default_window_status": "fully_observed", "switched_pik_pct_nii": 2.71, "switched_pct_book": 2.49, "n_flags": 4, "flags": ["reported NII below 95% of the dividend", "under-covered with under a quarter of spillover", "NAV per share down more than 5% in a year", "shadow default rate above 7%"], "pressure": "high"},
   {"ticker": "BXSL", "period_end": "2026-06-30", "nii_cov": 1.019, "cov_ex_pik": 0.878, "pik_pct_nii": 13.84, "pik_collected_pct": null, "spillover_m": 415.8, "spillover_fy": "2025-12-31", "spillover_q": 2.32, "nav_ps": 25.53, "nav_chg_1y": -6.59, "nav_chg_3y": -2.93, "div_yield_nav": 11.27, "nav_tr_1y": 4.68, "shadow_default": 8.95, "hard_default": 4.49, "default_window_status": "fully_observed", "switched_pik_pct_nii": 4.1, "switched_pct_book": 3.31, "n_flags": 3, "flags": ["NAV per share down more than 5% in a year", "shadow default rate above 7%", "severe PIK on debt that switched from cash is over 4% of NII"], "pressure": "elevated"},
-  {"ticker": "CCAP", "period_end": "2026-06-30", "nii_cov": 0.998, "cov_ex_pik": 0.855, "pik_pct_nii": 14.37, "pik_collected_pct": null, "spillover_m": 67.8, "spillover_fy": "2025-12-31", "spillover_q": 4.96, "nav_ps": 17.82, "nav_chg_1y": -8.85, "nav_chg_3y": -8.99, "div_yield_nav": 8.6, "nav_tr_1y": -0.25, "shadow_default": 8.34, "hard_default": 5.91, "default_window_status": "fully_observed", "switched_pik_pct_nii": 3.67, "switched_pct_book": 1.74, "n_flags": 2, "flags": ["NAV per share down more than 5% in a year", "shadow default rate above 7%"], "pressure": "elevated"},
+  {"ticker": "CCAP", "period_end": "2026-06-30", "nii_cov": 0.998, "cov_ex_pik": 0.855, "pik_pct_nii": 14.37, "pik_collected_pct": null, "spillover_m": 67.8, "spillover_fy": "2025-12-31", "spillover_q": 4.96, "nav_ps": 17.82, "nav_chg_1y": -8.85, "nav_chg_3y": -8.99, "div_yield_nav": 8.6, "nav_tr_1y": -0.25, "shadow_default": 9.78, "hard_default": 5.91, "default_window_status": "fully_observed", "switched_pik_pct_nii": 3.67, "switched_pct_book": 1.74, "n_flags": 2, "flags": ["NAV per share down more than 5% in a year", "shadow default rate above 7%"], "pressure": "elevated"},
   {"ticker": "CGBD", "period_end": "2026-06-30", "nii_cov": 0.908, "cov_ex_pik": 0.658, "pik_pct_nii": 27.57, "pik_collected_pct": null, "spillover_m": 53.4, "spillover_fy": "2025-12-31", "spillover_q": 2.2, "nav_ps": 15.61, "nav_chg_1y": -4.99, "nav_chg_3y": -6.69, "div_yield_nav": 9.44, "nav_tr_1y": 4.44, "shadow_default": 11.34, "hard_default": 3.97, "default_window_status": "fully_observed", "switched_pik_pct_nii": 6.67, "switched_pct_book": 3.45, "n_flags": 4, "flags": ["reported NII below 95% of the dividend", "NII ex-PIK below 80% of the dividend", "shadow default rate above 7%", "severe PIK on debt that switched from cash is over 4% of NII"], "pressure": "high"},
   {"ticker": "FSK", "period_end": "2026-06-30", "nii_cov": 0.828, "cov_ex_pik": 0.536, "pik_pct_nii": 35.27, "pik_collected_pct": null, "spillover_m": 464.0, "spillover_fy": "2025-12-31", "spillover_q": 3.93, "nav_ps": 18.3, "nav_chg_1y": -16.55, "nav_chg_3y": -25.88, "div_yield_nav": 10.49, "nav_tr_1y": -6.06, "shadow_default": 9.46, "hard_default": 7.97, "default_window_status": "fully_observed", "switched_pik_pct_nii": 12.09, "switched_pct_book": 7.07, "n_flags": 5, "flags": ["reported NII below 95% of the dividend", "NII ex-PIK below 80% of the dividend", "NAV per share down more than 5% in a year", "shadow default rate above 7%", "severe PIK on debt that switched from cash is over 4% of NII"], "pressure": "high"},
   {"ticker": "GBDC", "period_end": "2026-06-30", "nii_cov": 0.969, "cov_ex_pik": 0.8, "pik_pct_nii": 17.45, "pik_collected_pct": null, "spillover_m": 0.0, "spillover_fy": "2025-09-30", "spillover_q": 0.0, "nav_ps": 14.25, "nav_chg_1y": -5.0, "nav_chg_3y": -3.91, "div_yield_nav": 9.61, "nav_tr_1y": 4.61, "shadow_default": 7.58, "hard_default": 2.47, "default_window_status": "fully_observed", "switched_pik_pct_nii": 3.2, "switched_pct_book": 2.72, "n_flags": 3, "flags": ["under-covered with under a quarter of spillover", "NAV per share down more than 5% in a year", "shadow default rate above 7%"], "pressure": "elevated"},
@@ -36,7 +36,7 @@ export const dividendSupport: DividendSupportRow[] = [
   {"ticker": "MFIC", "period_end": "2026-06-30", "nii_cov": 1.115, "cov_ex_pik": 0.974, "pik_pct_nii": 12.63, "pik_collected_pct": null, "spillover_m": 65.3, "spillover_fy": "2025-12-31", "spillover_q": 2.56, "nav_ps": 13.37, "nav_chg_1y": -9.36, "nav_chg_3y": -12.04, "div_yield_nav": 9.49, "nav_tr_1y": 0.14, "shadow_default": 8.31, "hard_default": 4.02, "default_window_status": "fully_observed", "switched_pik_pct_nii": 5.87, "switched_pct_book": 4.89, "n_flags": 3, "flags": ["NAV per share down more than 5% in a year", "shadow default rate above 7%", "severe PIK on debt that switched from cash is over 4% of NII"], "pressure": "elevated"},
   {"ticker": "NMFC", "period_end": "2026-06-30", "nii_cov": 1.008, "cov_ex_pik": 0.517, "pik_pct_nii": 48.7, "pik_collected_pct": null, "spillover_m": 0.0, "spillover_fy": "2025-12-31", "spillover_q": 0.0, "nav_ps": 10.89, "nav_chg_1y": -10.81, "nav_chg_3y": -17.12, "div_yield_nav": 10.0, "nav_tr_1y": -0.81, "shadow_default": 7.43, "hard_default": 3.79, "default_window_status": "fully_observed", "switched_pik_pct_nii": 8.52, "switched_pct_book": 3.12, "n_flags": 4, "flags": ["NII ex-PIK below 80% of the dividend", "NAV per share down more than 5% in a year", "shadow default rate above 7%", "severe PIK on debt that switched from cash is over 4% of NII"], "pressure": "high"},
   {"ticker": "OBDC", "period_end": "2026-06-30", "nii_cov": 0.996, "cov_ex_pik": 0.746, "pik_pct_nii": 25.05, "pik_collected_pct": null, "spillover_m": 181.8, "spillover_fy": "2025-12-31", "spillover_q": 1.19, "nav_ps": 14.26, "nav_chg_1y": -5.12, "nav_chg_3y": -6.55, "div_yield_nav": 9.58, "nav_tr_1y": 4.46, "shadow_default": 6.4, "hard_default": 3.29, "default_window_status": "fully_observed", "switched_pik_pct_nii": 2.58, "switched_pct_book": 2.18, "n_flags": 2, "flags": ["NII ex-PIK below 80% of the dividend", "NAV per share down more than 5% in a year"], "pressure": "elevated"},
-  {"ticker": "OCIC", "period_end": "2026-06-30", "nii_cov": 0.953, "cov_ex_pik": 0.839, "pik_pct_nii": 11.95, "pik_collected_pct": null, "spillover_m": 34.8, "spillover_fy": "2025-12-31", "spillover_q": 0.08, "nav_ps": 9.05, "nav_chg_1y": -4.23, "nav_chg_3y": -2.79, "div_yield_nav": 9.14, "nav_tr_1y": 4.91, "shadow_default": 3.08, "hard_default": 1.63, "default_window_status": "fully_observed", "switched_pik_pct_nii": 0.68, "switched_pct_book": 0.58, "n_flags": 1, "flags": ["under-covered with under a quarter of spillover"], "pressure": "low"},
+  {"ticker": "OCIC", "period_end": "2026-06-30", "nii_cov": 0.953, "cov_ex_pik": 0.839, "pik_pct_nii": 11.95, "pik_collected_pct": null, "spillover_m": 34.8, "spillover_fy": "2025-12-31", "spillover_q": 0.08, "nav_ps": 9.05, "nav_chg_1y": -4.23, "nav_chg_3y": -2.79, "div_yield_nav": 9.14, "nav_tr_1y": 4.91, "shadow_default": 3.26, "hard_default": 1.81, "default_window_status": "fully_observed", "switched_pik_pct_nii": 0.68, "switched_pct_book": 0.58, "n_flags": 1, "flags": ["under-covered with under a quarter of spillover"], "pressure": "low"},
   {"ticker": "OCSL", "period_end": "2026-06-30", "nii_cov": 1.177, "cov_ex_pik": 1.026, "pik_pct_nii": 12.89, "pik_collected_pct": null, "spillover_m": 3.0, "spillover_fy": "2025-09-30", "spillover_q": 0.1, "nav_ps": 15.7, "nav_chg_1y": -6.32, "nav_chg_3y": -19.82, "div_yield_nav": 8.02, "nav_tr_1y": 1.69, "shadow_default": 6.87, "hard_default": 2.41, "default_window_status": "fully_observed", "switched_pik_pct_nii": 7.53, "switched_pct_book": 5.07, "n_flags": 2, "flags": ["NAV per share down more than 5% in a year", "severe PIK on debt that switched from cash is over 4% of NII"], "pressure": "elevated"},
   {"ticker": "OTF", "period_end": "2026-06-30", "nii_cov": 0.763, "cov_ex_pik": 0.524, "pik_pct_nii": 31.35, "pik_collected_pct": null, "spillover_m": 159.4, "spillover_fy": "2025-12-31", "spillover_q": 0.87, "nav_ps": 16.48, "nav_chg_1y": -4.02, "nav_chg_3y": -3.12, "div_yield_nav": 9.32, "nav_tr_1y": 5.3, "shadow_default": 1.73, "hard_default": 0.59, "default_window_status": "fully_observed", "switched_pik_pct_nii": 0.17, "switched_pct_book": 0.23, "n_flags": 3, "flags": ["reported NII below 95% of the dividend", "NII ex-PIK below 80% of the dividend", "under-covered with under a quarter of spillover"], "pressure": "elevated"},
   {"ticker": "TSLX", "period_end": "2026-06-30", "nii_cov": 1.017, "cov_ex_pik": 0.876, "pik_pct_nii": 13.89, "pik_collected_pct": null, "spillover_m": null, "spillover_fy": null, "spillover_q": null, "nav_ps": 16.24, "nav_chg_1y": -5.42, "nav_chg_3y": -2.99, "div_yield_nav": 10.98, "nav_tr_1y": 5.56, "shadow_default": 3.17, "hard_default": 1.27, "default_window_status": "fully_observed", "switched_pik_pct_nii": 0.82, "switched_pct_book": 1.53, "n_flags": 1, "flags": ["NAV per share down more than 5% in a year"], "pressure": "low"}
@@ -477,7 +477,7 @@ export const dividendSupportMeta = {
       "fwd_nav_mean": -3.73,
       "fwd_nav_median": -3.07,
       "n_nav": 34,
-      "fwd_hard_mean": 3.72,
+      "fwd_hard_mean": 3.78,
       "n_hard": 42
     },
     "rest": {
@@ -486,7 +486,7 @@ export const dividendSupportMeta = {
       "fwd_nav_mean": -0.22,
       "fwd_nav_median": -0.5,
       "n_nav": 282,
-      "fwd_hard_mean": 2.22,
+      "fwd_hard_mean": 2.24,
       "n_hard": 286
     },
     "old_flagged": {
@@ -495,7 +495,7 @@ export const dividendSupportMeta = {
       "fwd_nav_mean": -0.37,
       "fwd_nav_median": 0.22,
       "n_nav": 55,
-      "fwd_hard_mean": 2.31,
+      "fwd_hard_mean": 2.35,
       "n_hard": 63
     },
     "old_rest": {
@@ -504,7 +504,7 @@ export const dividendSupportMeta = {
       "fwd_nav_mean": -0.65,
       "fwd_nav_median": -1.02,
       "n_nav": 261,
-      "fwd_hard_mean": 2.44,
+      "fwd_hard_mean": 2.46,
       "n_hard": 265
     },
     "weakest_leave_one_out": {
@@ -515,7 +515,7 @@ export const dividendSupportMeta = {
         "fwd_nav_mean": -2.84,
         "fwd_nav_median": -3.0,
         "n_nav": 32,
-        "fwd_hard_mean": 3.36,
+        "fwd_hard_mean": 3.43,
         "n_hard": 40
       },
       "rest": {
@@ -524,7 +524,7 @@ export const dividendSupportMeta = {
         "fwd_nav_mean": 0.01,
         "fwd_nav_median": -0.22,
         "n_nav": 269,
-        "fwd_hard_mean": 2.08,
+        "fwd_hard_mean": 2.1,
         "n_hard": 273
       }
     },
@@ -539,8 +539,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.61,
         "gap_mean": 2.19,
         "gap_median": 1.11,
-        "fwd_hard_mean": 3.54,
-        "rest_hard_mean": 2.16
+        "fwd_hard_mean": 3.59,
+        "rest_hard_mean": 2.18
       },
       {
         "threshold": 3.5,
@@ -552,8 +552,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.57,
         "gap_mean": 2.64,
         "gap_median": 1.93,
-        "fwd_hard_mean": 3.51,
-        "rest_hard_mean": 2.23
+        "fwd_hard_mean": 3.57,
+        "rest_hard_mean": 2.26
       },
       {
         "threshold": 4.0,
@@ -565,8 +565,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.5,
         "gap_mean": 3.51,
         "gap_median": 2.57,
-        "fwd_hard_mean": 3.72,
-        "rest_hard_mean": 2.22
+        "fwd_hard_mean": 3.78,
+        "rest_hard_mean": 2.24
       },
       {
         "threshold": 4.5,
@@ -578,8 +578,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.57,
         "gap_mean": 3.3,
         "gap_median": 2.38,
-        "fwd_hard_mean": 3.75,
-        "rest_hard_mean": 2.23
+        "fwd_hard_mean": 3.82,
+        "rest_hard_mean": 2.26
       },
       {
         "threshold": 5.0,
@@ -591,8 +591,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.5,
         "gap_mean": 4.1,
         "gap_median": 2.79,
-        "fwd_hard_mean": 4.23,
-        "rest_hard_mean": 2.22
+        "fwd_hard_mean": 4.3,
+        "rest_hard_mean": 2.24
       },
       {
         "threshold": 5.5,
@@ -604,8 +604,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.57,
         "gap_mean": 4.12,
         "gap_median": 2.91,
-        "fwd_hard_mean": 4.6,
-        "rest_hard_mean": 2.25
+        "fwd_hard_mean": 4.71,
+        "rest_hard_mean": 2.27
       },
       {
         "threshold": 6.0,
@@ -617,8 +617,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.6,
         "gap_mean": 3.99,
         "gap_median": 2.88,
-        "fwd_hard_mean": 4.74,
-        "rest_hard_mean": 2.27
+        "fwd_hard_mean": 4.86,
+        "rest_hard_mean": 2.29
       }
     ],
     "scan_best_mean_gap": 5.5,
@@ -636,8 +636,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.5,
         "gap_mean": 1.75,
         "gap_median": 1.73,
-        "fwd_hard_mean": 2.28,
-        "rest_hard_mean": 2.44
+        "fwd_hard_mean": 2.36,
+        "rest_hard_mean": 2.45
       },
       "best": {
         "threshold": 34.0,
@@ -649,15 +649,15 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.57,
         "gap_mean": 2.41,
         "gap_median": 1.94,
-        "fwd_hard_mean": 2.31,
-        "rest_hard_mean": 2.42
+        "fwd_hard_mean": 2.43,
+        "rest_hard_mean": 2.44
       }
     },
     "spearman": {
       "switched_vs_fwd_nav": -0.18,
       "all_pik_vs_fwd_nav": -0.2,
       "switched_vs_fwd_hard": 0.35,
-      "all_pik_vs_fwd_hard": 0.15
+      "all_pik_vs_fwd_hard": 0.16
     }
   }
 } as const;
