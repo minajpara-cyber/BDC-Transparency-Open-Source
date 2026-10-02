@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft, Database, FileText, GitBranch, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Database, FileText, GitBranch, AlertTriangle, CheckCircle2 } from "lucide-react";
+import AccuracyAudit from "@/components/AccuracyAudit";
 import { vintageGolden } from "@/data/vintage_golden";
 import { creditQuality } from "@/data/credit_quality";
 import { incomeTtm } from "@/data/income_coverage";
@@ -106,6 +107,7 @@ export default function MethodologyPage() {
         {[
           ["#data-source", "Source"],
           ["#parsing", "Parsing"],
+          ["#accuracy", "Accuracy"],
           ["#position-tracking", "Position tracking"],
           ["#metrics", "Metrics"],
           ["#severe-pik", "Severe PIK"],
@@ -175,6 +177,14 @@ export default function MethodologyPage() {
             (not yet public — open-sourcing is on the roadmap).
           </p>
         </div>
+      </section>
+
+      {/* 2a. How accurate is this data? (numbers from data/accuracy_audit.ts) */}
+      <section id="accuracy" className="mb-10 scroll-mt-6">
+        <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+          <CheckCircle2 size={18} />{" "}How accurate is this data?
+        </h2>
+        <AccuracyAudit />
       </section>
 
       {/* 3. Position tracking */}
@@ -496,11 +506,12 @@ export default function MethodologyPage() {
             </li>
             <li>
               <span className="text-white">FSK non-accrual before mid-2022.</span>{" "}
-              FSK&apos;s filings before 2022-06-30 don&apos;t mark which positions are unfunded commitments,
-              so its non-accrual rate for those quarters is approximate and shown muted, and none of those
-              quarters joins the industry line (letting some in and not others bent the line whenever FSK left
-              or re-entered). Where the parsed rate is far from the fair-value rate FSK itself disclosed, the
-              disclosed figure is shown instead. Mark-based metrics from the same filings are reliable.
+              FSK&apos;s older filings mark unfunded commitments with a footnote letter that changes from era to
+              era. Each schedule&apos;s own legend is now read (back to 2014-12), so those commitments are left out
+              of both sides of FSK&apos;s non-accrual rate, as in later quarters. At fair value the rate matches the
+              figure FSK itself discloses within 0.1pp in every quarter from 2014-12 to 2022-03, so these quarters
+              are no longer muted and count in the industry line. Where a parsed rate is far from FSK&apos;s own
+              figure, the disclosed figure is shown instead.
             </li>
             <li>
               <span className="text-white">Older schedules.</span>{" "}
@@ -541,9 +552,10 @@ export default function MethodologyPage() {
             </li>
             <li>
               <span className="text-white">Position-level drilldown is last 60 quarters only.</span>{" "}
-              The stressed-loans modal exports the top-30 flagged positions per (BDC, quarter)
-              for the most recent 60 quarter-ends. Older heatmap cells exist but don&apos;t have
-              loan-level detail yet.
+              For the most recent 60 quarter-ends the stressed-loans list behind each heatmap cell
+              names every loan on non-accrual, and the largest 12 below the mark threshold or paying
+              PIK, with the full count beside them (&quot;Largest 12 of 40 flagged positions&quot;). Older heatmap cells
+              exist but don&apos;t have loan-level detail yet.
             </li>
             <li>
               <span className="text-white">Exit outcomes are proxies.</span>{" "}

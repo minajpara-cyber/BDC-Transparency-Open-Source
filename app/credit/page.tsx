@@ -59,11 +59,12 @@ const COVERAGE_CAVEATS: Array<{
   // status before 2021 is unknown where the flags could not be matched to
   // OCSL's own figure; those quarters show "—" through the NA rules, not here.
   // FSK mark-based metrics parse cleanly back to 2013. Its non-accrual rate is
-  // on the funded basis (unfunded commitments out of both sides); filings before
-  // 2022-06-30 don't tag unfunded commitments, so those rates are approximate and
-  // never join the industry line (switching FSK in and out bent the series).
-  { ticker: "FSK",  until: "2022-05-31", metrics: ["na"],
-    reason: "Approximate: FSK filings before 2022-06-30 do not tag unfunded commitments, so the parsed book can include them" },
+  // on the funded basis (unfunded commitments out of both sides). Since
+  // 2026-10-01 the parsers tag FSK's unfunded commitments from each schedule's
+  // own legend back to 2014-12, and the funded rate at fair value matches the
+  // rate FSK discloses within 0.1pp in every quarter 2014-12..2022-03 (30 of
+  // 30), so those quarters are no longer muted and join the industry line
+  // like any other (the exporter pools them).
   // PIK footnotes misread during the FSKR merger era (Q4 2019 – Q3 2021).
   { ticker: "FSK",  until: "2021-09-30", metrics: ["pik"],
     reason: "FSK PIK flag detection misfires during the FSKR-merger era (Q4 2019 – Q3 2021)" },
