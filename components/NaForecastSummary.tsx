@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { naForecast } from "@/data/na_forecast";
 import {
+  backtestText,
   beyondBacktest,
   confidenceLabel,
-  coverageFloorPct,
   coverageText,
-  floorText,
   fmtPct,
   forecastConfidence,
   formationMeta,
+  lowerConfidenceReason,
+  notBacktested,
   notModelledReason,
   projectionValue,
   rangeText,
   sortForecastRows,
+  tiedRank,
 } from "@/lib/naForecastDisplay";
 
 function Stat({ label, value, sub, color = "#fafafa" }: {
@@ -35,8 +37,14 @@ export default function NaForecastSummary({ ticker }: { ticker: string }) {
   const confidence = forecastConfidence(row);
   const value = projectionValue(row);
   const ranked = sortForecastRows(naForecast).filter((r) => projectionValue(r) != null);
-  const rank = value == null ? null : ranked.findIndex((r) => r.ticker === ticker) + 1;
+  const place = value == null ? null : tiedRank(ticker, ranked.map((r) => ({ ticker: r.ticker, value: projectionValue(r) as number })));
   const coverage = coverageText(row);
+  const record = backtestText(row, formationMeta);
+  const lowerReason = lowerConfidenceReason(row);
+  const rel = formationMeta.relative_effect;
+  const move = rel?.reference_period ? rel.moves?.[ticker] : undefined;
+  const fellAgainstScore = move != null && move.blend_now >= move.blend_then - 0.05
+    && move.forecast_now <= move.forecast_then - 0.5;
 
   return (
     <div className="rounded-xl border p-5 mb-8" style={{ background: "#111118", borderColor: "#1e1e2e" }}
@@ -87,12 +95,14 @@ export default function NaForecastSummary({ ticker }: { ticker: string }) {
               sub="next quarter · weak signal" />
           </div>
           <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
-            {rank != null && `Ranks #${rank} of ${ranked.length} BDCs with a projection (#1 = most expected new non-accruals). `}
-            {confidence === "lower" && `Lower confidence: ${coverageFloorPct != null
-              ? `less than ${floorText()} of the model's inputs could be observed for this book`
-              : "fewer of the model's inputs could be observed for this book"}${value == null
-              ? ", and this data release has no four-quarter number for it yet; the other figures above still apply. "
-              : ", so treat the number as rougher than the others. "}`}
+            {place != null && `Ranks ${place.tiedWith.length ? "joint " : ""}#${place.rank} of ${ranked.length} BDCs with a projection${place.tiedWith.length ? ` (tied with ${place.tiedWith.join(", ")})` : ""} (#1 = most expected new non-accruals). `}
+            {value === 0 && `0.00% is the floor, not a forecast of no new non-accruals: ${ticker}'s warning signs are so far below its peers' that the method puts it at zero${row.form_hi != null ? `, and the 80% range still runs up to ${fmtPct(row.form_hi)}` : ""}. `}
+            {confidence === "lower" && lowerReason && `Lower confidence: ${lowerReason}${value == null
+              ? "; this data release has no four-quarter number for it yet, and the other figures above still apply. "
+              : ". Treat the number as rougher than the others. "}`}
+            {record && !notBacktested(row) && `${record}. `}
+            {rel?.level != null && `Projections are relative: each sits above or below ${fmtPct(rel.level)} according to how the BDC's warning signs compare with the other BDCs' this quarter, so a rise in other BDCs' scores lowers this one. `}
+            {fellAgainstScore && move && rel?.reference_period && `Since ${rel.reference_period.slice(0, 7)} ${ticker}'s own score went ${move.blend_then.toFixed(2)} → ${move.blend_now.toFixed(2)} while its projection went ${fmtPct(move.forecast_then)} → ${fmtPct(move.forecast_now)}, because the other BDCs' scores rose more${rel.since_reference ? ` (the average by ${rel.since_reference.change_pp.toFixed(2)}pp)` : ""}. `}
             {formationMeta.n != null && `The model's back-test covers ${formationMeta.n} BDC-quarters without look-ahead.`}
           </p>
         </>

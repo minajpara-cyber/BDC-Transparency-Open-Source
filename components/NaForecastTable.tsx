@@ -10,6 +10,9 @@ import { bdcsHistory } from "@/data/bdcs_history";
 import { naForecast } from "@/data/na_forecast";
 import { latestNonAccrualSnapshots } from "@/lib/latestNonAccruals";
 import {
+  aboveShareText,
+  backtestCount,
+  backtestText,
   bandText,
   beyondBacktest,
   biasText,
@@ -23,7 +26,13 @@ import {
   forecastConfidence,
   formationMeta,
   labelBasisText,
+  levelChangeText,
   levelText,
+  lowerConfidenceReason,
+  notBacktested,
+  relativeText,
+  testedTailText,
+  whyThisOneText,
   zeroFloorText,
   modelSignalLabels,
   nextQuarterMeta,
@@ -72,17 +81,27 @@ export default function NaForecastTable() {
   const lowerWithoutNumber = rows
     .filter((row) => forecastConfidence(row) === "lower" && projectionValue(row) == null)
     .map((row) => row.ticker);
+  // lower confidence because the back-test never scored the BDC (inputs are fine)
+  const untested = rows
+    .filter((row) => forecastConfidence(row) === "lower" && notBacktested(row)
+      && lowerConfidenceReason(row)?.startsWith("the back-test"))
+    .map((row) => row.ticker);
+  const lowerForInputs = counts.lower - untested.length;
   const fm = formationMeta;
   const quartiles = fm.quartiles ?? [];
   const reading = readQuartiles(quartiles);
   const embargoQ = fm.observability?.training_embargo_quarters ?? fm.horizon_q ?? null;
   const signals = modelSignalLabels(fm.observability?.model_features);
   const typedPik = (fm.observability?.model_features ?? []).includes("pik_first_seen");
-  const calibrationQ = fm.observability?.calibration_window_quarters ?? null;
   const relative = fm.calibration?.kind === "relative";
   const level = levelText(fm);
   const band = bandText(fm);
   const zeroNote = zeroFloorText(rows, fm);
+  const aboveShare = aboveShareText(fm);
+  const relativeNote = relativeText(rows, fm);
+  const testedTail = testedTailText(rows);
+  const whyThisOne = whyThisOneText(fm);
+  const levelChange = levelChangeText(fm);
   const labels = labelBasisText(fm);
   const options = calibrationRows(fm);
   const shippedOption = options.find((option) => option.shipped);
@@ -163,9 +182,9 @@ export default function NaForecastTable() {
             </p>
             <p className="text-xs mt-2 max-w-4xl" style={{ color: "#6b6b88" }}>
               {counts.standard} BDCs have standard-confidence projections.{" "}
-              {counts.lower > 0 && (
+              {lowerForInputs > 0 && (
                 <>
-                  {counts.lower} are <span style={{ color: "#fbbf24" }}>lower confidence</span>{" "}because
+                  {lowerForInputs} {lowerForInputs === 1 ? "is" : "are"} <span style={{ color: "#fbbf24" }}>lower confidence</span>{" "}because
                   {coverageFloorPct != null
                     ? ` less than ${floorText()} of their model inputs (weighted by cost) could be observed`
                     : " fewer of their model inputs could be observed"}
@@ -173,6 +192,12 @@ export default function NaForecastTable() {
                     ? ` (this data release has no number yet for ${lowerWithoutNumber.join(", ")})`
                     : ""}
                   .{" "}
+                </>
+              )}
+              {untested.length > 0 && (
+                <>
+                  {untested.join(", ")} {untested.length === 1 ? "is" : "are"} <span style={{ color: "#fbbf24" }}>lower confidence</span>{" "}because
+                  the back-test never scored {untested.length === 1 ? "it" : "them"} (past outcomes could not all be observed), so no track record stands behind the number.{" "}
                 </>
               )}
               {counts.none > 0 && `${counts.none} cannot be modelled; the table says why.`}
@@ -263,6 +288,11 @@ export default function NaForecastTable() {
                     <div className="text-[10px] mt-1" style={{ color: "#6b6b88" }}>
                       {confidence === "none" ? notModelledReason(row) : coverage ?? "Input coverage unknown"}
                     </div>
+                    {confidence !== "none" && backtestText(row, formationMeta) && (
+                      <div className="text-[10px] mt-0.5 whitespace-nowrap" style={{ color: "#6b6b88" }} data-backtest-n={backtestCount(row) ?? ""}>
+                        {backtestText(row, formationMeta)}
+                      </div>
+                    )}
                   </td>
                   {showRate && (
                     <>
@@ -353,12 +383,19 @@ export default function NaForecastTable() {
             {bias}
             {(fm.bias ?? 0) < 0
               ? relative
-                ? " The level of each forecast is the realised rate of the latest year whose outcomes are known — the only year a forecast can learn from — and new non-accruals kept rising through the test, so the forecast trailed them. Read the number as nearer the bottom of what to expect than the middle; the 80% range is built from these misses and sits mostly above it."
-                : " Each forecast can only learn from outcomes that are already known — a year old — and new non-accruals rose through the test, so within the range the test covered, read the number as nearer the bottom of what to expect than the middle; the 80% range is built from these misses and sits mostly above it."
+                ? " The level of each forecast is the realised rate of the latest year whose outcomes are known — the only year a forecast can learn from — and new non-accruals kept rising through the test, so the forecast trailed them."
+                : " Each forecast can only learn from outcomes that are already known — a year old — and new non-accruals rose through the test, so the forecast trailed them."
               : " Each forecast can only learn from outcomes that are already known — a year old — so it trails turns in the cycle."}
+            {aboveShare ? ` ${aboveShare}` : ""}
             {beyond.length > 0 && fm.max_tested_pred != null
-              ? ` ${beyond.length} of ${published} projections (${beyond.join(", ")}) are above ${fm.max_tested_pred.toFixed(2)}%, the highest forecast the back-test ever scored${fm.max_tested_actual != null ? ` (the highest outcome it saw was ${fm.max_tested_actual.toFixed(2)}%)` : ""}. The past misses say nothing about a level never tested, so no 80% range is shown for them and “nearer the bottom” does not apply: read them as “higher than anything seen in the test”, not as a calibrated number.`
+              ? ` ${beyond.length} of ${published} projections (${beyond.join(", ")}) are above ${fm.max_tested_pred.toFixed(2)}%, the highest forecast the back-test ever scored${fm.max_tested_actual != null ? ` (the highest outcome it saw was ${fm.max_tested_actual.toFixed(2)}%)` : ""}. The past misses say nothing about a level never tested, so no 80% range is shown for them: read them as “higher than anything seen in the test”, not as a calibrated number.`
               : ""}
+            {testedTail ? ` ${testedTail}` : ""}
+          </p>
+        )}
+        {relativeNote && (
+          <p className="text-xs mt-2" style={{ color: "#6b6b88" }} data-relative-note="true">
+            <span className="text-white">Relative, not absolute.</span>{" "}{relativeNote}
           </p>
         )}
         {options.length > 1 && shippedOption && (
@@ -402,13 +439,11 @@ export default function NaForecastTable() {
             </div>
             {relative && (
               <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-                <span className="text-white">Why this one.</span>{" "}It had the smallest average miss in both halves of
-                the test{shippedOption.candidate.early?.mean_abs != null && shippedOption.candidate.late?.mean_abs != null
-                  ? ` (${shippedOption.candidate.early.mean_abs.toFixed(2)} and ${shippedOption.candidate.late.mean_abs.toFixed(2)}pp)`
-                  : ""}{" "}and the smallest average signed miss. The model&apos;s scores tell BDCs apart well, but
+                <span className="text-white">Why this one.</span>{" "}The model&apos;s scores tell BDCs apart well, but
                 their average across all BDCs has not tracked how many new non-accruals followed, so a method that
                 lets a rise in every BDC&apos;s score carry the level up can publish far above anything that has
                 happened. The order comes from the scores; the level comes from realised history.
+                {whyThisOne ? ` ${whyThisOne}` : ""}
               </p>
             )}
           </div>
@@ -451,10 +486,10 @@ export default function NaForecastTable() {
             <span className="text-white">Changed October 2026.</span>{" "}Heavy PIK is now read by why it is paid
             in kind: a preferred share&apos;s PIK dividend no longer counts as a warning sign, and heavy PIK that was
             there from the start or whose history is unclear is weighed on its own.
-            {relative && calibrationQ != null
-              ? ` The last step now takes the order of the BDCs from the model and the level from realised new non-accruals over the latest ${calibrationQ} quarters of known outcomes.${replacedLine?.published_mean != null && realisedNow?.latest_mean != null
+            {relative && levelChange
+              ? ` ${levelChange}${replacedLine?.published_mean != null && realisedNow?.latest_mean != null
                 ? ` The line fitted on every past year, which it replaces, would publish an average of ${fmtPct(replacedLine.published_mean)} today against ${fmtPct(realisedNow.latest_mean)} realised in the latest year with known outcomes.`
-                : ""} The 80% range now comes from past misses at a similar level.`
+                : ""} The 80% range now comes from past misses at a similar level, never narrower than all the misses together give, and is checked only against misses that share no outcome quarter with the quarter checked.`
               : ""}
           </p>
         )}

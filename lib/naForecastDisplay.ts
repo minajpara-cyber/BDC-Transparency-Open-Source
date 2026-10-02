@@ -31,8 +31,73 @@ export interface FormationBandLevel {
   /** Highest forecast the group covers (null: the top group). */
   upper: number | null;
   n: number;
+  /** The published edges (subtract from the forecast): the wider of the group's own and the pooled. */
   band_lo: number;
   band_hi: number;
+  /** The group's own 90th / 10th percentile misses. */
+  own_lo?: number;
+  own_hi?: number;
+  /** Share of the group's past outcomes that came in above the forecast. */
+  share_above?: number;
+}
+
+/** Coverage of one band rule in one leakage-free check (scripts/83 band_coverage). */
+export interface BandCoverageRule {
+  n?: number;
+  all?: number;
+  by_third?: readonly (number | null)[];
+  n_by_third?: readonly number[];
+}
+
+/** One leakage-free coverage check: the ranges built only from misses that
+ *  cannot share an outcome quarter with the quarter checked. */
+export interface BandCoverageTest {
+  quarters?: number;
+  from?: string;
+  to?: string;
+  published?: BandCoverageRule;
+  own_level?: BandCoverageRule;
+  pooled?: BandCoverageRule;
+}
+
+export interface BandCoverage {
+  min_train?: number;
+  thirds_upper?: readonly number[];
+  /** Ranges from quarters at least four quarters away on either side. */
+  embargoed?: BandCoverageTest;
+  /** Ranges from misses whose outcome was known at the time. */
+  point_in_time?: BandCoverageTest;
+}
+
+/** What centring on the cross-section does (scripts/83 relative_effect). */
+export interface RelativeEffect {
+  period?: string;
+  n_bdcs?: number;
+  level?: number;
+  slope?: number;
+  blend_weight?: number;
+  peer_effect_per_pp?: number | null;
+  mean_estimate_by_quarter?: Record<string, number>;
+  tested_from?: string | null;
+  tested_to?: string | null;
+  tested_max_quarterly_move_pp?: number | null;
+  largest_later_move_pp?: number | null;
+  reference_period?: string | null;
+  since_reference?: {
+    mean_before: number;
+    mean_now: number;
+    change_pp: number;
+    held_still_forecast_effect_pp: number;
+  };
+  driver?: {
+    feature: string;
+    mean_change_pp: number;
+    share_of_change: number | null;
+    effect_by_ticker: Record<string, number>;
+    without_sign: readonly string[];
+    without_sign_effect_pp: number | null;
+  };
+  moves?: Record<string, { blend_then: number; blend_now: number; forecast_then: number; forecast_now: number }>;
 }
 
 /** The calibration fitted at the latest quarter (scripts/83 fit_calibration). */
@@ -55,10 +120,7 @@ export interface CalibrationCandidate {
   rank_corr?: number;
   early?: FormationHalf;
   late?: FormationHalf;
-  band_coverage?: {
-    level?: { all?: number; by_third?: readonly number[] };
-    pooled?: { all?: number; by_third?: readonly number[] };
-  };
+  band_coverage?: BandCoverage;
   published_mean?: number;
   published_max?: number;
   published_above_tested?: number;
@@ -90,8 +152,14 @@ export interface FormationMeta {
   /** The 80% range by forecast level (lowest group first). */
   band_levels?: readonly FormationBandLevel[];
   calibration?: FormationCalibration;
+  /** Forecast quarters in the test. */
+  test_quarters?: number;
+  /** Each BDC's scored back-test forecasts: count, average miss (forecast - outcome). */
+  backtest_by_ticker?: Record<string, { n: number; bias: number; share_below: number } | undefined>;
+  relative_effect?: RelativeEffect;
   calibration_comparison?: {
-    realised?: { latest_period?: string; latest_mean?: number; max_yoy_rise_pp?: number | null };
+    realised?: { latest_period?: string; latest_mean?: number; max_yoy_rise_pp?: number | null;
+      by_quarter?: Record<string, number> };
     candidates?: Record<string, CalibrationCandidate | undefined>;
     shipped?: CalibrationCandidate;
   };
@@ -149,10 +217,22 @@ export type ForecastConfidence = "standard" | "lower" | "none";
 
 const STANDARD_STATUSES = new Set(["complete", "imputed_with_indicators"]);
 
+/** Scored back-test forecasts for this BDC (null: not in this data release). */
+export function backtestCount(row: NaForecastRow): number | null {
+  const n = (row as { form_backtest_n?: number | null }).form_backtest_n;
+  return typeof n === "number" ? n : null;
+}
+
+/** True when the release says this BDC was never scored in the back-test. */
+export function notBacktested(row: NaForecastRow): boolean {
+  return backtestCount(row) === 0;
+}
+
 /**
- * standard: inputs meet the coverage floor.
- * lower:    the BDC is modelled, but fewer inputs are observed (or the row is
- *           flagged as an estimate). Its number is shown with a label.
+ * standard: inputs meet the coverage floor and the BDC was back-tested.
+ * lower:    the BDC is modelled, but fewer inputs are observed, it was never
+ *           scored in the back-test, or the row is flagged as an estimate.
+ *           Its number is shown with a label.
  * none:     the BDC cannot be modelled (for example, no loan-level status).
  */
 export function forecastConfidence(
@@ -163,10 +243,40 @@ export function forecastConfidence(
   const flaggedEstimate = (row as { estimate?: boolean }).estimate === true;
   const belowFloor = floor != null && row.form_feature_coverage_pct != null
     && row.form_feature_coverage_pct < floor;
-  if (!STANDARD_STATUSES.has(row.form_observation_status) || belowFloor || flaggedEstimate) {
+  if (!STANDARD_STATUSES.has(row.form_observation_status) || belowFloor || flaggedEstimate
+    || notBacktested(row)) {
     return "lower";
   }
   return "standard";
+}
+
+/** Why a modelled row is lower confidence, in plain English. */
+export function lowerConfidenceReason(row: NaForecastRow, floor: number | null = coverageFloorPct): string | null {
+  if (forecastConfidence(row, floor) !== "lower") return null;
+  const belowFloor = floor != null && row.form_feature_coverage_pct != null
+    && row.form_feature_coverage_pct < floor;
+  if (!STANDARD_STATUSES.has(row.form_observation_status) || belowFloor) {
+    return floor != null
+      ? `less than ${floorText(floor)} of the model's inputs could be observed for this book`
+      : "fewer of the model's inputs could be observed for this book";
+  }
+  if (notBacktested(row)) {
+    return "the back-test never scored this BDC (its past outcomes could not all be observed), so no track record stands behind its number";
+  }
+  return "this number is flagged as an estimate";
+}
+
+/** This BDC's own back-test record as display text, or null when the release has none. */
+export function backtestText(row: NaForecastRow, meta: FormationMeta = formationMeta): string | null {
+  const n = backtestCount(row);
+  if (n == null) return null;
+  if (n === 0) return "Not back-tested";
+  const of = meta.test_quarters != null ? ` of ${meta.test_quarters}` : "";
+  const bias = (row as { form_backtest_bias?: number | null }).form_backtest_bias;
+  const lean = bias != null && Math.abs(bias) >= 0.5
+    ? `; ran ${Math.abs(bias).toFixed(2)}pp ${bias > 0 ? "above" : "below"} outcomes on average`
+    : "";
+  return `Back-tested in ${n}${of} quarters${lean}`;
 }
 
 /** Only rows that can be modelled may show a projection; unknown stays "—". */
@@ -345,6 +455,24 @@ export function levelText(meta: FormationMeta = formationMeta): string | null {
   return `The model sets the order; the level comes from what actually happened: across the BDCs, an average of ${fmtPct(cal.level)} of the performing book went on non-accrual within a year, over the latest ${quarters ?? ""}${quarters != null ? " " : ""}starting quarters whose year has fully passed${span}, and the projections are centred on that.`;
 }
 
+/** "a, b and c" (or "a; b; and c" with sep "; "). */
+export function andJoin(items: readonly string[], sep = ", "): string {
+  if (items.length <= 1) return items.join("");
+  const last = sep === ", " ? " and " : `${sep}and `;
+  return `${items.slice(0, -1).join(sep)}${last}${items[items.length - 1]}`;
+}
+
+const pct0 = (v: number | null | undefined) => (v == null || !Number.isFinite(v) ? "—" : `${Math.round(100 * v)}%`);
+
+/** One leakage-free coverage check as text: "81% (100% / 73% / 71% from the lowest third to the highest, 102 forecasts)". */
+function coverageClause(rule: BandCoverageRule | undefined): string | null {
+  if (rule?.all == null) return null;
+  const thirds = rule.by_third && rule.by_third.length === 3
+    ? `${rule.by_third.map(pct0).join(" / ")} from the lowest third to the highest, `
+    : "";
+  return `${pct0(rule.all)} (${thirds}${rule.n ?? "?"} forecasts)`;
+}
+
 /** The 80% range rule in plain English, from the level groups in the export. */
 export function bandText(meta: FormationMeta = formationMeta): string | null {
   const levels = meta.band_levels ?? [];
@@ -353,22 +481,43 @@ export function bandText(meta: FormationMeta = formationMeta): string | null {
   }
   const cuts = levels.slice(0, -1).map((band) => band.upper).filter((v): v is number => v != null);
   const groups = levels.length === 3 ? "thirds" : `${levels.length} groups`;
-  const coverage = meta.calibration_comparison?.shipped?.band_coverage;
-  const byLevel = coverage?.level?.by_third;
-  const pooled = coverage?.pooled?.by_third;
-  const held = byLevel && byLevel.length === levels.length
-    ? ` Checked by leaving each quarter out, it held the outcome ${byLevel.map((v) => `${Math.round(100 * v)}%`).join(" / ")} of the time from the lowest group to the highest`
-      + (pooled && pooled.length === levels.length
-        ? `; one range for every level would have held ${Math.round(100 * pooled[0])}% at the bottom and only ${Math.round(100 * pooled[pooled.length - 1])}% at the top.`
-        : ".")
-    : "";
+  const floored = levels.some((band) => band.own_lo != null && band.own_hi != null
+    && (Math.abs(band.band_lo - band.own_lo) > 1e-9 || Math.abs(band.band_hi - band.own_hi) > 1e-9));
   const widths = levels.map((band) => band.band_lo - band.band_hi);
-  const widening = widths.every((w, i) => i === 0 || w > widths[i - 1])
+  const widening = widths.every((w, i) => i === 0 || w > widths[i - 1] + 1e-9)
     ? " Higher forecasts missed by more, so their ranges are wider;"
+    : widths[widths.length - 1] > Math.max(...widths.slice(0, -1)) + 1e-9
+      ? " The highest forecasts missed by more, so their range is wider;"
+      : "";
+  const coverage = meta.calibration_comparison?.shipped?.band_coverage;
+  const embargoed = coverageClause(coverage?.embargoed?.published);
+  const pointInTime = coverageClause(coverage?.point_in_time?.published);
+  const checked = embargoed
+    ? ` Checked fairly — each past quarter's range built only from misses that share none of its four outcome quarters — it held the outcome ${embargoed}${pointInTime ? `; built only from misses already known at the time, ${pointInTime}` : ""}. That is a small test: ${meta.test_quarters ?? "a few"} quarters of forecasts whose outcome years overlap, so treat the 80% as approximate.`
     : "";
-  return `The 80% range comes from the misses of past forecasts at a similar level: the ${meta.n ?? ""}${meta.n != null ? " " : ""}tested forecasts are split into ${groups} by level (cut at ${cuts.map((v) => fmtPct(v)).join(" and ")}), and each projection takes the 10th–90th percentile of its group's misses.${widening ? `${widening} the` : " The"} range is lopsided because a bad year can miss by far more than a good one.${held}`;
+  return `The 80% range comes from the misses of past forecasts at a similar level: the ${meta.n ?? ""}${meta.n != null ? " " : ""}tested forecasts are split into ${groups} by level (cut at ${cuts.map((v) => fmtPct(v)).join(" and ")}), and each projection takes the 10th–90th percentile of its group's misses${floored ? `, but never a narrower range than all ${meta.n ?? "the"} misses together give (a group's own misses ran too tight when checked)` : ""}.${widening ? `${widening} the` : " The"} range is lopsided because a bad year can miss by far more than a good one.${checked}`;
 }
 
+/** How often past outcomes came in above the forecast, by level group; and
+ *  which levels to read as "nearer the bottom" of what to expect. */
+export function aboveShareText(meta: FormationMeta = formationMeta): string | null {
+  const levels = (meta.band_levels ?? []).filter((band) => band.share_above != null);
+  if (levels.length < 2) return null;
+  const names = levels.length === 3 ? ["lowest", "middle", "top"] : levels.map((_, i) => `group ${i + 1}`);
+  const shares = levels.map((band, i) => `${pct0(band.share_above)} of the ${names[i]}${levels.length === 3 ? " third" : ""}`);
+  const low = levels.map((band, i) => ((band.share_above as number) >= 0.65 ? i : -1)).filter((i) => i >= 0);
+  const even = levels.map((band, i) => (Math.abs((band.share_above as number) - 0.5) <= 0.15 ? i : -1)).filter((i) => i >= 0);
+  const range = (band: FormationBandLevel, i: number) => (i === 0
+    ? `below ${fmtPct(band.upper)}`
+    : band.upper == null ? `above ${fmtPct(levels[i - 1].upper)}` : `${fmtPct(levels[i - 1].upper)}–${fmtPct(band.upper)}`);
+  const lowText = low.length
+    ? ` Read a projection ${low.map((i) => range(levels[i], i)).join(" or ")} as nearer the bottom of what to expect than the middle.`
+    : "";
+  const evenText = even.length
+    ? ` ${low.length ? "Elsewhere" : "At every level"} outcomes fell about as often below the forecast as above it.`
+    : "";
+  return `In the back-test the outcome came in above the forecast for ${andJoin(shares)} of forecasts.${lowText}${evenText}`;
+}
 /** Whether loans-only labels were tested, and how they did, from the export. */
 export function labelBasisText(meta: FormationMeta = formationMeta): string | null {
   const cmp = meta.label_basis_comparison;
@@ -377,11 +526,27 @@ export function labelBasisText(meta: FormationMeta = formationMeta): string | nu
   if (!all || !debt || all.relative_mean_abs == null || debt.relative_mean_abs == null) return null;
   const shippedDebt = (cmp?.shipped ?? meta.observability?.label_basis) === "debt";
   const [used, other] = shippedDebt ? [debt, all] : [all, debt];
-  const pct = (v: number | undefined) => (v == null ? "—" : `${Math.round(100 * v)}%`);
+  // one decimal when whole percents would read as a tie (49.5% vs 50.2%)
+  const tie = Math.round(100 * (used.relative_mean_abs as number)) === Math.round(100 * (other.relative_mean_abs as number));
+  const pct = (v: number | undefined) => (v == null ? "—" : `${(100 * v).toFixed(tie ? 1 : 0)}%`);
   const corr = (v: number | undefined) => (v == null ? "—" : v.toFixed(2));
   return shippedDebt
     ? `A borrower counts only when one of its loans goes on non-accrual (a preferred share or other equity going on non-accrual does not). On the same test this did at least as well as counting every investment: average miss ${pct(used.relative_mean_abs)} of the average outcome against ${pct(other.relative_mean_abs)}, rank correlation ${corr(used.rank_corr)} against ${corr(other.rank_corr)}.`
-    : `A borrower counts once any of its investments goes on non-accrual, with everything the BDC holds in it. Counting only loans (a preferred share going on non-accrual would not count) was tested on the same back-test and did worse: average miss ${pct(other.relative_mean_abs)} of the average outcome against ${pct(used.relative_mean_abs)}, rank correlation ${corr(other.rank_corr)} against ${corr(used.rank_corr)}. So every investment counts.`;
+    : `A borrower counts once any of its investments goes on non-accrual, with everything the BDC holds in it. Counting only loans (a preferred share going on non-accrual would not count) was tested on the same back-test and did worse: average miss ${pct(other.relative_mean_abs)} of the average outcome against ${pct(used.relative_mean_abs)}, rank correlation ${corr(other.rank_corr)} against ${corr(used.rank_corr)}. So every investment counts.${labelGapText(meta)}`;
+}
+
+/** The BDCs whose trailing year differs by at least ``minGap`` pp between the
+ *  two label rules, and how the cross-holder sign's narrower rule relates. */
+export function labelGapText(meta: FormationMeta = formationMeta, minGap = 1): string {
+  const all = meta.label_basis_comparison?.all?.trailing_by_ticker ?? {};
+  const debt = meta.label_basis_comparison?.debt?.trailing_by_ticker ?? {};
+  const gaps = Object.keys(all)
+    .filter((t) => all[t] != null && debt[t] != null && Math.abs((all[t] as number) - (debt[t] as number)) >= minGap)
+    .sort((a, b) => Math.abs((all[b] as number) - (debt[b] as number)) - Math.abs((all[a] as number) - (debt[a] as number)));
+  const differ = gaps.length
+    ? ` The two rules give a past year at least ${minGap}pp apart only for ${andJoin(gaps.map((t) => `${t} (${fmtPct(all[t])} counting every investment, ${fmtPct(debt[t])} counting loans only)`))}.`
+    : Object.keys(all).length ? ` No BDC's past year differs by ${minGap}pp or more between the two rules.` : "";
+  return `${differ} The warning sign for trouble at another lender is narrower: it counts a borrower only when one of its loans is on non-accrual at another BDC.`;
 }
 
 /** Projections at the 0% floor, and what to read into them; null when none. */
@@ -392,4 +557,111 @@ export function zeroFloorText(rows: readonly NaForecastRow[], meta: FormationMet
   const top = tops.length ? Math.max(...tops) : null;
   const tickers = zero.map((row) => row.ticker).join(", ");
   return `${tickers} ${zero.length === 1 ? "shows" : "show"} 0.00%: ${zero.length === 1 ? "its" : "their"} warning signs are so far below ${zero.length === 1 ? "its" : "their"} peers' that the method puts ${zero.length === 1 ? "it" : "them"} at the floor. Read that as "the lowest group", not as "no new non-accruals"${top != null ? `: the 80% range still runs up to ${fmtPct(top)}` : ""}${meta.band_levels?.length ? ", from the misses of other low forecasts" : ""}.`;
+}
+
+/** The calibration choice explained from the comparison in the export (no
+ *  claim that the comparison does not support). */
+export function whyThisOneText(meta: FormationMeta = formationMeta): string | null {
+  const rows = calibrationRows(meta);
+  const shipped = rows.find((row) => row.shipped);
+  if (!shipped) return null;
+  const others = rows.filter((row) => !row.shipped).map((row) => row.candidate);
+  const s = shipped.candidate;
+  const best = (pick: (c: CalibrationCandidate) => number | undefined) =>
+    others.every((c) => pick(c) == null || (pick(s) as number) <= (pick(c) as number) + 1e-9);
+  const early = s.early?.mean_abs;
+  const late = s.late?.mean_abs;
+  const halves = early != null && late != null && best((c) => c.early?.mean_abs) && best((c) => c.late?.mean_abs);
+  const overall = s.mean_abs != null && best((c) => c.mean_abs);
+  const bias = s.bias != null
+    && others.every((c) => c.bias == null || Math.abs(s.bias as number) <= Math.abs(c.bias) + 1e-9);
+  const missText = halves
+    ? `It had the smallest average miss in both halves of the test (${(early as number).toFixed(2)} and ${(late as number).toFixed(2)}pp)`
+    : overall
+      ? `It had the smallest average miss over the whole test (${(s.mean_abs as number).toFixed(2)}pp), though not in both halves`
+      : `It did not have the smallest average miss (${s.mean_abs?.toFixed(2) ?? "—"}pp)`;
+  const biasText_ = bias ? " and the smallest average signed miss" : "";
+  return `${missText}${biasText_}. It was picked on this same test of ${s.n ?? meta.n ?? "the"} forecasts, so that lead is not independent proof; it will be checked again as the next quarters' outcomes come in.`;
+}
+
+/** The "Changed October 2026" description of the level, in the same words as levelText. */
+export function levelChangeText(meta: FormationMeta = formationMeta): string | null {
+  const cal = meta.calibration;
+  if (cal?.kind !== "relative" || cal.level == null) return null;
+  const quarters = meta.observability?.calibration_window_quarters;
+  const span = cal.level_from && cal.level_to ? ` (${cal.level_from.slice(0, 7)} to ${cal.level_to.slice(0, 7)})` : "";
+  return `The last step now takes the order of the BDCs from the model and the level from what actually happened: the average share of the performing book that went on non-accrual within a year, over the latest ${quarters ?? ""}${quarters != null ? " " : ""}starting quarters whose year has fully passed${span}.`;
+}
+
+/** Projections resting on few tested cases: at or above each high
+ *  projection, how many back-test forecasts there are and whose. */
+export function testedTailText(rows: readonly NaForecastRow[], maxBdcs = 2): string | null {
+  const thin = rows.filter((row) => {
+    const value = projectionValue(row);
+    const tickers = (row as { form_tested_above_tickers?: readonly string[] }).form_tested_above_tickers;
+    const n = (row as { form_tested_above_n?: number | null }).form_tested_above_n;
+    return value != null && !beyondBacktest(row) && n != null && n > 0 && tickers != null && tickers.length <= maxBdcs;
+  });
+  if (!thin.length) return null;
+  const parts = thin.map((row) => {
+    const tickers = (row as { form_tested_above_tickers?: readonly string[] }).form_tested_above_tickers ?? [];
+    const n = (row as { form_tested_above_n?: number | null }).form_tested_above_n ?? 0;
+    const own = tickers.length === 1 && tickers[0] === row.ticker;
+    const whose = tickers.length === 1
+      ? (own ? `${n === 1 ? "" : "all "}${row.ticker}'s own` : `${n === 1 ? "" : "all "}${tickers[0]}'s`)
+      : `from ${andJoin([...tickers])} only`;
+    return `at or above ${row.ticker}'s ${fmtPct(projectionValue(row))} the back-test has ${n} forecast${n === 1 ? "" : "s"}, ${whose}`;
+  });
+  return `The top of the ranking rests on very few tested cases: ${andJoin(parts, "; ")}. The 80% range there is built mostly from those BDCs' misses.`;
+}
+
+/** The relative method's side effect, with its size, from the export. */
+export function relativeText(rows: readonly NaForecastRow[], meta: FormationMeta = formationMeta): string | null {
+  const rel = meta.relative_effect;
+  if (!rel || rel.level == null || rel.slope == null || rel.n_bdcs == null) return null;
+  const others = rel.n_bdcs - 1;
+  const parts: string[] = [];
+  parts.push(`These projections are relative. Each is ${fmtPct(rel.level)} plus ${rel.slope.toFixed(2)} times how far the BDC's warning-sign score sits above or below the average score of the ${rel.n_bdcs} BDCs this quarter, so the average projection stays at the realised level, and when some BDCs' scores rise every other BDC's projection falls, even if its own score did not move${rel.peer_effect_per_pp != null ? ` (a 1pp rise in one BDC's score lowers each of the other ${others} by ${rel.peer_effect_per_pp.toFixed(2)}pp)` : ""}.`);
+  const since = rel.since_reference;
+  if (rel.reference_period && since) {
+    const tested = rel.tested_max_quarterly_move_pp != null && rel.tested_from && rel.tested_to
+      ? `; in the tested quarters (${rel.tested_from.slice(0, 7)} to ${rel.tested_to.slice(0, 7)}) it never moved more than ${rel.tested_max_quarterly_move_pp.toFixed(2)}pp in a quarter, so the method has not been tested on a move this size`
+      : "";
+    parts.push(`Since ${rel.reference_period.slice(0, 7)} the average score has ${since.change_pp >= 0 ? "risen" : "fallen"} ${Math.abs(since.change_pp).toFixed(2)}pp (from ${fmtPct(since.mean_before)} to ${fmtPct(since.mean_now)})${tested}. That move alone ${since.held_still_forecast_effect_pp <= 0 ? "lowers" : "raises"} the projection of a BDC whose score held still by ${Math.abs(since.held_still_forecast_effect_pp).toFixed(2)}pp.`);
+    const driver = rel.driver;
+    if (driver && driver.share_of_change != null && driver.share_of_change > 0) {
+      const label = FEATURE_LABELS[driver.feature] ?? driver.feature.replace(/_/g, " ");
+      const lifted = Object.entries(driver.effect_by_ticker)
+        .filter(([, v]) => v >= 0.25).sort((a, b) => b[1] - a[1])
+        .map(([t, v]) => `${t} ${v.toFixed(2)}pp`);
+      const lowered = Object.values(driver.effect_by_ticker).filter((v) => v < 0);
+      const worst = lowered.length ? Math.max(...lowered.map((v) => -v)) : null;
+      parts.push(`${pct0(driver.share_of_change)} of that rise came from one warning sign, ${label}. Today it lifts ${lifted.length ? andJoin(lifted) : "no BDC by 0.25pp or more"} and lowers ${lowered.length} other${lowered.length === 1 ? "" : "s"}${worst != null ? ` by up to ${worst.toFixed(2)}pp` : ""}${driver.without_sign.length && driver.without_sign_effect_pp != null ? ` (${Math.abs(driver.without_sign_effect_pp).toFixed(2)}pp for the ${driver.without_sign.length} with none of it: ${andJoin([...driver.without_sign])})` : ""}.`);
+    }
+    const fell = Object.entries(rel.moves ?? {})
+      .filter(([, m]) => m.blend_now >= m.blend_then - 0.05 && m.forecast_now <= m.forecast_then - 0.5)
+      .sort((a, b) => (a[1].forecast_now - a[1].forecast_then) - (b[1].forecast_now - b[1].forecast_then))
+      .map(([t, m]) => `${t} (score ${m.blend_then.toFixed(2)} → ${m.blend_now.toFixed(2)}, projection ${fmtPct(m.forecast_then)} → ${fmtPct(m.forecast_now)})`);
+    if (fell.length) {
+      parts.push(`So since ${rel.reference_period.slice(0, 7)} some projections fell by 0.5pp or more while the BDC's own score held or rose: ${andJoin(fell)}.`);
+    }
+  }
+  const aboveRange = rows.filter((row) => projectionValue(row) != null && !beyondBacktest(row)
+    && row.form_trailing != null && row.form_hi != null && row.form_trailing > row.form_hi)
+    .map((row) => `${row.ticker} (${fmtPct(row.form_trailing)} against a range topping out at ${fmtPct(row.form_hi)})`);
+  if (aboveRange.length) {
+    parts.push(`For ${andJoin(aboveRange)} the BDC's own past year is above the top of its 80% range: the ranking puts it below its recent history.`);
+  }
+  return parts.join(" ");
+}
+
+/** Rank among published projections, ties sharing a rank (#1 = highest). */
+export function tiedRank(ticker: string, values: readonly { ticker: string; value: number }[]):
+  { rank: number; tiedWith: string[] } | null {
+  const own = values.find((v) => v.ticker === ticker);
+  if (!own) return null;
+  return {
+    rank: 1 + values.filter((v) => v.value > own.value).length,
+    tiedWith: values.filter((v) => v.ticker !== ticker && v.value === own.value).map((v) => v.ticker),
+  };
 }
