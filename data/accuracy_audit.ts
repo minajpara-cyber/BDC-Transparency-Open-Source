@@ -16,19 +16,234 @@ export interface AccuracyRemaining {
   id: string; ticker: string; period_end: string; company: string | null;
   field: string; label: string; short: string; result: string; reason: string;
 }
+export interface AccuracyRecheck {
+  field: string; short: string; auditors_pct: number; recheck_pct: number; agrees: boolean; reason: string;
+}
+export interface AccuracyCountNote {
+  field: string; short: string; before_checked: number; after_checked: number; reason: string;
+}
 export interface AccuracyAuditData {
   audited_on: string; checked_on: string; before_recheck_note: string;
+  before_recheck: AccuracyRecheck[]; count_notes: AccuracyCountNote[];
   positions: number; bdcs: number; filings: number; design: string;
   sample_first_period: string; sample_last_period: string;
   values_checked: number; values_correct: number;
   before_values_checked: number; before_values_correct: number;
   fields: AccuracyField[]; remaining: AccuracyRemaining[]; regressions: number;
+  not_published: { id: string; ticker: string; period_end: string }[];
 }
 
 export const accuracyAudit: AccuracyAuditData = {
   "audited_on": "2026-10-01",
   "checked_on": "2026-10-02",
-  "before_recheck_note": "As a cross-check of the method, the same check run on the database as it stood on the audit date, before the fixes, gives a picture close to the auditors': industry 93.9%, par 99.1%, non-accrual flag 98.6%, PIK 97.2%.",
+  "before_recheck_note": "As a cross-check of the method, the same check was run on the database as it stood on the audit date, before the fixes. For 10 of 14 fields it lands within 3 points of the auditors' own count (borrower name 99.6% against 97.5%, instrument as printed 100% against 100%, industry 93.9% against 93.2%, par 99.1% against 99.3%, amortized cost 100% against 100%, fair value 100% against 100%, maturity date 100% against 99.6%, acquisition date 100% against 98.2%, non-accrual flag 98.6% against 98.2%, PIK 97.2% against 95.5%). It differs for asset class (97.5% against the auditors' 74%: the re-check reads the old labels with today's shared instrument rule, which credits them with the new classification; the auditors scored the old database's own asset-class labels, many of them blank); rate terms (98.8% against the auditors' 95.2%: the auditors' readings count the index and the coupon as well as the spread, the answer key the spread alone); floor (0% against the auditors' 30.2%: the old database stored a floor only where FSK's parser read one, so every floor in the answer key reads blank); undrawn-commitment flag (0% against the auditors' 53.1%: the old database set the undrawn-commitment flag for FSK only, so every other row reads blank).",
+  "before_recheck": [
+    {
+      "field": "company",
+      "short": "borrower name",
+      "auditors_pct": 97.5,
+      "recheck_pct": 99.6,
+      "agrees": true,
+      "reason": ""
+    },
+    {
+      "field": "investment_type",
+      "short": "instrument as printed",
+      "auditors_pct": 100.0,
+      "recheck_pct": 100.0,
+      "agrees": true,
+      "reason": ""
+    },
+    {
+      "field": "instrument",
+      "short": "asset class",
+      "auditors_pct": 74.0,
+      "recheck_pct": 97.5,
+      "agrees": false,
+      "reason": "the re-check reads the old labels with today's shared instrument rule, which credits them with the new classification; the auditors scored the old database's own asset-class labels, many of them blank"
+    },
+    {
+      "field": "industry",
+      "short": "industry",
+      "auditors_pct": 93.2,
+      "recheck_pct": 93.9,
+      "agrees": true,
+      "reason": ""
+    },
+    {
+      "field": "par",
+      "short": "par",
+      "auditors_pct": 99.3,
+      "recheck_pct": 99.1,
+      "agrees": true,
+      "reason": ""
+    },
+    {
+      "field": "amortized_cost",
+      "short": "amortized cost",
+      "auditors_pct": 100.0,
+      "recheck_pct": 100.0,
+      "agrees": true,
+      "reason": ""
+    },
+    {
+      "field": "fair_value",
+      "short": "fair value",
+      "auditors_pct": 100.0,
+      "recheck_pct": 100.0,
+      "agrees": true,
+      "reason": ""
+    },
+    {
+      "field": "spread",
+      "short": "rate terms",
+      "auditors_pct": 95.2,
+      "recheck_pct": 98.8,
+      "agrees": false,
+      "reason": "the auditors' readings count the index and the coupon as well as the spread, the answer key the spread alone"
+    },
+    {
+      "field": "floor_pct",
+      "short": "floor",
+      "auditors_pct": 30.2,
+      "recheck_pct": 0.0,
+      "agrees": false,
+      "reason": "the old database stored a floor only where FSK's parser read one, so every floor in the answer key reads blank"
+    },
+    {
+      "field": "maturity_date",
+      "short": "maturity date",
+      "auditors_pct": 99.6,
+      "recheck_pct": 100.0,
+      "agrees": true,
+      "reason": ""
+    },
+    {
+      "field": "acquisition_date",
+      "short": "acquisition date",
+      "auditors_pct": 98.2,
+      "recheck_pct": 100.0,
+      "agrees": true,
+      "reason": ""
+    },
+    {
+      "field": "non_accrual",
+      "short": "non-accrual flag",
+      "auditors_pct": 98.2,
+      "recheck_pct": 98.6,
+      "agrees": true,
+      "reason": ""
+    },
+    {
+      "field": "pik",
+      "short": "PIK",
+      "auditors_pct": 95.5,
+      "recheck_pct": 97.2,
+      "agrees": true,
+      "reason": ""
+    },
+    {
+      "field": "unfunded_commitment",
+      "short": "undrawn-commitment flag",
+      "auditors_pct": 53.1,
+      "recheck_pct": 0.0,
+      "agrees": false,
+      "reason": "the old database set the undrawn-commitment flag for FSK only, so every other row reads blank"
+    }
+  ],
+  "count_notes": [
+    {
+      "field": "investment_type",
+      "short": "instrument as printed",
+      "before_checked": 252,
+      "after_checked": 220,
+      "reason": "BXSL, BCRED, CGBD and FSK print the instrument in the name or a class heading, not a type column, so the answer key has no type for those rows"
+    },
+    {
+      "field": "instrument",
+      "short": "asset class",
+      "before_checked": 223,
+      "after_checked": 279,
+      "reason": "the auditors scored only rows whose filing prints an asset-class heading; the answer key reads the instrument from the type text for every holding"
+    },
+    {
+      "field": "industry",
+      "short": "industry",
+      "before_checked": 264,
+      "after_checked": 262,
+      "reason": "a cash fund and a row that is not a holding have no industry"
+    },
+    {
+      "field": "par",
+      "short": "par",
+      "before_checked": 277,
+      "after_checked": 229,
+      "reason": "an equity or fund row prints no par: the auditors counted its blank as a match, the answer key leaves it out"
+    },
+    {
+      "field": "amortized_cost",
+      "short": "amortized cost",
+      "before_checked": 280,
+      "after_checked": 279,
+      "reason": "one sampled row is not a holding (a page title the old parser stored), so it has no cost to check"
+    },
+    {
+      "field": "fair_value",
+      "short": "fair value",
+      "before_checked": 280,
+      "after_checked": 279,
+      "reason": "one sampled row is not a holding (a page title the old parser stored), so it has no fair value to check"
+    },
+    {
+      "field": "spread",
+      "short": "rate terms",
+      "before_checked": 439,
+      "after_checked": 172,
+      "reason": "the auditors also read each row's index and coupon"
+    },
+    {
+      "field": "floor_pct",
+      "short": "floor",
+      "before_checked": 63,
+      "after_checked": 60,
+      "reason": "the answer key keeps only values it could re-read from the raw row itself"
+    },
+    {
+      "field": "maturity_date",
+      "short": "maturity date",
+      "before_checked": 267,
+      "after_checked": 230,
+      "reason": "an equity or fund row prints no maturity: the auditors counted its blank as a match, the answer key leaves it out"
+    },
+    {
+      "field": "acquisition_date",
+      "short": "acquisition date",
+      "before_checked": 111,
+      "after_checked": 102,
+      "reason": "the answer key keeps only values it could re-read from the raw row itself"
+    },
+    {
+      "field": "non_accrual",
+      "short": "non-accrual flag",
+      "before_checked": 280,
+      "after_checked": 278,
+      "reason": "a cash fund and a row that is not a holding have no non-accrual status"
+    },
+    {
+      "field": "pik",
+      "short": "PIK",
+      "before_checked": 396,
+      "after_checked": 214,
+      "reason": "the auditors also read each PIK rate and severity, the answer key the PIK type alone"
+    },
+    {
+      "field": "unfunded_commitment",
+      "short": "undrawn-commitment flag",
+      "before_checked": 209,
+      "after_checked": 86,
+      "reason": "the answer key covers the 86 positions the undrawn-commitment fix was accepted on, not every sampled row"
+    }
+  ],
   "positions": 280,
   "bdcs": 19,
   "filings": 216,
@@ -262,6 +477,13 @@ export const accuracyAudit: AccuracyAuditData = {
       "short": "non-accrual flag",
       "result": "left blank",
       "reason": "OCSL's fiscal-year-end 10-K for 2015-09-30 lists its non-accrual loans in a form the pipeline does not yet read, so that quarter shows OCSL's own total (4.92% of its debt at cost) and each loan's status is unknown rather than zero."
+    }
+  ],
+  "not_published": [
+    {
+      "id": "S158",
+      "ticker": "MAIN",
+      "period_end": "2013-12-31"
     }
   ],
   "regressions": 0
