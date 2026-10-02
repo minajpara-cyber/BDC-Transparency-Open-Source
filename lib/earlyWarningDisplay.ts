@@ -15,6 +15,7 @@ const SIGNAL_LABELS: Record<string, string> = {
   modified: "loan modification",
   xholder_na: "non-accrual at another BDC",
   junior: "junior ranking (second lien or subordinated)",
+  pik_switched: "still on PIK after an earlier switch from cash",
 };
 
 export function signalLabel(key: string): string {
@@ -64,11 +65,23 @@ type LooseEwsMeta = LabelPolicyMeta & {
   signal_points?: Record<string, number>;
   validation_buckets?: readonly Bucket[];
   precision_at_50_pct?: number;
+  precision_at_50_rule?: string;
   observability?: { nullable_signals?: readonly string[] };
 };
 
+/** Severe-PIK lift by type in one period of the back-test (scripts/51). */
+interface TypeLift { n: number; rate_na: number | null; lift_na: number | null }
+interface PeriodLifts { n: number; base_rate_na: number | null; types: Record<string, TypeLift> }
+
+type LooseBacktestMeta = LabelPolicyMeta & {
+  severe_pik_points?: Record<string, number>;
+  cash_to_pik_points?: number;
+  pik_points_rule?: string;
+  severe_pik_type_lift_by_period?: Record<string, PeriodLifts>;
+};
+
 export const ewsInfo = ewsMeta as unknown as LooseEwsMeta;
-export const backtestInfo = signalBacktestMeta as unknown as LabelPolicyMeta;
+export const backtestInfo = signalBacktestMeta as unknown as LooseBacktestMeta;
 /** Label policy of the out-of-sample score test (scripts/78). */
 export const ewsLabelText = labelPolicyText(ewsInfo);
 /** Label policy of the in-sample watchlist back-test (scripts/51). */
@@ -118,6 +131,32 @@ export function unmeasuredSignals(): string[] {
   return Object.entries(ewsInfo.signal_multipliers ?? {})
     .filter(([, multiplier]) => multiplier == null)
     .map(([key]) => key);
+}
+
+/** Plain-English names of the four severe-PIK types (scripts/pik_origin.py). */
+export const PIK_TYPE_TEXT: Record<string, string> = {
+  switched: "the loan switched from cash to PIK while the BDC held it",
+  unknown: "its PIK history is unclear",
+  first_seen: "it already paid PIK when we first saw it",
+  by_design: "it is a preferred share or convertible note built to pay in kind",
+};
+const PIK_TYPE_ORDER = ["switched", "unknown", "first_seen", "by_design"];
+
+/**
+ * The watchlist's severe-PIK points by type, highest first, as the export
+ * gives them: [{ type, points, text }]. Empty when the export has no table.
+ */
+export function severePikPoints(): { type: string; points: number; text: string }[] {
+  const points = backtestInfo.severe_pik_points ?? {};
+  return PIK_TYPE_ORDER
+    .filter((type) => typeof points[type] === "number")
+    .map((type) => ({ type, points: points[type], text: PIK_TYPE_TEXT[type] ?? type }));
+}
+
+/** One severe-PIK type's lift in start quarters to 2023 and from 2024 on. */
+export function pikTypeLift(type: string): { early: TypeLift | null; late: TypeLift | null } {
+  const byPeriod = backtestInfo.severe_pik_type_lift_by_period ?? {};
+  return { early: byPeriod.to_2023?.types?.[type] ?? null, late: byPeriod.from_2024?.types?.[type] ?? null };
 }
 
 export const backtestBase: BacktestRow | undefined =

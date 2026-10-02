@@ -24,9 +24,27 @@ import NaQuartileTrend from "@/components/NaQuartileTrend";
 import { signalBacktest } from "@/data/signal_backtest";
 import { ewsRows } from "@/data/early_warning_scores";
 import {
-  backtestBase, backtestCrossHolder, backtestCrossHolderStacked, backtestHigh, backtestLabelText, bucketLabel,
-  ewsIndustry, ewsInfo, ewsLabelText, scoreText, signalLabel, unmeasuredSignals, validationWindow, weakSignals,
+  backtestBase, backtestCrossHolder, backtestCrossHolderStacked, backtestHigh, backtestInfo, backtestLabelText,
+  bucketLabel, ewsIndustry, ewsInfo, ewsLabelText, pikTypeLift, scoreText, severePikPoints, signalLabel,
+  unmeasuredSignals, validationWindow, weakSignals,
 } from "@/lib/earlyWarningDisplay";
+
+// Severe PIK (half or more of the coupon in kind) scores by WHY it is paid in
+// kind; the points, and the check that the pattern holds in both halves of
+// the history, come from the export.
+const PIK_POINTS = severePikPoints();
+const PIK_POINTS_TEXT = PIK_POINTS.length
+  ? "Heavy PIK (half or more of the interest paid in kind) scores by why it is paid in kind: "
+    + PIK_POINTS.map((p, i) => `${p.points === 0 ? "none" : `${p.points}${i === 0 ? " points" : ""}`} when ${p.text}`)
+      .join(", ").replace(/, ([^,]*)$/, ", and $1")
+    + (backtestInfo.pik_points_rule === "larger_of_cash_to_pik_switch_and_severe_pik_type"
+      ? `; a switch to PIK in the last two quarters counts once, at the larger of its ${backtestInfo.cash_to_pik_points ?? 25} points and these.`
+      : ".")
+  : "";
+const SWITCHED_LIFT = pikTypeLift("switched");
+// "never went non-accrual" only when the back-test row says 0% on a real sample
+const PIK_BY_DESIGN_NEVER = signalBacktest.some((b) => b.signal.startsWith("PIK severe (by design")
+  && b.n >= 20 && b.rate_na === 0);
 
 const TIER_COLOR: Record<string, string> = {
   High: "#ef4444",
@@ -301,8 +319,8 @@ export default function WatchlistPage() {
         <p className="text-sm max-w-3xl" style={{ color: "#9ca3af" }}>
           Loans that are <span className="text-white">showing stress but are not yet on non-accrual</span>{" "}— the
           leading edge of credit problems. Each loan gets a screen score from its mark and how fast it is falling,
-          a switch from cash to PIK interest, heavy PIK, amend-and-extends and non-accrual at another BDC, and is
-          then ranked by reported fair value. Tiers rank risk; they are not default probabilities. Loans tagged
+          a switch from cash to PIK interest, heavy PIK (weighted by why it is paid in kind), amend-and-extends and
+          non-accrual at another BDC, and is then ranked by reported fair value. Tiers rank risk; they are not default probabilities. Loans tagged
           non-accrual are left out; a loan whose status could not be read from its filing that quarter can still
           appear.
           {backtestHigh && backtestHigh.lift_na != null && (
@@ -370,7 +388,8 @@ export default function WatchlistPage() {
                 {(ewsInfo.validation_buckets ?? []).map((b) => `score ${bucketLabel(b.bucket)}: ${b.hit_rate_pct}%`).join(" · ")}.
                 {ewsInfo.precision_at_50_pct != null && (
                   <> Of the 50 highest-scored loans, {ewsInfo.precision_at_50_pct}% went on non-accrual
-                    {ewsInfo.validation_base_rate_pct != null ? `, against a ${ewsInfo.validation_base_rate_pct}% base rate` : ""}.</>
+                    {ewsInfo.validation_base_rate_pct != null ? `, against a ${ewsInfo.validation_base_rate_pct}% base rate` : ""}
+                    {ewsInfo.precision_at_50_rule ? " (loans tied at the 50th score count in proportion)" : ""}.</>
                 )}
                 {weak.length > 0 && (
                   <> Signals with little or no lift get few points: {weak.map((w) =>
@@ -444,6 +463,17 @@ export default function WatchlistPage() {
             ({backtestCrossHolder.rate_na}% went non-accrual{backtestCrossHolder.lift_na != null ? `, ${backtestCrossHolder.lift_na}× the base rate` : ""}
             {`, across ${backtestCrossHolder.n.toLocaleString()} loan-quarters`}).
             {backtestCrossHolderStacked && ` Combined with a mark below 90¢ it reaches ${backtestCrossHolderStacked.rate_na}%.`}
+          </p>
+        )}
+        {PIK_POINTS.length > 0 && SWITCHED_LIFT.early?.lift_na != null && SWITCHED_LIFT.late?.lift_na != null && (
+          <p className="text-sm mb-3" style={{ color: "#9ca3af" }}>
+            {"Heavy PIK is weighted by why it is paid in kind, because the types behave nothing alike: loans that "
+              + "switched from cash to heavy PIK while the BDC held them went on non-accrual within a year "
+              + `${SWITCHED_LIFT.early.lift_na}× as often as the average loan in start quarters to 2023, and `
+              + `${SWITCHED_LIFT.late.lift_na}× from 2024 on, so the pattern holds in both halves of the history. `
+              + (PIK_BY_DESIGN_NEVER
+                ? "Preferred shares and convertible notes built to pay in kind did not go on non-accrual at all, so they score nothing."
+                : "Preferred shares and convertible notes built to pay in kind score nothing.")}
           </p>
         )}
         <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
@@ -652,7 +682,7 @@ export default function WatchlistPage() {
           How the screen works: a loan scores points for a mark below 90¢ of par (more below 80¢), a mark drop of 3+
           points in a quarter (more if it falls two quarters running), a switch from cash to PIK interest, heavy
           PIK, a loan of the same borrower on non-accrual at another BDC (a preferred share on non-accrual there
-          does not count) and — lightly — an amend-and-extend. The mark is fair value ÷ par, the same mark as the
+          does not count) and — lightly — an amend-and-extend.{PIK_POINTS_TEXT ? ` ${PIK_POINTS_TEXT}` : ""}{" "}The mark is fair value ÷ par, the same mark as the
           credit heatmaps, and a loan with no mark is not on this list. A loan has no mark when: it is an unfunded
           commitment; its par is missing, or in a currency we cannot convert; its par is the whole commitment of a
           partly drawn revolver or delayed draw (fair value close to its drawn cost, or par above twice cost —

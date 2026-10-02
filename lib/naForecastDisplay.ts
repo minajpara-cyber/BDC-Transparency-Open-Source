@@ -14,6 +14,16 @@ export interface FormationQuartile {
   n: number;
 }
 
+/** One half of the walk-forward test, split at its middle forecast quarter. */
+export interface FormationHalf {
+  n: number;
+  from: string;
+  to: string;
+  bias: number;
+  mean_abs: number;
+  corr: number | null;
+}
+
 export interface FormationMeta {
   n?: number;
   horizon_q?: number;
@@ -22,9 +32,11 @@ export interface FormationMeta {
   bias?: number;
   actual_mean?: number;
   quartiles?: readonly FormationQuartile[];
+  halves?: { early?: FormationHalf; late?: FormationHalf };
   observability?: {
     publication_min_feature_coverage_pct?: number;
     training_embargo_quarters?: number;
+    calibration_window_quarters?: number | null;
     model_features?: readonly string[];
     label_observation_coverage_pct?: number;
     unknown_label_borrowers?: number;
@@ -123,8 +135,9 @@ const FEATURE_LABELS: Record<string, string> = {
   xh: "a loan already on non-accrual at another BDC",
   m90: "loans marked 80–90¢ of par",
   m95: "loans marked 90–95¢ of par",
-  pik_flip: "switched from cash interest to PIK",
-  pik_sev: "severe PIK of any type (preferred dividends included)",
+  pik_flip: "switched from cash interest to PIK while the BDC held it",
+  pik_first_seen: "heavy PIK already there when we first saw the loan",
+  pik_unclear: "heavy PIK whose history is unclear",
   any_mod: "loan terms modified",
   par_cut: "stressed cut to the loan amount",
   v45: "loan 4–5 years old",
@@ -155,6 +168,22 @@ export function sortForecastRows(rows: readonly NaForecastRow[]): NaForecastRow[
     const bn = forecastConfidence(b) === "none" ? 1 : 0;
     return an - bn || a.ticker.localeCompare(b.ticker);
   });
+}
+
+/**
+ * One sentence on the forecast's average signed miss, from the export: how
+ * far below (or above) the outcome it ran over the whole test and in its newer
+ * half. Null when the export has no bias, or the bias is negligible.
+ */
+export function biasText(meta: FormationMeta = formationMeta): string | null {
+  const bias = meta.bias;
+  if (bias == null || !Number.isFinite(bias) || Math.abs(bias) < 0.05) return null;
+  const dir = bias < 0 ? "below" : "above";
+  const late = meta.halves?.late;
+  const lateText = late && Number.isFinite(late.bias)
+    ? ` (${Math.abs(late.bias).toFixed(2)}pp ${late.bias < 0 ? "below" : "above"} in the newer half, forecasts made ${late.from.slice(0, 7)} to ${late.to.slice(0, 7)})`
+    : "";
+  return `On average the forecast ran ${Math.abs(bias).toFixed(2)}pp ${dir} what happened${lateText}.`;
 }
 
 /** The coverage floor as display text, e.g. "66.7%". */

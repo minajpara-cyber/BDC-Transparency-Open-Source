@@ -14,24 +14,24 @@ export interface BacktestRow {
   lift_bad: number | null; lift_na: number | null;
 }
 export const signalBacktest: BacktestRow[] = [
-  {"signal": "ALL (base rate)", "n": 115370, "rate_bad": 5.3, "rate_na": 2.3, "lift_bad": 1.0, "lift_na": 1.0},
-  {"signal": "mark < 90c", "n": 7032, "rate_bad": 44.2, "rate_na": 15.4, "lift_bad": 8.3, "lift_na": 6.7},
-  {"signal": "mark < 80c", "n": 2377, "rate_bad": 72.1, "rate_na": 23.6, "lift_bad": 13.6, "lift_na": 10.2},
-  {"signal": "mark falling ≥3pt QoQ", "n": 5867, "rate_bad": 29.2, "rate_na": 11.9, "lift_bad": 5.5, "lift_na": 5.2},
-  {"signal": "falling 2 quarters", "n": 933, "rate_bad": 58.0, "rate_na": 24.2, "lift_bad": 10.9, "lift_na": 10.5},
-  {"signal": "cash→PIK flip", "n": 1168, "rate_bad": 24.7, "rate_na": 14.5, "lift_bad": 4.7, "lift_na": 6.3},
-  {"signal": "PIK severe", "n": 4090, "rate_bad": 16.3, "rate_na": 11.2, "lift_bad": 3.1, "lift_na": 4.8},
+  {"signal": "ALL (base rate)", "n": 119394, "rate_bad": 5.3, "rate_na": 2.3, "lift_bad": 1.0, "lift_na": 1.0},
+  {"signal": "mark < 90c", "n": 7160, "rate_bad": 44.0, "rate_na": 15.2, "lift_bad": 8.4, "lift_na": 6.7},
+  {"signal": "mark < 80c", "n": 2413, "rate_bad": 71.8, "rate_na": 23.3, "lift_bad": 13.7, "lift_na": 10.3},
+  {"signal": "mark falling ≥3pt QoQ", "n": 5968, "rate_bad": 29.1, "rate_na": 11.8, "lift_bad": 5.5, "lift_na": 5.2},
+  {"signal": "falling 2 quarters", "n": 951, "rate_bad": 57.6, "rate_na": 23.8, "lift_bad": 11.0, "lift_na": 10.5},
+  {"signal": "cash→PIK flip", "n": 1169, "rate_bad": 25.3, "rate_na": 14.5, "lift_bad": 4.8, "lift_na": 6.4},
+  {"signal": "PIK severe", "n": 4418, "rate_bad": 16.5, "rate_na": 11.0, "lift_bad": 3.1, "lift_na": 4.8},
   {"signal": "PIK severe (by design: preferred/convertible)", "n": 46, "rate_bad": 2.2, "rate_na": 0.0, "lift_bad": 0.4, "lift_na": 0.0},
-  {"signal": "PIK severe (already PIK when first seen)", "n": 2327, "rate_bad": 8.9, "rate_na": 6.6, "lift_bad": 1.7, "lift_na": 2.9},
-  {"signal": "PIK severe (switched from cash)", "n": 1255, "rate_bad": 31.1, "rate_na": 20.5, "lift_bad": 5.9, "lift_na": 8.9},
-  {"signal": "PIK severe (history unclear)", "n": 462, "rate_bad": 14.5, "rate_na": 10.2, "lift_bad": 2.7, "lift_na": 4.4},
-  {"signal": "amend-and-extend", "n": 5551, "rate_bad": 6.6, "rate_na": 3.4, "lift_bad": 1.2, "lift_na": 1.5},
-  {"signal": "spread cut", "n": 4935, "rate_bad": 5.9, "rate_na": 3.3, "lift_bad": 1.1, "lift_na": 1.4},
-  {"signal": "NA at another BDC", "n": 216, "rate_bad": 36.1, "rate_na": 26.4, "lift_bad": 6.8, "lift_na": 11.5},
-  {"signal": "NA elsewhere + mark < 90c", "n": 70, "rate_bad": 78.6, "rate_na": 51.4, "lift_bad": 14.8, "lift_na": 22.3},
-  {"signal": "tier: Watch", "n": 6253, "rate_bad": 31.9, "rate_na": 11.2, "lift_bad": 6.0, "lift_na": 4.9},
-  {"signal": "tier: Elevated", "n": 1829, "rate_bad": 58.6, "rate_na": 21.7, "lift_bad": 11.0, "lift_na": 9.4},
-  {"signal": "tier: High", "n": 288, "rate_bad": 79.2, "rate_na": 42.7, "lift_bad": 14.9, "lift_na": 18.5}
+  {"signal": "PIK severe (already PIK when first seen)", "n": 2470, "rate_bad": 8.6, "rate_na": 6.2, "lift_bad": 1.6, "lift_na": 2.7},
+  {"signal": "PIK severe (switched from cash)", "n": 1421, "rate_bad": 32.1, "rate_na": 20.3, "lift_bad": 6.1, "lift_na": 9.0},
+  {"signal": "PIK severe (history unclear)", "n": 481, "rate_bad": 12.7, "rate_na": 8.9, "lift_bad": 2.4, "lift_na": 3.9},
+  {"signal": "amend-and-extend", "n": 5667, "rate_bad": 6.5, "rate_na": 3.4, "lift_bad": 1.2, "lift_na": 1.5},
+  {"signal": "spread cut", "n": 5093, "rate_bad": 5.9, "rate_na": 3.3, "lift_bad": 1.1, "lift_na": 1.5},
+  {"signal": "NA at another BDC", "n": 220, "rate_bad": 37.3, "rate_na": 27.3, "lift_bad": 7.1, "lift_na": 12.0},
+  {"signal": "NA elsewhere + mark < 90c", "n": 74, "rate_bad": 79.7, "rate_na": 52.7, "lift_bad": 15.2, "lift_na": 23.2},
+  {"signal": "tier: Watch", "n": 6904, "rate_bad": 30.6, "rate_na": 11.7, "lift_bad": 5.8, "lift_na": 5.1},
+  {"signal": "tier: Elevated", "n": 1899, "rate_bad": 57.0, "rate_na": 20.0, "lift_bad": 10.8, "lift_na": 8.8},
+  {"signal": "tier: High", "n": 325, "rate_bad": 77.8, "rate_na": 43.7, "lift_bad": 14.8, "lift_na": 19.2}
 ];
 
 export const signalBacktestMeta = {
@@ -41,9 +41,71 @@ export const signalBacktestMeta = {
   "coverage_floor": "2018-01-01",
   "label_policy": "unknown_status_windows_excluded",
   "label_note": "A position counts as not going non-accrual only when its BDC's status was observed in the start quarter and in all four following quarters. Positions whose borrower was already non-accrual at the same BDC in the start quarter are left out.",
-  "n_candidates": 125655,
-  "n_scored": 115370,
-  "n_excluded_unknown_start": 4392,
-  "n_excluded_borrower_already_na": 1044,
-  "n_excluded_unknown_outcome": 4849
+  "n_candidates": 126157,
+  "n_scored": 119394,
+  "n_excluded_unknown_start": 2926,
+  "n_excluded_borrower_already_na": 1061,
+  "n_excluded_unknown_outcome": 2776,
+  "severe_pik_points": {
+    "switched": 25,
+    "unknown": 10,
+    "first_seen": 5,
+    "by_design": 0
+  },
+  "cash_to_pik_points": 25,
+  "pik_points_rule": "larger_of_cash_to_pik_switch_and_severe_pik_type",
+  "severe_pik_type_lift_by_period": {
+    "to_2023": {
+      "n": 76071,
+      "base_rate_na": 2.0,
+      "types": {
+        "by_design": {
+          "n": 37,
+          "rate_na": 0.0,
+          "lift_na": 0.0
+        },
+        "first_seen": {
+          "n": 1515,
+          "rate_na": 6.2,
+          "lift_na": 3.1
+        },
+        "switched": {
+          "n": 843,
+          "rate_na": 18.4,
+          "lift_na": 9.2
+        },
+        "unknown": {
+          "n": 289,
+          "rate_na": 6.6,
+          "lift_na": 3.3
+        }
+      }
+    },
+    "from_2024": {
+      "n": 43323,
+      "base_rate_na": 2.75,
+      "types": {
+        "by_design": {
+          "n": 9,
+          "rate_na": 0.0,
+          "lift_na": 0.0
+        },
+        "first_seen": {
+          "n": 955,
+          "rate_na": 6.1,
+          "lift_na": 2.2
+        },
+        "switched": {
+          "n": 578,
+          "rate_na": 23.2,
+          "lift_na": 8.4
+        },
+        "unknown": {
+          "n": 192,
+          "rate_na": 12.5,
+          "lift_na": 4.5
+        }
+      }
+    }
+  }
 } as const;

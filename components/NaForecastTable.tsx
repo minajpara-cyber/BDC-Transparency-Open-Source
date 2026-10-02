@@ -10,6 +10,7 @@ import { bdcsHistory } from "@/data/bdcs_history";
 import { naForecast } from "@/data/na_forecast";
 import { latestNonAccrualSnapshots } from "@/lib/latestNonAccruals";
 import {
+  biasText,
   confidenceLabel,
   coverageFloorPct,
   floorText,
@@ -69,6 +70,9 @@ export default function NaForecastTable() {
   const reading = readQuartiles(quartiles);
   const embargoQ = fm.observability?.training_embargo_quarters ?? fm.horizon_q ?? null;
   const signals = modelSignalLabels(fm.observability?.model_features);
+  const typedPik = (fm.observability?.model_features ?? []).includes("pik_first_seen");
+  const calibrationQ = fm.observability?.calibration_window_quarters ?? null;
+  const bias = biasText(fm);
   const q1Label = rows.find((row) => row.q1_label)?.q1_label ?? "next quarter";
 
   const csvColumns = [
@@ -323,6 +327,18 @@ export default function NaForecastTable() {
             {fm.n != null && ` The 80% range is the 10th–90th percentile of these same ${fm.n} misses; it is lopsided because a bad year can miss by far more than a good one.`}
           </p>
         )}
+        {bias && (
+          <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+            <span className="text-white">Why it runs low.</span>{" "}
+            {bias}
+            {(fm.bias ?? 0) < 0
+              ? " Each forecast can only learn from outcomes that are already known — a year old — and new non-accruals rose through the test, so read the number as nearer the bottom of what to expect than the middle; the 80% range is built from these misses and sits mostly above it."
+              : " Each forecast can only learn from outcomes that are already known — a year old — so it trails turns in the cycle."}
+            {calibrationQ != null
+              ? ` The last step, which lines the forecast up with what actually happened, uses only the latest ${calibrationQ} quarters of known outcomes, so it catches up with a rising trend faster than a line fitted on all of history.`
+              : ""}
+          </p>
+        )}
         {(nextQuarterMeta?.mean_abs != null || directionMeta?.auc != null) && (
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
             <span className="text-white">Next-quarter columns.</span>{" "}These come from a simpler model of the
@@ -336,7 +352,7 @@ export default function NaForecastTable() {
         {signals.length > 0 && (
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
             <span className="text-white">What drives it.</span>{" "}Borrower-level signals, each weighted by
-            cost: {signals.join("; ")}. When a signal can&apos;t be observed for a loan, the model records
+            cost: {signals.join("; ")}.{typedPik ? " Heavy PIK built into a preferred share or convertible note is not a warning sign and does not count." : ""}{" "}When a signal can&apos;t be observed for a loan, the model records
             that it is missing instead of assuming &ldquo;no&rdquo;; the confidence column shows how much of
             each BDC&apos;s book had its inputs observed. A borrower counts as performing only if we can see it
             is accruing today.
@@ -351,6 +367,16 @@ export default function NaForecastTable() {
           second-lien and subordinated flags, position size, spread cuts, maturity extensions, and the
           high-yield credit spread.
         </p>
+        {typedPik && (
+          <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+            <span className="text-white">Changed October 2026.</span>{" "}Heavy PIK is now read by why it is paid
+            in kind: a preferred share&apos;s PIK dividend no longer counts as a warning sign, and heavy PIK that was
+            there from the start or whose history is unclear is weighed on its own.
+            {calibrationQ != null
+              ? ` The last calibration step now uses the latest ${calibrationQ} quarters of known outcomes instead of all of history, because the old line kept the low default levels of 2021–22 and ran low as defaults rose.`
+              : ""}
+          </p>
+        )}
         <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
           <span className="text-white">Corrected September 2026.</span>{" "}The back-test now waits for
           outcomes to be known before using a loan for training — earlier versions did not, which made
