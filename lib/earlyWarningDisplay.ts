@@ -66,6 +66,11 @@ type LooseEwsMeta = LabelPolicyMeta & {
   validation_buckets?: readonly Bucket[];
   precision_at_50_pct?: number;
   precision_at_50_rule?: string;
+  /** What the top 50 are made of: loan-quarters above and tied at the cut, and distinct borrowers. */
+  precision_at_50_detail?: {
+    cut_score: number; n_above_cut: number; n_tied_at_cut: number;
+    distinct_borrowers_at_or_above_cut: number; borrower_hit_pct: number | null;
+  } | null;
   observability?: { nullable_signals?: readonly string[] };
 };
 

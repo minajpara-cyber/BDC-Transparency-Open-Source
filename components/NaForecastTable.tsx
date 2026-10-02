@@ -10,6 +10,7 @@ import { bdcsHistory } from "@/data/bdcs_history";
 import { naForecast } from "@/data/na_forecast";
 import { latestNonAccrualSnapshots } from "@/lib/latestNonAccruals";
 import {
+  beyondBacktest,
   biasText,
   confidenceLabel,
   coverageFloorPct,
@@ -23,6 +24,7 @@ import {
   nextQuarterMeta,
   notModelledReason,
   projectionValue,
+  rangeText,
   readQuartiles,
   sortForecastRows,
 } from "@/lib/naForecastDisplay";
@@ -72,7 +74,11 @@ export default function NaForecastTable() {
   const signals = modelSignalLabels(fm.observability?.model_features);
   const typedPik = (fm.observability?.model_features ?? []).includes("pik_first_seen");
   const calibrationQ = fm.observability?.calibration_window_quarters ?? null;
+  const slopeQ = fm.observability?.slope_window_quarters;
   const bias = biasText(fm);
+  // projections above every forecast the back-test scored (no 80% range)
+  const beyond = rows.filter((row) => projectionValue(row) != null && beyondBacktest(row)).map((row) => row.ticker);
+  const published = rows.filter((row) => projectionValue(row) != null).length;
   const q1Label = rows.find((row) => row.q1_label)?.q1_label ?? "next quarter";
 
   const csvColumns = [
@@ -107,8 +113,8 @@ export default function NaForecastTable() {
       snapshot?.na_publication_reason ?? "",
       row.period_end,
       value,
-      value == null ? null : row.form_lo,
-      value == null ? null : row.form_hi,
+      value == null || beyondBacktest(row) ? null : row.form_lo,
+      value == null || beyondBacktest(row) ? null : row.form_hi,
       row.form_trailing,
       row.xh_pp,
       row.b90_pp,
@@ -220,9 +226,7 @@ export default function NaForecastTable() {
                     {fmtPct(value)}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-xs" style={{ color: "#6b6b88" }}>
-                    {value == null || row.form_lo == null || row.form_hi == null
-                      ? "—"
-                      : `${row.form_lo.toFixed(2)} – ${row.form_hi.toFixed(2)}`}
+                    {rangeText(row, value, formationMeta, " – ") ?? "—"}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#6b6b88" }}>
                     {fmtPct(row.form_trailing)}
@@ -332,10 +336,13 @@ export default function NaForecastTable() {
             <span className="text-white">Why it runs low.</span>{" "}
             {bias}
             {(fm.bias ?? 0) < 0
-              ? " Each forecast can only learn from outcomes that are already known — a year old — and new non-accruals rose through the test, so read the number as nearer the bottom of what to expect than the middle; the 80% range is built from these misses and sits mostly above it."
+              ? " Each forecast can only learn from outcomes that are already known — a year old — and new non-accruals rose through the test, so within the range the test covered, read the number as nearer the bottom of what to expect than the middle; the 80% range is built from these misses and sits mostly above it."
               : " Each forecast can only learn from outcomes that are already known — a year old — so it trails turns in the cycle."}
             {calibrationQ != null
-              ? ` The last step, which lines the forecast up with what actually happened, uses only the latest ${calibrationQ} quarters of known outcomes, so it catches up with a rising trend faster than a line fitted on all of history.`
+              ? ` The last step, which lines the forecast up with what actually happened, takes its level from only the latest ${calibrationQ} quarters of known outcomes${slopeQ === null ? " (its slope from all of them)" : ""}, so it catches up with a rising trend faster than a line fitted on all of history.`
+              : ""}
+            {beyond.length > 0 && fm.max_tested_pred != null
+              ? ` ${beyond.length} of ${published} projections (${beyond.join(", ")}) are above ${fm.max_tested_pred.toFixed(2)}%, the highest forecast the back-test ever scored${fm.max_tested_actual != null ? ` (the highest outcome it saw was ${fm.max_tested_actual.toFixed(2)}%)` : ""}. The past misses say nothing about a level never tested, so no 80% range is shown for them and “nearer the bottom” does not apply: read them as “higher than anything seen in the test”, not as a calibrated number.`
               : ""}
           </p>
         )}
@@ -373,7 +380,7 @@ export default function NaForecastTable() {
             in kind: a preferred share&apos;s PIK dividend no longer counts as a warning sign, and heavy PIK that was
             there from the start or whose history is unclear is weighed on its own.
             {calibrationQ != null
-              ? ` The last calibration step now uses the latest ${calibrationQ} quarters of known outcomes instead of all of history, because the old line kept the low default levels of 2021–22 and ran low as defaults rose.`
+              ? ` The last calibration step now takes its level from the latest ${calibrationQ} quarters of known outcomes instead of all of history, because the old line kept the low default levels of 2021–22 and ran low as defaults rose${slopeQ === null ? "; its slope still comes from all of history, because a slope fitted on one year alone pushed the newest forecasts far above anything the test had seen" : ""}.`
               : ""}
           </p>
         )}

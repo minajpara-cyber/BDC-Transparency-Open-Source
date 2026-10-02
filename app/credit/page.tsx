@@ -30,6 +30,14 @@ import { creditPikPublication, formatPikPublication, pikRangeText, sponsorPikPub
 import { SEVERE_DEFINITION, SEVERE_PIK_TYPE_SERIES, severePikTypePoint, severeTypeList } from "@/lib/pikOrigin";
 import { joinList } from "@/lib/joinList";
 
+// The first year each BDC has a published credit-quality quarter (the
+// coverage banner quotes it rather than a hand-typed year).
+const FIRST_YEAR: Record<string, string> = {};
+for (const r of creditQuality) {
+  const y = r.period_end.slice(0, 4);
+  if (!FIRST_YEAR[r.ticker] || y < FIRST_YEAR[r.ticker]) FIRST_YEAR[r.ticker] = y;
+}
+
 // Parser-coverage caveats grouped by metric family. Pre-XBRL parsers
 // commonly capture mark-based fields (par / cost / fv) cleanly even when
 // non-accrual / PIK footnotes don't decode — for those BDCs we only flag
@@ -744,15 +752,15 @@ export default function CreditPage() {
         <div className="leading-relaxed">
           <span className="font-semibold">Partial coverage:</span>{" "}
           Caveats now apply per metric family rather than per BDC-quarter as a whole — mark-based
-          data (below 95¢ / 90¢, asset mix, spread) surfaces back to 2013 for FSK and 2016 for OBDC
-          because those parsers capture par / cost / fv cleanly even pre-XBRL. The below-95¢ / 90¢
+          data (below 95¢ / 90¢, asset mix, spread) surfaces back to {FIRST_YEAR.FSK ?? "—"}{" "}for FSK and{" "}
+          {FIRST_YEAR.OBDC ?? "—"}{" "}for OBDC because those parsers capture par / cost / fv cleanly even pre-XBRL. The below-95¢ / 90¢
           share needs a usable par (the mark is fair value ÷ par, in US dollars — a par printed in
           another currency is converted at the balance-sheet date&apos;s rate): where under half of a
           quarter&apos;s loan cost has one, the share is shown as unknown (&quot;—&quot;), not zero, and
           left out of the industry line. FSK&apos;s
-          non-accrual before mid-2022 is muted as approximate: those filings don&apos;t mark unfunded
-          commitments, so the rate can drift from FSK&apos;s own figure, and a quarter joins the industry
-          line only when it is within 1pp of what FSK disclosed. A BDC&apos;s non-accrual rate is shown as unknown (&quot;—&quot;), never as zero,
+          unfunded commitments are read from each schedule&apos;s own legend back to {FIRST_YEAR.FSK ?? "—"}, so its
+          older non-accrual quarters are no longer muted and count in the industry line (see the methodology
+          page). A BDC&apos;s non-accrual rate is shown as unknown (&quot;—&quot;), never as zero,
           when its position flags are incomplete or its figures are on hold; those quarters are also left out
           of the industry non-accrual line, which shows how many BDCs each point pools.
           BDC-quarters with fewer than {MIN_POSITIONS_FOR_RELIABLE}{" "}parsed positions are also
@@ -967,9 +975,14 @@ export default function CreditPage() {
                   >
                     <td className="px-4 py-2.5 text-xs font-mono" style={{ color: "#d1d5db" }}>{r.period_end}</td>
                     <td className="px-4 py-2.5">
-                      <Link href={`/bdcs/${r.ticker.toLowerCase()}`} className="text-xs font-mono font-semibold hover:text-white" style={{ color: "#a5b4fc" }}>
-                        {r.ticker}
-                      </Link>
+                      {r.ticker === "industry" ? (
+                        // the pooled row has no /bdcs page
+                        <span className="text-xs font-mono font-semibold" style={{ color: "#d1d5db" }}>{r.ticker}</span>
+                      ) : (
+                        <Link href={`/bdcs/${r.ticker.toLowerCase()}`} className="text-xs font-mono font-semibold hover:text-white" style={{ color: "#a5b4fc" }}>
+                          {r.ticker}
+                        </Link>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-sm font-semibold text-white">{fmtPct(totalPct)}</td>
                     <td className="px-4 py-2.5 text-sm font-semibold" style={{ color: r.pct_new_severe_cost > 0 ? "#dc2626" : "#6b6b88" }}>

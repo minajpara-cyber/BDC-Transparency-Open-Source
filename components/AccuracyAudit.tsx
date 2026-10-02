@@ -1,5 +1,10 @@
 import { accuracyAudit, type AccuracyField, type AccuracyRemaining } from "@/data/accuracy_audit";
 
+/** Why the "Before" and "Now" columns count different readings (scripts/accuracy_goldens.py). */
+interface AccuracyCountNote {
+  field: string; short: string; before_checked: number; after_checked: number; reason: string;
+}
+
 // "How accurate is this data?" on /methodology. Every number comes from
 // data/accuracy_audit.ts, which bdc_inventory/scripts/accuracy_goldens.py writes
 // on each rebuild by re-checking the hand-audited golden set (280 positions read
@@ -31,7 +36,8 @@ const byField = Object.fromEntries(accuracyAudit.fields.map((f) => [f.field, f])
 
 /** The audit's headline in words: dollars vs labels, before and after. */
 function headline(): string {
-  const dollars = ["amortized_cost", "fair_value", "par", "maturity_date"].map((k) => byField[k]).filter(Boolean);
+  const dollars = ["amortized_cost", "fair_value", "par", "maturity_date", "acquisition_date"]
+    .map((k) => byField[k]).filter(Boolean);
   const labels = ["instrument", "industry", "unfunded_commitment", "floor_pct", "pik", "non_accrual"]
     .map((k) => byField[k]).filter(Boolean);
   const before = (f: AccuracyField) => share(f.before_correct, f.before_checked);
@@ -40,7 +46,7 @@ function headline(): string {
   const weak = labels.filter((f) => (before(f) ?? 100) < 95)
     .sort((a, b) => (before(a) ?? 0) - (before(b) ?? 0));
   const parts: string[] = [];
-  if (lowest) parts.push(`The dollar amounts and dates were already right: on the audit date every one of them matched the filing on at least ${pct(before(lowest))} of sampled rows.`);
+  if (lowest) parts.push(`The dollar amounts and dates (maturity and acquisition) were already right: on the audit date every one of them matched the filing on at least ${pct(before(lowest))} of sampled rows.`);
   if (weak.length) {
     parts.push(`The labels around them were not: ${weak.map((f) => `${f.short} ${pct(before(f))}`).join(", ")}.`);
     parts.push(`After the fixes they re-check at: ${weak.map((f) => `${f.short} ${pct(after(f))}`).join(", ")}.`);
@@ -54,6 +60,11 @@ function remainingLine(r: AccuracyRemaining): string {
 
 export default function AccuracyAudit() {
   const a = accuracyAudit;
+  // older data files have no count notes
+  const countNotes = (a as { count_notes?: AccuracyCountNote[] }).count_notes ?? [];
+  // golden positions in a quarter this site does not publish from that filing row
+  const notPublished = (a as { not_published?: { id: string; ticker: string; period_end: string }[] })
+    .not_published ?? [];
   const nowPct = a.values_checked ? (100 * a.values_correct) / a.values_checked : null;
   return (
     <div className="rounded-xl border p-5 text-sm space-y-4" style={{ background: "#111118", borderColor: "#1e1e2e", color: "#d1d5db" }}>
@@ -91,7 +102,13 @@ export default function AccuracyAudit() {
         </table>
       </div>
       <p className="text-xs leading-relaxed" style={{ color: "#9ca3af" }}>
-        {`How to read it: a value counts as right only when it equals what the filing prints; a blank where the filing prints a value counts as wrong. Values a filing does not print (many schedules have no acquisition-date or floor column, older MAIN schedules print no industry) are left out, so each row has its own count. "Before" is the auditors' own count on the audit date; for a few fields they checked more readings than the answer key keeps (PIK rate and severity as well as the PIK type, the coupon as well as the spread), so the counts differ between the columns. "Now" re-checks the golden values, which leave out the readings the auditors marked ambiguous, against today's data — the same positions, looked up in the book this site publishes for each quarter.`}
+        {`How to read it: a value counts as right only when it equals what the filing prints; a blank where the filing prints a value counts as wrong. Values a filing does not print (many schedules have no acquisition-date or floor column, older MAIN schedules print no industry) are left out, so each row has its own count. "Before" is the auditors' own count on the audit date. "Now" re-checks the golden values, which leave out the readings the auditors marked ambiguous, against today's data — the same positions, looked up in the book this site publishes for each quarter.`}
+        {countNotes.length > 0
+          ? ` The two columns count different readings for ${countNotes.length} field${countNotes.length === 1 ? "" : "s"}: ${countNotes.map((c) => `${c.short} (${c.before_checked} then, ${c.after_checked} now${c.reason ? `: ${c.reason}` : ""})`).join("; ")}.`
+          : ""}
+        {notPublished.length > 0
+          ? ` ${notPublished.length === 1 ? "One position sits" : `${notPublished.length} positions sit`} outside the book this site publishes for ${notPublished.length === 1 ? "its quarter" : "their quarters"} (${notPublished.map((p) => `${p.ticker} ${quarter(p.period_end)}`).join(", ")}): the quarter is not published, or is published from another filing; ${notPublished.length === 1 ? "it is" : "they are"} checked against the audited filing row itself.`
+          : ""}
         {a.before_recheck_note ? ` ${a.before_recheck_note}` : ""}
       </p>
 

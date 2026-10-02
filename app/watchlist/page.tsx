@@ -391,6 +391,12 @@ export default function WatchlistPage() {
                     {ewsInfo.validation_base_rate_pct != null ? `, against a ${ewsInfo.validation_base_rate_pct}% base rate` : ""}
                     {ewsInfo.precision_at_50_rule ? " (loans tied at the 50th score count in proportion)" : ""}.</>
                 )}
+                {ewsInfo.precision_at_50_detail && (
+                  <>{` These are loan-quarters, not borrowers: ${ewsInfo.precision_at_50_detail.n_above_cut} scored above the cut and ${ewsInfo.precision_at_50_detail.n_tied_at_cut} tied at it, from ${ewsInfo.precision_at_50_detail.distinct_borrowers_at_or_above_cut} distinct borrowers`}
+                    {ewsInfo.precision_at_50_detail.borrower_hit_pct != null
+                      ? `, of which ${ewsInfo.precision_at_50_detail.borrower_hit_pct}% had a loan go on non-accrual.`
+                      : "."}</>
+                )}
                 {weak.length > 0 && (
                   <> Signals with little or no lift get few points: {weak.map((w) =>
                     `${signalLabel(w.key)} (${w.multiplier}×${w.points != null ? `, ${w.points} point${w.points === 1 ? "" : "s"}` : ""})`).join("; ")}.</>

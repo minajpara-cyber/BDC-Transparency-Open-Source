@@ -24,6 +24,9 @@ function cellTotal(ticker: string, period: string, flagKey: string): { n: number
 
 type FlagKey = "f_na" | "f_below_95" | "f_below_90" | "f_below_80" | "f_pik";
 
+// scripts/50 fetch_stressed_positions top_k: the largest rows kept per flag.
+const LISTED_PER_FLAG = 12;
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -58,13 +61,18 @@ export default function LoanDetailsModal({
 
   if (!open || !ticker || !period_end) return null;
 
-  const rows = stressedPositions
+  const flagged = stressedPositions
     .filter((p) => p.ticker === ticker && p.period_end === period_end && p[flagKey] === 1)
     .sort((a, b) => b.cost_m - a.cost_m);
 
   const total = cellTotal(ticker, period_end, flagKey);
+  const complete = total != null && flagged.length >= total.n;
+  // The extract keeps the largest LISTED_PER_FLAG rows of each flag (every
+  // non-accrual row), plus rows kept for another flag. Those extra rows are
+  // not this flag's next-largest, so a partial list shows exactly the
+  // largest LISTED_PER_FLAG: "Largest 12 of 72" then means what it says.
+  const rows = complete || total == null ? flagged : flagged.slice(0, LISTED_PER_FLAG);
   const listedCost = rows.reduce((sum, r) => sum + r.cost_m, 0);
-  const complete = total != null && rows.length >= total.n;
   const summary = rows.length === 0
     ? (total && total.n > 0
       ? `${total.n} flagged position${total.n === 1 ? "" : "s"} ($${total.cost.toFixed(1)}M at cost) — not in the extract.`

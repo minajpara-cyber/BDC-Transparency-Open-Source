@@ -33,10 +33,14 @@ export interface FormationMeta {
   actual_mean?: number;
   quartiles?: readonly FormationQuartile[];
   halves?: { early?: FormationHalf; late?: FormationHalf };
+  /** The highest forecast the back-test scored (and the highest outcome). */
+  max_tested_pred?: number;
+  max_tested_actual?: number;
   observability?: {
     publication_min_feature_coverage_pct?: number;
     training_embargo_quarters?: number;
     calibration_window_quarters?: number | null;
+    slope_window_quarters?: number | null;
     model_features?: readonly string[];
     label_observation_coverage_pct?: number;
     unknown_label_borrowers?: number;
@@ -184,6 +188,27 @@ export function biasText(meta: FormationMeta = formationMeta): string | null {
     ? ` (${Math.abs(late.bias).toFixed(2)}pp ${late.bias < 0 ? "below" : "above"} in the newer half, forecasts made ${late.from.slice(0, 7)} to ${late.to.slice(0, 7)})`
     : "";
   return `On average the forecast ran ${Math.abs(bias).toFixed(2)}pp ${dir} what happened${lateText}.`;
+}
+
+/** True when the projection is above every forecast the back-test scored:
+ *  the 80% range is built from misses at lower levels, so none is shown. */
+export function beyondBacktest(row: NaForecastRow, meta: FormationMeta = formationMeta): boolean {
+  const flagged = (row as unknown as { form_beyond_backtest?: boolean }).form_beyond_backtest;
+  if (typeof flagged === "boolean") return flagged;
+  const value = row.form_4q;
+  return value != null && meta.max_tested_pred != null && value > meta.max_tested_pred;
+}
+
+/** The 80% range as display text, or why there is none. */
+export function rangeText(row: NaForecastRow, value: number | null, meta: FormationMeta = formationMeta,
+  joiner = "–"): string | null {
+  if (value == null || row.form_lo == null || row.form_hi == null) return null;
+  if (beyondBacktest(row, meta)) {
+    return meta.max_tested_pred != null
+      ? `above every forecast tested (max ${meta.max_tested_pred.toFixed(2)}%): no range`
+      : "above every forecast tested: no range";
+  }
+  return `${row.form_lo.toFixed(2)}${joiner}${row.form_hi.toFixed(2)}`;
 }
 
 /** The coverage floor as display text, e.g. "66.7%". */

@@ -119,7 +119,7 @@ export const bdcs: BDC[] = [
     pikRate: 7.2,
     focus: "Upper Middle Market Direct Lending",
     description:
-      "Blue Owl Capital Corporation is the flagship BDC of Blue Owl Capital, focused on upper middle market direct lending. As of December 31, 2025, the portfolio consisted of 234 portfolio companies with aggregate fair value of $16.5B.",
+      "Blue Owl Capital Corporation is the flagship BDC of Blue Owl Capital, focused on upper middle market direct lending. Its portfolio size and company count, read from its filings, are shown on this page.",
     topSectors: ["Software", "Technology", "Healthcare", "Professional Services"],
     loanType: "First Lien Senior Secured",
     founded: 2016,
@@ -145,7 +145,7 @@ export const bdcs: BDC[] = [
     pikRate: 9.1,
     focus: "Upper Middle Market Senior Secured",
     description:
-      "Managed by Blackstone Credit, BXSL focuses on senior secured loans to upper middle market companies. It has significant exposure (~26%) to software companies, particularly enterprise SaaS borrowers.",
+      "Managed by Blackstone Credit, BXSL focuses on senior secured loans to upper middle market companies. Software, particularly enterprise SaaS borrowers, is one of its largest sectors (the share read from its filings is shown on this page).",
     topSectors: ["Software", "Healthcare", "Business Services", "Consumer"],
     loanType: "First Lien Senior Secured",
     founded: 2018,
@@ -197,7 +197,7 @@ export const bdcs: BDC[] = [
     pikRate: 6.4,
     focus: "One-Stop Middle Market Lending",
     description:
-      "Golub Capital BDC focuses on one-stop loans to middle market companies. Golub Capital has ~26% software exposure—one of the highest in the BDC industry—and recently cut its dividend by 15% amid growing AI disruption concerns.",
+      "Golub Capital BDC focuses on one-stop loans to middle market companies. Its software exposure is one of the highest in the BDC industry (the share read from its filings is shown on this page), and it cut its dividend by 15% amid growing AI disruption concerns.",
     topSectors: ["Software", "Healthcare", "Business Services", "Technology"],
     loanType: "First Lien One-Stop",
     founded: 2009,
@@ -353,7 +353,7 @@ export const bdcs: BDC[] = [
     pikRate: 8.5,
     focus: "Middle Market Direct Lending",
     description:
-      "Formerly known as Apollo Investment Corporation, MFIC is managed by Apollo Global Management. Apollo notably reduced its software exposure from ~20% to ~10% during 2025 amid AI disruption concerns.",
+      "Formerly known as Apollo Investment Corporation, MFIC is managed by Apollo Global Management. It invests primarily in senior secured loans to middle market companies; its software share, read from its filings, is shown on this page.",
     topSectors: ["Healthcare", "Business Services", "Software", "Industrials"],
     loanType: "First Lien, Second Lien, Subordinated",
     founded: 2004,

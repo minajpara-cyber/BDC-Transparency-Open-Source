@@ -4,9 +4,12 @@ import { ArrowLeft } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import BorrowerHistoryChart from "@/components/BorrowerHistoryChart";
 import { borrowers } from "@/data/borrowers_index";
+import { sponsors as sponsorPages } from "@/data/sponsors_index";
 import { borrowerHistory, latestBookByTicker } from "@/data/borrowers_history";
 import { borrowerEnrichment } from "@/data/borrower_enrichment";
 import { splitCurrentHolders } from "@/lib/borrowerHolders";
+
+const SPONSOR_SLUGS = new Set(sponsorPages.map((s) => s.sponsor_slug));
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -156,11 +159,14 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
             {b.sponsors.split(";").map((sp) => {
               const name = sp.trim();
               const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-              return (
+              // link only a sponsor that has a page (sponsors_index)
+              return SPONSOR_SLUGS.has(slug) ? (
                 <Link key={name} href={`/sponsors/${slug}`}
                       className="font-medium hover:text-white transition-colors">
                   {name}
                 </Link>
+              ) : (
+                <span key={name} className="font-medium">{name}</span>
               );
             })}
           </div>

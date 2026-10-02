@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { naForecast } from "@/data/na_forecast";
 import {
+  beyondBacktest,
   confidenceLabel,
   coverageFloorPct,
   coverageText,
@@ -12,6 +13,7 @@ import {
   formationMeta,
   notModelledReason,
   projectionValue,
+  rangeText,
   sortForecastRows,
 } from "@/lib/naForecastDisplay";
 
@@ -72,9 +74,9 @@ export default function NaForecastSummary({ ticker }: { ticker: string }) {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
             <Stat label="Expected new NA · next 4Q" value={fmtPct(value)}
-              sub={value != null && row.form_lo != null && row.form_hi != null
-                ? `80% range ${row.form_lo.toFixed(2)}–${row.form_hi.toFixed(2)}%`
-                : "no number in this data release"}
+              sub={rangeText(row, value) == null
+                ? "no number in this data release"
+                : beyondBacktest(row) ? rangeText(row, value) ?? undefined : `80% range ${rangeText(row, value)}%`}
               color={value == null ? "#8b8ba8" : value >= 3 ? "#ef4444" : value >= 1.5 ? "#f59e0b" : "#22c55e"} />
             <Stat label="Trailing 4Q actual" value={fmtPct(row.form_trailing)} sub="new NA over the past year" />
             <Stat label="X-holder NA" value={fmtPct(row.xh_pp)} sub="cost in borrowers with a loan on NA at another BDC" />

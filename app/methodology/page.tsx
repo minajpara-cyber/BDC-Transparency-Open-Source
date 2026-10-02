@@ -8,6 +8,7 @@ import { dividendSupportMeta } from "@/data/dividend_support";
 import { FLOATING_CASH_LEG_NOTE, PIK_ORIGINS, PIK_ORIGIN_EXPLAIN, PIK_ORIGIN_LABEL, severePikTypePoint,
   severeTypeList } from "@/lib/pikOrigin";
 import { joinList } from "@/lib/joinList";
+import { stressedCounts } from "@/data/stressed_positions";
 
 // Latest industry split of severe PIK by type and the back-test behind the
 // dividend-support PIK sign — all read from the exported data.
@@ -23,6 +24,23 @@ const LATEST_INCOME = incomeTtm.filter((r) => r.period_end === LATEST_INCOME_PER
 const RECUT_M = LATEST_INCOME.reduce((s, r) => s + (r.sev_switched_recut_m ?? 0), 0);
 const SWITCHED_M = LATEST_INCOME.reduce((s, r) => s + (r.sev_switched_m ?? 0), 0);
 const FLAG = dividendSupportMeta.switched_pik_flag_evidence;
+// Heatmap cells with no loan list: a BDC-quarter with no parsed book (its
+// rate is the filer's own figure). Drawn from the data, so the caveat names
+// exactly the quarters it covers.
+const DETAIL_CELLS = new Set(stressedCounts.map((r) => `${r.ticker}|${r.period_end}`));
+const NO_BOOK_GAPS = (() => {
+  const by: Record<string, string[]> = {};
+  for (const r of creditQuality) {
+    if (r.ticker === "industry" || DETAIL_CELLS.has(`${r.ticker}|${r.period_end}`) || r.n_positions > 0) continue;
+    (by[r.ticker] ??= []).push(r.period_end);
+  }
+  return Object.entries(by).map(([t, ps]) => {
+    const s = [...ps].sort();
+    return s.length === 1 ? `${t} ${s[0].slice(0, 7)}` : `${t} ${s[0].slice(0, 7)} to ${s[s.length - 1].slice(0, 7)}`;
+  });
+})();
+const FIRST_CELL = creditQuality.reduce((m, r) => (r.ticker !== "industry" && r.period_end < m ? r.period_end : m), "9999");
+
 const pc = (v: number | null | undefined, d = 1) => (v == null ? "—" : `${v.toFixed(d)}%`);
 const signed = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(1)}%`);
 const bn = (m: number) => `$${(m / 1000).toFixed(1)}bn`;
@@ -40,9 +58,15 @@ function scanText(): string {
   const all = worse.length === scan.length
     ? `Every line from ${lo.threshold}% to ${hi.threshold}% (half-point steps, table below) left the BDCs above it worse off on average over the next year`
     : `${worse.length} of the ${scan.length} lines from ${lo.threshold}% to ${hi.threshold}% left the BDCs above it worse off on average`;
-  const widen = (hi.gap_mean ?? 0) > (lo.gap_mean ?? 0)
-    ? `, and the gap widens as the line rises (${(lo.gap_mean ?? 0).toFixed(1)} points of NAV at ${lo.threshold}%, ${(hi.gap_mean ?? 0).toFixed(1)} at ${hi.threshold}%) while resting on fewer BDCs (${lo.n} BDC-quarters at ${lo.n_bdcs} BDCs, then ${hi.n} at ${hi.n_bdcs})`
-    : "";
+  // "widens" only when the gap rises with the line at every step; otherwise
+  // say where it peaks (2026-10-02: it peaked at 5% and narrowed above it)
+  const gaps = scan.map((x) => x.gap_mean ?? 0);
+  const rising = gaps.every((g, i) => i === 0 || g >= gaps[i - 1]);
+  const peak = scan.reduce((p, x) => ((x.gap_mean ?? 0) > (p.gap_mean ?? 0) ? x : p), lo);
+  const fewer = `(${lo.n} BDC-quarters at ${lo.n_bdcs} BDCs at ${lo.threshold}%, ${hi.n} at ${hi.n_bdcs} at ${hi.threshold}%)`;
+  const widen = rising && (hi.gap_mean ?? 0) > (lo.gap_mean ?? 0)
+    ? `, and the gap widens as the line rises (${(lo.gap_mean ?? 0).toFixed(1)} points of NAV at ${lo.threshold}%, ${(hi.gap_mean ?? 0).toFixed(1)} at ${hi.threshold}%) while resting on fewer BDCs ${fewer}`
+    : `; the gap is ${(lo.gap_mean ?? 0).toFixed(1)} points of NAV at ${lo.threshold}%, peaks at ${(peak.gap_mean ?? 0).toFixed(1)} at ${peak.threshold}% and is ${(hi.gap_mean ?? 0).toFixed(1)} at ${hi.threshold}%, resting on fewer BDCs as the line rises ${fewer}`;
   const pick = Number(FLAG.scan_lowest_clear) === Number(FLAG.threshold_pct_nii) && used
     ? ` ${FLAG.threshold_pct_nii}% is the lowest line at which the BDCs above it were at least ${FLAG.clear_gap_pp} point worse on both the average and the median: a sign should catch the pattern early, and higher lines lean on a handful of BDCs.`
     : ` ${FLAG.threshold_pct_nii}% is used; on the latest data the lowest line clearing ${FLAG.clear_gap_pp} point on both the average and the median is ${FLAG.scan_lowest_clear ?? "none"}${FLAG.scan_lowest_clear != null ? "%" : ""}.`;
@@ -58,11 +82,16 @@ function benchmarkText(): string {
   const sp = FLAG.spearman;
   const own = FLAG.flagged.fwd_nav_mean != null && FLAG.rest.fwd_nav_mean != null
     ? FLAG.rest.fwd_nav_mean - FLAG.flagged.fwd_nav_mean : null;
-  const theirs = best?.gap_mean ?? m?.gap_mean ?? null;
-  const verdict = own == null || theirs == null ? "It cannot be compared on these data"
-    : Math.abs(own - theirs) < 1 ? "On NAV, about as well — not better"
-      : own > theirs ? "On NAV, it separates more" : "On NAV, the plain sign separates more";
-  const parts: string[] = [`${verdict}.`];
+  // the two gaps side by side, not a threshold verdict (2026-10-02: a 0.99
+  // point difference read "about as well" while the matched-rate line, which
+  // flags as many BDC-quarters, trailed by 1.5 points)
+  const gapOf = (r: typeof best) => (r?.gap_mean == null ? null : r.gap_mean);
+  const verdict = own == null || (gapOf(best) == null && gapOf(m) == null) ? "It cannot be compared on these data."
+    : `On NAV, the BDCs above the switched line trailed the rest by ${own.toFixed(1)} points over the next year`
+      + (gapOf(best) != null ? `, against ${gapOf(best)!.toFixed(1)} at the plain sign's best line` : "")
+      + (gapOf(m) != null ? `${gapOf(best) != null ? " and" : ", against"} ${gapOf(m)!.toFixed(1)} at a plain line flagging as many BDC-quarters` : "")
+      + ".";
+  const parts: string[] = [verdict];
   if (best) parts.push(`At its own best line among those flagging no more than a third of BDC-quarters, all PIK above ${best.threshold}% of NII (${best.n} BDC-quarters at ${best.n_bdcs} BDCs), NAV per share changed ${signed(best.fwd_nav_mean)} against ${signed(best.rest_nav_mean)} (medians ${signed(best.fwd_nav_median)} against ${signed(best.rest_nav_median)}).`);
   if (m) parts.push(`A plain line flagging the same ${pc(FLAG.pct_bdc_quarters_flagged, 0)} of BDC-quarters (${m.threshold.toFixed(0)}% of NII) gave ${signed(m.fwd_nav_mean)} against ${signed(m.rest_nav_mean)}.`);
   if (sp.switched_vs_fwd_nav != null && sp.all_pik_vs_fwd_nav != null)
@@ -551,11 +580,14 @@ export default function MethodologyPage() {
               position cost &gt; $300M.
             </li>
             <li>
-              <span className="text-white">Position-level drilldown is last 60 quarters only.</span>{" "}
-              For the most recent 60 quarter-ends the stressed-loans list behind each heatmap cell
-              names every loan on non-accrual, and the largest 12 below the mark threshold or paying
-              PIK, with the full count beside them (&quot;Largest 12 of 40 flagged positions&quot;). Older heatmap cells
-              exist but don&apos;t have loan-level detail yet.
+              <span className="text-white">Position-level drilldown.</span>{" "}
+              Every heatmap cell from {FIRST_CELL.slice(0, 7)}{" "}on has a stressed-loans list behind it. It names every
+              loan on non-accrual, and the largest 12 below the mark threshold or paying PIK, with the full count
+              beside them (&quot;Largest 12 of 40 flagged positions&quot;). A cell with nothing flagged has nothing to
+              list.
+              {NO_BOOK_GAPS.length > 0
+                ? ` The exceptions are ${joinList(NO_BOOK_GAPS)}: no book of positions was parsed for those quarters, so the cell shows the BDC's own disclosed non-accrual figure and has no loan list.`
+                : ""}
             </li>
             <li>
               <span className="text-white">Exit outcomes are proxies.</span>{" "}

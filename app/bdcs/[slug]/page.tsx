@@ -87,6 +87,15 @@ export default async function BDCDetailPage({ params }: PageProps) {
   const cqRows = creditQuality
     .filter((r) => r.ticker === bdc.ticker)
     .sort((a, b) => a.period_end.localeCompare(b.period_end));
+  // Sector chips: the four largest sectors of the parsed book at cost (the
+  // same mix as the "Sector exposure" section below), so they cannot
+  // contradict it; a BDC we do not parse keeps its catalog list.
+  const parsedSectors = bdcSectorExposure
+    .filter((e) => e.ticker === bdc.ticker && e.sector !== "Other" && e.sector !== "Unclassified")
+    .sort((a, b) => b.total_cost - a.total_cost)
+    .slice(0, 4)
+    .map((e) => e.sector);
+  const topSectorChips = parsedSectors.length ? parsedSectors : bdc.topSectors;
   const cqLatest = cqRows[cqRows.length - 1];
   const cqPrior  = cqRows[cqRows.length - 2];
   const hasCredit = !!cqLatest;
@@ -344,7 +353,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
       <div className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
         <p className="text-sm leading-relaxed" style={{ color: "#d1d5db" }}>{bdc.description}</p>
         <div className="flex flex-wrap gap-2 mt-4">
-          {bdc.topSectors.map((s) => (
+          {topSectorChips.map((s) => (
             <span key={s} className="px-2 py-0.5 rounded text-xs border" style={{ background: "rgba(99,102,241,0.08)", borderColor: "#2d2d50", color: "#a5b4fc" }}>
               {s}
             </span>

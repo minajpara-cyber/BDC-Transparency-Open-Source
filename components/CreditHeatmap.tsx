@@ -8,6 +8,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import LoanDetailsModal from "./LoanDetailsModal";
+import { bdcs } from "@/data/bdcs";
+
+// rows that have a /bdcs/<slug> page
+const BDC_PAGES = new Set(bdcs.map((b) => b.slug));
 import CsvDownloadButton from "./CsvDownloadButton";
 
 interface Cell {
@@ -169,14 +173,19 @@ export default function CreditHeatmap({
                     borderRight: "1px solid #1e1e2e",
                   }}
                 >
-                  <Link
-                    href={`/bdcs/${ticker.toLowerCase()}`}
-                    className="hover:text-white transition-colors"
-                    style={{ color: "#a5b4fc" }}
-                    title={`Open ${ticker} detail`}
-                  >
-                    {ticker}
-                  </Link>
+                  {BDC_PAGES.has(ticker.toLowerCase()) ? (
+                    <Link
+                      href={`/bdcs/${ticker.toLowerCase()}`}
+                      className="hover:text-white transition-colors"
+                      style={{ color: "#a5b4fc" }}
+                      title={`Open ${ticker} detail`}
+                    >
+                      {ticker}
+                    </Link>
+                  ) : (
+                    // the industry row (and any label with no BDC page) is plain text
+                    <span style={{ color: "#d1d5db" }}>{ticker}</span>
+                  )}
                 </td>
                 {periods.map((p) => {
                   const cell = cellMap.get(`${ticker}|${p}`);
