@@ -24,12 +24,12 @@ export interface VintageLGD {
 }
 
 export const vintageLGD: VintageLGD[] = [
-  {"vintage_year": 2018, "n_loans_total": 1045, "n_exited": 895, "n_distress": 50, "cost_exited_b": 16.0891, "distress_cost_b": 0.9886, "mark_loss_b": -0.3293, "pct_exited": 85.65, "pct_distress": 4.78, "mark_loss_pct": 33.31},
-  {"vintage_year": 2019, "n_loans_total": 1072, "n_exited": 886, "n_distress": 42, "cost_exited_b": 17.6031, "distress_cost_b": 1.1206, "mark_loss_b": -0.3557, "pct_exited": 82.65, "pct_distress": 3.92, "mark_loss_pct": 31.74},
-  {"vintage_year": 2020, "n_loans_total": 1035, "n_exited": 820, "n_distress": 50, "cost_exited_b": 18.6874, "distress_cost_b": 0.9581, "mark_loss_b": -0.3029, "pct_exited": 79.23, "pct_distress": 4.83, "mark_loss_pct": 31.62},
-  {"vintage_year": 2021, "n_loans_total": 2793, "n_exited": 1779, "n_distress": 133, "cost_exited_b": 40.2185, "distress_cost_b": 3.8343, "mark_loss_b": -1.4306, "pct_exited": 63.69, "pct_distress": 4.76, "mark_loss_pct": 37.31},
-  {"vintage_year": 2022, "n_loans_total": 2384, "n_exited": 1406, "n_distress": 117, "cost_exited_b": 30.2938, "distress_cost_b": 1.5942, "mark_loss_b": -0.5201, "pct_exited": 58.98, "pct_distress": 4.91, "mark_loss_pct": 32.62},
-  {"vintage_year": 2023, "n_loans_total": 2098, "n_exited": 1023, "n_distress": 38, "cost_exited_b": 18.2564, "distress_cost_b": 0.6632, "mark_loss_b": -0.2543, "pct_exited": 48.76, "pct_distress": 1.81, "mark_loss_pct": 38.35},
-  {"vintage_year": 2024, "n_loans_total": 3030, "n_exited": 1089, "n_distress": 7, "cost_exited_b": 18.9408, "distress_cost_b": 0.0231, "mark_loss_b": -0.0079, "pct_exited": 35.94, "pct_distress": 0.23, "mark_loss_pct": null},
-  {"vintage_year": 2025, "n_loans_total": 2575, "n_exited": 564, "n_distress": 8, "cost_exited_b": 9.1385, "distress_cost_b": 0.0858, "mark_loss_b": -0.0543, "pct_exited": 21.9, "pct_distress": 0.31, "mark_loss_pct": null}
+  {"vintage_year": 2018, "n_loans_total": 1035, "n_exited": 891, "n_distress": 50, "cost_exited_b": 16.1046, "distress_cost_b": 0.9886, "mark_loss_b": -0.3293, "pct_exited": 86.09, "pct_distress": 4.83, "mark_loss_pct": 33.31},
+  {"vintage_year": 2019, "n_loans_total": 1083, "n_exited": 890, "n_distress": 44, "cost_exited_b": 18.795, "distress_cost_b": 1.2186, "mark_loss_b": -0.3847, "pct_exited": 82.18, "pct_distress": 4.06, "mark_loss_pct": 31.57},
+  {"vintage_year": 2020, "n_loans_total": 1035, "n_exited": 821, "n_distress": 51, "cost_exited_b": 18.7276, "distress_cost_b": 1.0156, "mark_loss_b": -0.3238, "pct_exited": 79.32, "pct_distress": 4.93, "mark_loss_pct": 31.88},
+  {"vintage_year": 2021, "n_loans_total": 2796, "n_exited": 1769, "n_distress": 132, "cost_exited_b": 40.0533, "distress_cost_b": 3.8197, "mark_loss_b": -1.4215, "pct_exited": 63.27, "pct_distress": 4.72, "mark_loss_pct": 37.21},
+  {"vintage_year": 2022, "n_loans_total": 2386, "n_exited": 1405, "n_distress": 116, "cost_exited_b": 27.8849, "distress_cost_b": 1.5674, "mark_loss_b": -0.515, "pct_exited": 58.89, "pct_distress": 4.86, "mark_loss_pct": 32.86},
+  {"vintage_year": 2023, "n_loans_total": 2098, "n_exited": 1023, "n_distress": 38, "cost_exited_b": 18.264, "distress_cost_b": 0.6632, "mark_loss_b": -0.2543, "pct_exited": 48.76, "pct_distress": 1.81, "mark_loss_pct": 38.35},
+  {"vintage_year": 2024, "n_loans_total": 3013, "n_exited": 1079, "n_distress": 7, "cost_exited_b": 16.8583, "distress_cost_b": 0.0231, "mark_loss_b": -0.0079, "pct_exited": 35.81, "pct_distress": 0.23, "mark_loss_pct": null},
+  {"vintage_year": 2025, "n_loans_total": 2585, "n_exited": 563, "n_distress": 7, "cost_exited_b": 9.0835, "distress_cost_b": 0.0827, "mark_loss_b": -0.0542, "pct_exited": 21.78, "pct_distress": 0.27, "mark_loss_pct": null}
 ];
