@@ -35,8 +35,8 @@ export const siteMeta = {
     "OTF": "2026-06-30",
     "TSLX": "2026-06-30"
   },
-  "release_id": "bdc-56da77de569eadd18d813050",
+  "release_id": "bdc-7c784ed9ff905fe1f5cab78f",
   "generated_at": "2026-10-02",
-  "checked_at": "2026-10-02T10:00:32-04:00",
+  "checked_at": "2026-10-02T14:32:23-04:00",
   "validation_scope": "Automated consistency checks: data files well-formed and consistent, database invariants, and each BDC's latest book against the filing's reported total investments. Not an independent audit of every loan or event."
 };

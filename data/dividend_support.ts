@@ -477,8 +477,8 @@ export const dividendSupportMeta = {
       "fwd_nav_mean": -3.54,
       "fwd_nav_median": -2.82,
       "n_nav": 43,
-      "fwd_hard_mean": 4.02,
-      "n_hard": 53
+      "fwd_hard_mean": 3.95,
+      "n_hard": 54
     },
     "rest": {
       "n": 308,
@@ -486,8 +486,8 @@ export const dividendSupportMeta = {
       "fwd_nav_mean": -0.16,
       "fwd_nav_median": -0.39,
       "n_nav": 274,
-      "fwd_hard_mean": 2.16,
-      "n_hard": 277
+      "fwd_hard_mean": 2.1,
+      "n_hard": 291
     },
     "old_flagged": {
       "n": 70,
@@ -504,8 +504,8 @@ export const dividendSupportMeta = {
       "fwd_nav_mean": -0.55,
       "fwd_nav_median": -0.77,
       "n_nav": 256,
-      "fwd_hard_mean": 2.41,
-      "n_hard": 262
+      "fwd_hard_mean": 2.32,
+      "n_hard": 277
     },
     "weakest_leave_one_out": {
       "without": "FSK",
@@ -515,8 +515,8 @@ export const dividendSupportMeta = {
         "fwd_nav_mean": -2.61,
         "fwd_nav_median": -2.29,
         "n_nav": 40,
-        "fwd_hard_mean": 3.5,
-        "n_hard": 50
+        "fwd_hard_mean": 3.44,
+        "n_hard": 51
       },
       "rest": {
         "n": 294,
@@ -524,8 +524,8 @@ export const dividendSupportMeta = {
         "fwd_nav_mean": 0.04,
         "fwd_nav_median": -0.12,
         "n_nav": 262,
-        "fwd_hard_mean": 2.04,
-        "n_hard": 265
+        "fwd_hard_mean": 1.98,
+        "n_hard": 279
       }
     },
     "scan": [
@@ -539,8 +539,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.6,
         "gap_mean": 2.45,
         "gap_median": 1.13,
-        "fwd_hard_mean": 3.69,
-        "rest_hard_mean": 2.13
+        "fwd_hard_mean": 3.61,
+        "rest_hard_mean": 2.07
       },
       {
         "threshold": 3.5,
@@ -552,8 +552,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.42,
         "gap_mean": 2.81,
         "gap_median": 1.87,
-        "fwd_hard_mean": 3.79,
-        "rest_hard_mean": 2.17
+        "fwd_hard_mean": 3.69,
+        "rest_hard_mean": 2.12
       },
       {
         "threshold": 4.0,
@@ -565,8 +565,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.39,
         "gap_mean": 3.38,
         "gap_median": 2.43,
-        "fwd_hard_mean": 4.02,
-        "rest_hard_mean": 2.16
+        "fwd_hard_mean": 3.95,
+        "rest_hard_mean": 2.1
       },
       {
         "threshold": 4.5,
@@ -578,8 +578,8 @@ export const dividendSupportMeta = {
         "rest_nav_median": -0.57,
         "gap_mean": 3.08,
         "gap_median": 2.09,
-        "fwd_hard_mean": 3.8,
-        "rest_hard_mean": 2.25
+        "fwd_hard_mean": 3.72,
+        "rest_hard_mean": 2.18
       },
       {
         "threshold": 5.0,
@@ -592,7 +592,7 @@ export const dividendSupportMeta = {
         "gap_mean": 3.84,
         "gap_median": 2.6,
         "fwd_hard_mean": 4.14,
-        "rest_hard_mean": 2.24
+        "rest_hard_mean": 2.17
       },
       {
         "threshold": 5.5,
@@ -605,7 +605,7 @@ export const dividendSupportMeta = {
         "gap_mean": 3.08,
         "gap_median": 2.15,
         "fwd_hard_mean": 3.99,
-        "rest_hard_mean": 2.29
+        "rest_hard_mean": 2.22
       },
       {
         "threshold": 6.0,
@@ -618,7 +618,7 @@ export const dividendSupportMeta = {
         "gap_mean": 2.58,
         "gap_median": 1.48,
         "fwd_hard_mean": 3.95,
-        "rest_hard_mean": 2.32
+        "rest_hard_mean": 2.26
       }
     ],
     "scan_best_mean_gap": 5.0,
@@ -637,7 +637,7 @@ export const dividendSupportMeta = {
         "gap_mean": 1.89,
         "gap_median": 1.31,
         "fwd_hard_mean": 2.74,
-        "rest_hard_mean": 2.41
+        "rest_hard_mean": 2.33
       },
       "best": {
         "threshold": 34.0,
@@ -650,14 +650,14 @@ export const dividendSupportMeta = {
         "gap_mean": 2.39,
         "gap_median": 1.93,
         "fwd_hard_mean": 2.47,
-        "rest_hard_mean": 2.46
+        "rest_hard_mean": 2.39
       }
     },
     "spearman": {
       "switched_vs_fwd_nav": -0.19,
       "all_pik_vs_fwd_nav": -0.2,
-      "switched_vs_fwd_hard": 0.36,
-      "all_pik_vs_fwd_hard": 0.16
+      "switched_vs_fwd_hard": 0.35,
+      "all_pik_vs_fwd_hard": 0.18
     }
   }
 } as const;
