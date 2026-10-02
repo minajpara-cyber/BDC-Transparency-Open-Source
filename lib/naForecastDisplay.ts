@@ -24,6 +24,57 @@ export interface FormationHalf {
   corr: number | null;
 }
 
+/** One level group of the 80% range: misses of past forecasts at a similar level. */
+export interface FormationBandLevel {
+  from: number;
+  to: number;
+  /** Highest forecast the group covers (null: the top group). */
+  upper: number | null;
+  n: number;
+  band_lo: number;
+  band_hi: number;
+}
+
+/** The calibration fitted at the latest quarter (scripts/83 fit_calibration). */
+export interface FormationCalibration {
+  kind?: string;
+  /** relative: realised formation the forecasts are centred on, % of cost. */
+  level?: number;
+  slope?: number;
+  level_from?: string;
+  level_to?: string;
+  level_n?: number;
+}
+
+/** One calibration candidate scored on the rolling out-of-sample test. */
+export interface CalibrationCandidate {
+  n?: number;
+  mean_abs?: number;
+  bias?: number;
+  corr?: number;
+  rank_corr?: number;
+  early?: FormationHalf;
+  late?: FormationHalf;
+  band_coverage?: {
+    level?: { all?: number; by_third?: readonly number[] };
+    pooled?: { all?: number; by_third?: readonly number[] };
+  };
+  published_mean?: number;
+  published_max?: number;
+  published_above_tested?: number;
+  setting?: Record<string, number | null>;
+}
+
+export interface LabelBasisScore {
+  n?: number;
+  actual_mean?: number;
+  mean_abs?: number;
+  relative_mean_abs?: number;
+  corr?: number;
+  rank_corr?: number;
+  trailing_by_ticker?: Record<string, number | null>;
+}
+
 export interface FormationMeta {
   n?: number;
   horizon_q?: number;
@@ -36,7 +87,23 @@ export interface FormationMeta {
   /** The highest forecast the back-test scored (and the highest outcome). */
   max_tested_pred?: number;
   max_tested_actual?: number;
+  /** The 80% range by forecast level (lowest group first). */
+  band_levels?: readonly FormationBandLevel[];
+  calibration?: FormationCalibration;
+  calibration_comparison?: {
+    realised?: { latest_period?: string; latest_mean?: number; max_yoy_rise_pp?: number | null };
+    candidates?: Record<string, CalibrationCandidate | undefined>;
+    shipped?: CalibrationCandidate;
+  };
+  label_basis_comparison?: {
+    all?: LabelBasisScore;
+    debt?: LabelBasisScore;
+    debt_at_least_as_good?: boolean;
+    shipped?: string;
+  };
   observability?: {
+    label_basis?: string;
+    calibration_method?: string;
     publication_min_feature_coverage_pct?: number;
     training_embargo_quarters?: number;
     calibration_window_quarters?: number | null;
@@ -235,4 +302,94 @@ export function readQuartiles(quartiles: readonly FormationQuartile[] | undefine
   const highest = known[known.length - 1];
   const spread = (lowest.actual as number) > 0 ? (highest.actual as number) / (lowest.actual as number) : null;
   return { ordered, spread, lowest, highest };
+}
+
+/** Plain-English names of the calibration candidates (scripts/83 FORM_CALIBRATION_SPECS). */
+export const CALIBRATION_NAMES: Record<string, string> = {
+  all_history_line: "Straight line fitted on every past year",
+  latest_4q_line: "Straight line fitted on the latest year only",
+  recent_level_shift: "All-years line, level reset to the latest year",
+  isotonic_capped: "Step mapping, flat past the tested range",
+  relative: "Order from the model, level from what happened",
+};
+
+export interface CalibrationRow {
+  key: string;
+  name: string;
+  shipped: boolean;
+  candidate: CalibrationCandidate;
+}
+
+/** The compared calibrations in export order, the shipped one marked. */
+export function calibrationRows(meta: FormationMeta = formationMeta): CalibrationRow[] {
+  const candidates = meta.calibration_comparison?.candidates ?? {};
+  const shippedKind = meta.observability?.calibration_method ?? meta.calibration?.kind;
+  return Object.entries(candidates)
+    .filter((entry): entry is [string, CalibrationCandidate] => entry[1] != null && entry[1].mean_abs != null)
+    .map(([key, candidate]) => ({
+      key, candidate,
+      name: CALIBRATION_NAMES[key] ?? key.replace(/_/g, " "),
+      shipped: key === shippedKind,
+    }));
+}
+
+/** How the level of the projections is set, from the export; null when the
+ *  release does not use the relative calibration. */
+export function levelText(meta: FormationMeta = formationMeta): string | null {
+  const cal = meta.calibration;
+  if (cal?.kind !== "relative" || cal.level == null) return null;
+  const quarters = meta.observability?.calibration_window_quarters;
+  const span = cal.level_from && cal.level_to
+    ? ` (${cal.level_from.slice(0, 7)} to ${cal.level_to.slice(0, 7)})`
+    : "";
+  return `The model sets the order; the level comes from what actually happened: across the BDCs, an average of ${fmtPct(cal.level)} of the performing book went on non-accrual within a year, over the latest ${quarters ?? ""}${quarters != null ? " " : ""}starting quarters whose year has fully passed${span}, and the projections are centred on that.`;
+}
+
+/** The 80% range rule in plain English, from the level groups in the export. */
+export function bandText(meta: FormationMeta = formationMeta): string | null {
+  const levels = meta.band_levels ?? [];
+  if (levels.length < 2) {
+    return meta.n != null ? `The 80% range is the 10th–90th percentile of these same ${meta.n} misses.` : null;
+  }
+  const cuts = levels.slice(0, -1).map((band) => band.upper).filter((v): v is number => v != null);
+  const groups = levels.length === 3 ? "thirds" : `${levels.length} groups`;
+  const coverage = meta.calibration_comparison?.shipped?.band_coverage;
+  const byLevel = coverage?.level?.by_third;
+  const pooled = coverage?.pooled?.by_third;
+  const held = byLevel && byLevel.length === levels.length
+    ? ` Checked by leaving each quarter out, it held the outcome ${byLevel.map((v) => `${Math.round(100 * v)}%`).join(" / ")} of the time from the lowest group to the highest`
+      + (pooled && pooled.length === levels.length
+        ? `; one range for every level would have held ${Math.round(100 * pooled[0])}% at the bottom and only ${Math.round(100 * pooled[pooled.length - 1])}% at the top.`
+        : ".")
+    : "";
+  const widths = levels.map((band) => band.band_lo - band.band_hi);
+  const widening = widths.every((w, i) => i === 0 || w > widths[i - 1])
+    ? " Higher forecasts missed by more, so their ranges are wider;"
+    : "";
+  return `The 80% range comes from the misses of past forecasts at a similar level: the ${meta.n ?? ""}${meta.n != null ? " " : ""}tested forecasts are split into ${groups} by level (cut at ${cuts.map((v) => fmtPct(v)).join(" and ")}), and each projection takes the 10th–90th percentile of its group's misses.${widening ? `${widening} the` : " The"} range is lopsided because a bad year can miss by far more than a good one.${held}`;
+}
+
+/** Whether loans-only labels were tested, and how they did, from the export. */
+export function labelBasisText(meta: FormationMeta = formationMeta): string | null {
+  const cmp = meta.label_basis_comparison;
+  const all = cmp?.all;
+  const debt = cmp?.debt;
+  if (!all || !debt || all.relative_mean_abs == null || debt.relative_mean_abs == null) return null;
+  const shippedDebt = (cmp?.shipped ?? meta.observability?.label_basis) === "debt";
+  const [used, other] = shippedDebt ? [debt, all] : [all, debt];
+  const pct = (v: number | undefined) => (v == null ? "—" : `${Math.round(100 * v)}%`);
+  const corr = (v: number | undefined) => (v == null ? "—" : v.toFixed(2));
+  return shippedDebt
+    ? `A borrower counts only when one of its loans goes on non-accrual (a preferred share or other equity going on non-accrual does not). On the same test this did at least as well as counting every investment: average miss ${pct(used.relative_mean_abs)} of the average outcome against ${pct(other.relative_mean_abs)}, rank correlation ${corr(used.rank_corr)} against ${corr(other.rank_corr)}.`
+    : `A borrower counts once any of its investments goes on non-accrual, with everything the BDC holds in it. Counting only loans (a preferred share going on non-accrual would not count) was tested on the same back-test and did worse: average miss ${pct(other.relative_mean_abs)} of the average outcome against ${pct(used.relative_mean_abs)}, rank correlation ${corr(other.rank_corr)} against ${corr(used.rank_corr)}. So every investment counts.`;
+}
+
+/** Projections at the 0% floor, and what to read into them; null when none. */
+export function zeroFloorText(rows: readonly NaForecastRow[], meta: FormationMeta = formationMeta): string | null {
+  const zero = rows.filter((row) => projectionValue(row) === 0);
+  if (!zero.length) return null;
+  const tops = zero.map((row) => row.form_hi).filter((v): v is number => v != null);
+  const top = tops.length ? Math.max(...tops) : null;
+  const tickers = zero.map((row) => row.ticker).join(", ");
+  return `${tickers} ${zero.length === 1 ? "shows" : "show"} 0.00%: ${zero.length === 1 ? "its" : "their"} warning signs are so far below ${zero.length === 1 ? "its" : "their"} peers' that the method puts ${zero.length === 1 ? "it" : "them"} at the floor. Read that as "the lowest group", not as "no new non-accruals"${top != null ? `: the 80% range still runs up to ${fmtPct(top)}` : ""}${meta.band_levels?.length ? ", from the misses of other low forecasts" : ""}.`;
 }

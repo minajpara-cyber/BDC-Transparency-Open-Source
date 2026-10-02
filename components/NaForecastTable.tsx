@@ -10,8 +10,10 @@ import { bdcsHistory } from "@/data/bdcs_history";
 import { naForecast } from "@/data/na_forecast";
 import { latestNonAccrualSnapshots } from "@/lib/latestNonAccruals";
 import {
+  bandText,
   beyondBacktest,
   biasText,
+  calibrationRows,
   confidenceLabel,
   coverageFloorPct,
   floorText,
@@ -20,6 +22,9 @@ import {
   fmtPct,
   forecastConfidence,
   formationMeta,
+  labelBasisText,
+  levelText,
+  zeroFloorText,
   modelSignalLabels,
   nextQuarterMeta,
   notModelledReason,
@@ -74,7 +79,15 @@ export default function NaForecastTable() {
   const signals = modelSignalLabels(fm.observability?.model_features);
   const typedPik = (fm.observability?.model_features ?? []).includes("pik_first_seen");
   const calibrationQ = fm.observability?.calibration_window_quarters ?? null;
-  const slopeQ = fm.observability?.slope_window_quarters;
+  const relative = fm.calibration?.kind === "relative";
+  const level = levelText(fm);
+  const band = bandText(fm);
+  const zeroNote = zeroFloorText(rows, fm);
+  const labels = labelBasisText(fm);
+  const options = calibrationRows(fm);
+  const shippedOption = options.find((option) => option.shipped);
+  const realisedNow = fm.calibration_comparison?.realised;
+  const replacedLine = fm.calibration_comparison?.candidates?.all_history_line;
   const bias = biasText(fm);
   // projections above every forecast the back-test scored (no 80% range)
   const beyond = rows.filter((row) => projectionValue(row) != null && beyondBacktest(row)).map((row) => row.ticker);
@@ -139,12 +152,14 @@ export default function NaForecastTable() {
               Forward non-accruals — expected new defaults over the next year
             </h2>
             <p className="text-xs mt-1 max-w-4xl" style={{ color: "#8b8ba8" }}>
-              For each BDC, the share of today&apos;s performing loans (at cost) we expect to{" "}
+              For each BDC, the share of today&apos;s performing book (at cost) we expect to{" "}
               <span className="text-white">newly</span>{" "}go on non-accrual over the next four quarters.
               Every performing borrower is scored on warning signs — its mark, PIK, loan changes,
-              trouble at other lenders and loan age — the scores are added up by cost, and the total
-              is calibrated against each BDC&apos;s recent history. Use it to rank BDCs, not as a
-              precise number for any one of them; the 80% range shows how imprecise it is.
+              trouble at other lenders and loan age — and the scores are added up by cost, blended
+              with each BDC&apos;s own last year.{" "}
+              {level ?? "The total is then calibrated against what actually happened."}{" "}
+              Use it to rank BDCs, not as a precise number for any one of them; the 80% range shows
+              how imprecise it is.
             </p>
             <p className="text-xs mt-2 max-w-4xl" style={{ color: "#6b6b88" }}>
               {counts.standard} BDCs have standard-confidence projections.{" "}
@@ -328,7 +343,8 @@ export default function NaForecastTable() {
             {fm.corr != null && ` Correlation of forecast with outcome: ${fm.corr >= 0 ? "+" : ""}${fm.corr.toFixed(2)}.`}
             {fm.mean_abs != null && fm.actual_mean != null &&
               ` The average miss is ${fm.mean_abs.toFixed(2)}pp on an average outcome of ${fmtPct(fm.actual_mean)}, so read which bucket a BDC sits in, not the decimal.`}
-            {fm.n != null && ` The 80% range is the 10th–90th percentile of these same ${fm.n} misses; it is lopsided because a bad year can miss by far more than a good one.`}
+            {band && ` ${band}`}
+            {zeroNote && ` ${zeroNote}`}
           </p>
         )}
         {bias && (
@@ -336,14 +352,70 @@ export default function NaForecastTable() {
             <span className="text-white">Why it runs low.</span>{" "}
             {bias}
             {(fm.bias ?? 0) < 0
-              ? " Each forecast can only learn from outcomes that are already known — a year old — and new non-accruals rose through the test, so within the range the test covered, read the number as nearer the bottom of what to expect than the middle; the 80% range is built from these misses and sits mostly above it."
+              ? relative
+                ? " The level of each forecast is the realised rate of the latest year whose outcomes are known — the only year a forecast can learn from — and new non-accruals kept rising through the test, so the forecast trailed them. Read the number as nearer the bottom of what to expect than the middle; the 80% range is built from these misses and sits mostly above it."
+                : " Each forecast can only learn from outcomes that are already known — a year old — and new non-accruals rose through the test, so within the range the test covered, read the number as nearer the bottom of what to expect than the middle; the 80% range is built from these misses and sits mostly above it."
               : " Each forecast can only learn from outcomes that are already known — a year old — so it trails turns in the cycle."}
-            {calibrationQ != null
-              ? ` The last step, which lines the forecast up with what actually happened, takes its level from only the latest ${calibrationQ} quarters of known outcomes${slopeQ === null ? " (its slope from all of them)" : ""}, so it catches up with a rising trend faster than a line fitted on all of history.`
-              : ""}
             {beyond.length > 0 && fm.max_tested_pred != null
               ? ` ${beyond.length} of ${published} projections (${beyond.join(", ")}) are above ${fm.max_tested_pred.toFixed(2)}%, the highest forecast the back-test ever scored${fm.max_tested_actual != null ? ` (the highest outcome it saw was ${fm.max_tested_actual.toFixed(2)}%)` : ""}. The past misses say nothing about a level never tested, so no 80% range is shown for them and “nearer the bottom” does not apply: read them as “higher than anything seen in the test”, not as a calibrated number.`
               : ""}
+          </p>
+        )}
+        {options.length > 1 && shippedOption && (
+          <div className="mt-3">
+            <div className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: "#8b8ba8" }}>
+              How the last step was chosen
+            </div>
+            <p className="text-xs mb-2" style={{ color: "#6b6b88" }}>
+              The model&apos;s raw scores have to be turned into an expected rate. We tried {options.length}{" "}ways of
+              doing that on the same back-test, each refitted at every past quarter on outcomes already known
+              then (settings picked on the first half of the test, {shippedOption.candidate.early?.from?.slice(0, 7)} to{" "}
+              {shippedOption.candidate.early?.to?.slice(0, 7)}, and checked on the second). The last column is
+              what each would publish today
+              {realisedNow?.latest_mean != null
+                ? `, against ${fmtPct(realisedNow.latest_mean)} of new non-accruals in the latest year with known outcomes (forecasts made ${realisedNow.latest_period?.slice(0, 7)})`
+                : ""}.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="text-xs" style={{ minWidth: 560 }} data-calibration-options={options.length}>
+                <thead>
+                  <tr style={{ color: "#6b6b88" }}>
+                    {["Method", "Average miss", "Average signed miss", "Rank correlation", "Average projection today", "Above tested range"]
+                      .map((c, i) => (
+                        <th key={c} className={`${i === 0 ? "text-left pr-4" : "text-right px-3"} pb-1 font-medium`}>{c}</th>
+                      ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {options.map(({ key, name, shipped, candidate }) => (
+                    <tr key={key} data-calibration-option={key} style={{ color: shipped ? "#fafafa" : "#8b8ba8" }}>
+                      <td className="pr-4 py-0.5">{name}{shipped ? " — used" : ""}</td>
+                      <td className="text-right px-3 py-0.5 tabular-nums">{candidate.mean_abs != null ? `${candidate.mean_abs.toFixed(2)}pp` : "—"}</td>
+                      <td className="text-right px-3 py-0.5 tabular-nums">{candidate.bias != null ? `${candidate.bias >= 0 ? "+" : ""}${candidate.bias.toFixed(2)}pp` : "—"}</td>
+                      <td className="text-right px-3 py-0.5 tabular-nums">{candidate.rank_corr != null ? candidate.rank_corr.toFixed(2) : "—"}</td>
+                      <td className="text-right px-3 py-0.5 tabular-nums">{fmtPct(candidate.published_mean)}</td>
+                      <td className="text-right px-3 py-0.5 tabular-nums">{candidate.published_above_tested ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {relative && (
+              <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+                <span className="text-white">Why this one.</span>{" "}It had the smallest average miss in both halves of
+                the test{shippedOption.candidate.early?.mean_abs != null && shippedOption.candidate.late?.mean_abs != null
+                  ? ` (${shippedOption.candidate.early.mean_abs.toFixed(2)} and ${shippedOption.candidate.late.mean_abs.toFixed(2)}pp)`
+                  : ""}{" "}and the smallest average signed miss. The model&apos;s scores tell BDCs apart well, but
+                their average across all BDCs has not tracked how many new non-accruals followed, so a method that
+                lets a rise in every BDC&apos;s score carry the level up can publish far above anything that has
+                happened. The order comes from the scores; the level comes from realised history.
+              </p>
+            )}
+          </div>
+        )}
+        {labels && (
+          <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+            <span className="text-white">What counts as new.</span>{" "}{labels}
           </p>
         )}
         {(nextQuarterMeta?.mean_abs != null || directionMeta?.auc != null) && (
@@ -379,8 +451,10 @@ export default function NaForecastTable() {
             <span className="text-white">Changed October 2026.</span>{" "}Heavy PIK is now read by why it is paid
             in kind: a preferred share&apos;s PIK dividend no longer counts as a warning sign, and heavy PIK that was
             there from the start or whose history is unclear is weighed on its own.
-            {calibrationQ != null
-              ? ` The last calibration step now takes its level from the latest ${calibrationQ} quarters of known outcomes instead of all of history, because the old line kept the low default levels of 2021–22 and ran low as defaults rose${slopeQ === null ? "; its slope still comes from all of history, because a slope fitted on one year alone pushed the newest forecasts far above anything the test had seen" : ""}.`
+            {relative && calibrationQ != null
+              ? ` The last step now takes the order of the BDCs from the model and the level from realised new non-accruals over the latest ${calibrationQ} quarters of known outcomes.${replacedLine?.published_mean != null && realisedNow?.latest_mean != null
+                ? ` The line fitted on every past year, which it replaces, would publish an average of ${fmtPct(replacedLine.published_mean)} today against ${fmtPct(realisedNow.latest_mean)} realised in the latest year with known outcomes.`
+                : ""} The 80% range now comes from past misses at a similar level.`
               : ""}
           </p>
         )}

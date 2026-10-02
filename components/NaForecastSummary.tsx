@@ -50,7 +50,7 @@ export default function NaForecastSummary({ ticker }: { ticker: string }) {
             </span>
           </h2>
           <p className="text-xs mt-1 max-w-3xl" style={{ color: "#8b8ba8" }}>
-            The share of {ticker}&apos;s performing loans (at cost) expected to newly go on non-accrual over
+            The share of {ticker}&apos;s performing book (at cost) expected to newly go on non-accrual over
             the next year, from warning signs on each borrower. It ranks BDCs; it is not a precise
             forecast for any one of them.{" "}
             <Link href="/watchlist#gated-na-projections" className="text-indigo-400 hover:text-indigo-300">
