@@ -35,7 +35,7 @@ export interface AccuracyAuditData {
 
 export const accuracyAudit: AccuracyAuditData = {
   "audited_on": "2026-10-01",
-  "checked_on": "2026-10-02",
+  "checked_on": "2026-10-07",
   "before_recheck_note": "As a cross-check of the method, the same check was run on the database as it stood on the audit date, before the fixes. For 10 of 14 fields it lands within 3 points of the auditors' own count (borrower name 99.6% against 97.5%, instrument as printed 100% against 100%, industry 93.9% against 93.2%, par 99.1% against 99.3%, amortized cost 100% against 100%, fair value 100% against 100%, maturity date 100% against 99.6%, acquisition date 100% against 98.2%, non-accrual flag 98.6% against 98.2%, PIK 97.2% against 95.5%). It differs for asset class (97.5% against the auditors' 74%: the re-check reads the old labels with today's shared instrument rule, which credits them with the new classification; the auditors scored the old database's own asset-class labels, many of them blank); rate terms (98.8% against the auditors' 95.2%: the auditors' readings count the index and the coupon as well as the spread, the answer key the spread alone); floor (0% against the auditors' 30.2%: the old database stored a floor only where FSK's parser read one, so every floor in the answer key reads blank); undrawn-commitment flag (0% against the auditors' 53.1%: the old database set the undrawn-commitment flag for FSK only, so every other row reads blank).",
   "before_recheck": [
     {
