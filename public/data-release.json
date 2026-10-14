@@ -35,9 +35,9 @@
     "OTF": "2026-06-30",
     "TSLX": "2026-06-30"
   },
-  "release_id": "bdc-065fc86bdf61e12e063cebe9",
-  "generated_at": "2026-10-07",
-  "checked_at": "2026-10-07T12:58:11-04:00",
+  "release_id": "bdc-141db67797de8ebc3097d19a",
+  "generated_at": "2026-10-14",
+  "checked_at": "2026-10-14T18:29:31-04:00",
   "validation_scope": "Automated consistency checks: data files well-formed and consistent, database invariants, and each BDC's latest book against the filing's reported total investments. Not an independent audit of every loan or event.",
   "checks": {
     "status": "passed",
@@ -57,6 +57,7 @@
     "data/bdcs.ts": "102c950d59dab90c61a3f57f7d716c69d691f2a0e352ee99aac5921c4610cb32",
     "data/bdcs_history.ts": "604bec7bbbb0fae3d954ae957e6a31785e5328b3106bbdaea19aec32bcf83a09",
     "data/borrower_enrichment.ts": "455f70eb1f909839af137fc26e62f1a7d8e49ec1a843e0db59dabab63a26d990",
+    "data/borrower_loans.ts": "13b03ca2730ddbfb8877621fb13f342a220c7803642d7346fbb9d1714f64b0b8",
     "data/borrower_marks_latest.ts": "29365e6949b053a7afe054a7a603403f2a32360145d778eb3f121a9806e8656f",
     "data/borrowers_history.ts": "719aad183d411c848f52a1ba41b521be871ebd8d070287c93b253b26767ec28a",
     "data/borrowers_index.ts": "8329eb9287524c4cda512a216d593a27d8a5bd769b85f6f51c82f5369f275229",

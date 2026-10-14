@@ -8,6 +8,8 @@ import { sponsors as sponsorPages } from "@/data/sponsors_index";
 import { borrowerHistory, latestBookByTicker } from "@/data/borrowers_history";
 import { borrowerEnrichment } from "@/data/borrower_enrichment";
 import { splitCurrentHolders } from "@/lib/borrowerHolders";
+import BorrowerLoanTerms from "@/components/BorrowerLoanTerms";
+import { borrowerLoans } from "@/data/borrower_loans";
 
 const SPONSOR_SLUGS = new Set(sponsorPages.map((s) => s.sponsor_slug));
 
@@ -344,6 +346,9 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
           </p>
         )}
       </div>
+
+      {/* Loan-level terms: every position each current holder reports */}
+      <BorrowerLoanTerms rows={borrowerLoans[slug] ?? []} />
 
       {/* Fair value over time per holder */}
       <div className="rounded-xl border p-5 mb-6" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
