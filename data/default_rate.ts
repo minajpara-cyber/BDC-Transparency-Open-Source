@@ -640,7 +640,7 @@ export const defaultRateUniverse: DefaultRateUniverse[] = [
 ];
 
 export const defaultRateMeta = {
-  "generated": "2026-10-20",
+  "generated": "2026-10-23",
   "latest_period": "2026-06-30",
   "n_bdcs": 19
 } as const;

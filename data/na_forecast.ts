@@ -137,7 +137,7 @@ export const naQuartileSeries: NaQuartilePoint[] = [
 ];
 
 export const naFcMeta = {
-  "generated": "2026-10-20",
+  "generated": "2026-10-23",
   "shrink_k": 0.35,
   "high_b": {
     "1": 0.1,
