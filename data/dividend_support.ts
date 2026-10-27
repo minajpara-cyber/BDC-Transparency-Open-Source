@@ -22,7 +22,7 @@ export interface NavPoint { ticker: string; period_end: string; nav_ps: number; 
 
 export const dividendSupport: DividendSupportRow[] = [
   {"ticker": "ADS", "period_end": "2026-06-30", "nii_cov": 0.895, "cov_ex_pik": 0.848, "pik_pct_nii": 5.21, "pik_collected_pct": null, "spillover_m": 77.0, "spillover_fy": "2024-12-31", "spillover_q": 0.24, "nav_ps": 23.83, "nav_chg_1y": -3.13, "nav_chg_3y": -1.45, "div_yield_nav": 9.04, "nav_tr_1y": 5.91, "shadow_default": 1.79, "hard_default": 0.84, "default_window_status": "fully_observed", "switched_pik_pct_nii": 1.08, "switched_pct_book": 1.31, "n_flags": 2, "flags": ["reported NII below 95% of the dividend", "under-covered with under a quarter of spillover"], "pressure": "elevated"},
-  {"ticker": "ARCC", "period_end": "2026-06-30", "nii_cov": 1.065, "cov_ex_pik": 0.719, "pik_pct_nii": 32.42, "pik_collected_pct": 64.6, "spillover_m": 988.0, "spillover_fy": "2025-12-31", "spillover_q": 2.86, "nav_ps": 19.35, "nav_chg_1y": -2.76, "nav_chg_3y": 4.14, "div_yield_nav": 9.64, "nav_tr_1y": 6.87, "shadow_default": 5.2, "hard_default": 3.41, "default_window_status": "fully_observed", "switched_pik_pct_nii": 1.1, "switched_pct_book": 0.39, "n_flags": 1, "flags": ["NII ex-PIK below 80% of the dividend"], "pressure": "low"},
+  {"ticker": "ARCC", "period_end": "2026-09-30", "nii_cov": 1.054, "cov_ex_pik": 0.707, "pik_pct_nii": 32.92, "pik_collected_pct": 31.1, "spillover_m": 988.0, "spillover_fy": "2025-12-31", "spillover_q": 2.86, "nav_ps": 19.31, "nav_chg_1y": -3.5, "nav_chg_3y": 1.69, "div_yield_nav": 9.59, "nav_tr_1y": 6.09, "shadow_default": 3.91, "hard_default": 2.73, "default_window_status": "fully_observed", "switched_pik_pct_nii": 1.13, "switched_pct_book": 0.46, "n_flags": 1, "flags": ["NII ex-PIK below 80% of the dividend"], "pressure": "low"},
   {"ticker": "ASIF", "period_end": "2026-06-30", "nii_cov": 0.947, "cov_ex_pik": 0.819, "pik_pct_nii": 13.54, "pik_collected_pct": 2.6, "spillover_m": 3.3, "spillover_fy": "2025-12-31", "spillover_q": 0.01, "nav_ps": 26.71, "nav_chg_1y": -2.91, "nav_chg_3y": -0.15, "div_yield_nav": 9.17, "nav_tr_1y": 6.27, "shadow_default": 2.15, "hard_default": 0.83, "default_window_status": "fully_observed", "switched_pik_pct_nii": 0.38, "switched_pct_book": 0.27, "n_flags": 2, "flags": ["reported NII below 95% of the dividend", "under-covered with under a quarter of spillover"], "pressure": "elevated"},
   {"ticker": "BBDC", "period_end": "2026-06-30", "nii_cov": 1.018, "cov_ex_pik": 0.804, "pik_pct_nii": 21.06, "pik_collected_pct": null, "spillover_m": 86.9, "spillover_fy": "2025-12-31", "spillover_q": 3.19, "nav_ps": 10.94, "nav_chg_1y": -2.15, "nav_chg_3y": -3.53, "div_yield_nav": 9.76, "nav_tr_1y": 7.61, "shadow_default": 10.85, "hard_default": 2.28, "default_window_status": "fully_observed", "switched_pik_pct_nii": 2.55, "switched_pct_book": 3.17, "n_flags": 1, "flags": ["shadow default rate above 7%"], "pressure": "low"},
   {"ticker": "BCRED", "period_end": "2026-06-30", "nii_cov": 0.913, "cov_ex_pik": 0.811, "pik_pct_nii": 11.18, "pik_collected_pct": null, "spillover_m": 470.5, "spillover_fy": "2025-12-31", "spillover_q": 0.43, "nav_ps": 23.65, "nav_chg_1y": -6.04, "nav_chg_3y": -4.87, "div_yield_nav": 9.79, "nav_tr_1y": 3.75, "shadow_default": 7.51, "hard_default": 4.1, "default_window_status": "fully_observed", "switched_pik_pct_nii": 2.71, "switched_pct_book": 2.49, "n_flags": 4, "flags": ["reported NII below 95% of the dividend", "under-covered with under a quarter of spillover", "NAV per share down more than 5% in a year", "shadow default rate above 7%"], "pressure": "high"},
@@ -83,6 +83,7 @@ export const navPerShare: NavPoint[] = [
   {"ticker": "ARCC", "period_end": "2025-12-31", "nav_ps": 19.94},
   {"ticker": "ARCC", "period_end": "2026-03-31", "nav_ps": 19.59},
   {"ticker": "ARCC", "period_end": "2026-06-30", "nav_ps": 19.35},
+  {"ticker": "ARCC", "period_end": "2026-09-30", "nav_ps": 19.31},
   {"ticker": "ASIF", "period_end": "2022-12-31", "nav_ps": 24.99},
   {"ticker": "ASIF", "period_end": "2023-03-31", "nav_ps": 25.71},
   {"ticker": "ASIF", "period_end": "2023-06-30", "nav_ps": 26.75},
@@ -458,16 +459,16 @@ export const navPerShare: NavPoint[] = [
 ];
 
 export const dividendSupportMeta = {
-  "generated": "2026-10-26",
-  "latest_period": "2026-06-30",
+  "generated": "2026-10-27",
+  "latest_period": "2026-09-30",
   "n_bdcs": 19,
   "switched_pik_flag_pct_nii": 4.0,
   "switched_pik_flag_evidence": {
     "threshold_pct_nii": 4.0,
     "from": "2019-12-31",
-    "to": "2026-06-30",
-    "outcome_to": "2025-06-30",
-    "n_bdc_quarters": 458,
+    "to": "2026-09-30",
+    "outcome_to": "2025-09-30",
+    "n_bdc_quarters": 459,
     "n_bdcs": 19,
     "median_pct_nii": 1.37,
     "pct_bdc_quarters_flagged": 15.5,
@@ -481,22 +482,22 @@ export const dividendSupportMeta = {
       "n_hard": 54
     },
     "rest": {
-      "n": 308,
+      "n": 309,
       "n_bdcs": 19,
-      "fwd_nav_mean": -0.16,
-      "fwd_nav_median": -0.39,
-      "n_nav": 274,
-      "fwd_hard_mean": 2.1,
-      "n_hard": 291
+      "fwd_nav_mean": -0.17,
+      "fwd_nav_median": -0.42,
+      "n_nav": 275,
+      "fwd_hard_mean": 2.11,
+      "n_hard": 292
     },
     "old_flagged": {
-      "n": 70,
+      "n": 71,
       "n_bdcs": 8,
-      "fwd_nav_mean": -0.88,
-      "fwd_nav_median": -0.22,
-      "n_nav": 61,
+      "fwd_nav_mean": -0.92,
+      "fwd_nav_median": -0.64,
+      "n_nav": 62,
       "fwd_hard_mean": 2.68,
-      "n_hard": 68
+      "n_hard": 69
     },
     "old_rest": {
       "n": 294,
@@ -519,13 +520,13 @@ export const dividendSupportMeta = {
         "n_hard": 51
       },
       "rest": {
-        "n": 294,
+        "n": 295,
         "n_bdcs": 18,
-        "fwd_nav_mean": 0.04,
+        "fwd_nav_mean": 0.03,
         "fwd_nav_median": -0.12,
-        "n_nav": 262,
+        "n_nav": 263,
         "fwd_hard_mean": 1.98,
-        "n_hard": 279
+        "n_hard": 280
       }
     },
     "scan": [
@@ -535,12 +536,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 9,
         "fwd_nav_mean": -2.62,
         "fwd_nav_median": -1.73,
-        "rest_nav_mean": -0.17,
-        "rest_nav_median": -0.6,
-        "gap_mean": 2.45,
-        "gap_median": 1.13,
+        "rest_nav_mean": -0.18,
+        "rest_nav_median": -0.61,
+        "gap_mean": 2.44,
+        "gap_median": 1.12,
         "fwd_hard_mean": 3.61,
-        "rest_hard_mean": 2.07
+        "rest_hard_mean": 2.08
       },
       {
         "threshold": 3.5,
@@ -548,10 +549,10 @@ export const dividendSupportMeta = {
         "n_bdcs": 8,
         "fwd_nav_mean": -3.0,
         "fwd_nav_median": -2.29,
-        "rest_nav_mean": -0.19,
-        "rest_nav_median": -0.42,
-        "gap_mean": 2.81,
-        "gap_median": 1.87,
+        "rest_nav_mean": -0.2,
+        "rest_nav_median": -0.45,
+        "gap_mean": 2.8,
+        "gap_median": 1.84,
         "fwd_hard_mean": 3.69,
         "rest_hard_mean": 2.12
       },
@@ -561,12 +562,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 7,
         "fwd_nav_mean": -3.54,
         "fwd_nav_median": -2.82,
-        "rest_nav_mean": -0.16,
-        "rest_nav_median": -0.39,
-        "gap_mean": 3.38,
-        "gap_median": 2.43,
+        "rest_nav_mean": -0.17,
+        "rest_nav_median": -0.42,
+        "gap_mean": 3.37,
+        "gap_median": 2.4,
         "fwd_hard_mean": 3.95,
-        "rest_hard_mean": 2.1
+        "rest_hard_mean": 2.11
       },
       {
         "threshold": 4.5,
@@ -574,12 +575,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 6,
         "fwd_nav_mean": -3.35,
         "fwd_nav_median": -2.66,
-        "rest_nav_mean": -0.27,
-        "rest_nav_median": -0.57,
-        "gap_mean": 3.08,
-        "gap_median": 2.09,
+        "rest_nav_mean": -0.28,
+        "rest_nav_median": -0.58,
+        "gap_mean": 3.07,
+        "gap_median": 2.08,
         "fwd_hard_mean": 3.72,
-        "rest_hard_mean": 2.18
+        "rest_hard_mean": 2.19
       },
       {
         "threshold": 5.0,
@@ -587,10 +588,10 @@ export const dividendSupportMeta = {
         "n_bdcs": 5,
         "fwd_nav_mean": -4.09,
         "fwd_nav_median": -3.07,
-        "rest_nav_mean": -0.25,
-        "rest_nav_median": -0.47,
-        "gap_mean": 3.84,
-        "gap_median": 2.6,
+        "rest_nav_mean": -0.26,
+        "rest_nav_median": -0.5,
+        "gap_mean": 3.83,
+        "gap_median": 2.57,
         "fwd_hard_mean": 4.14,
         "rest_hard_mean": 2.17
       },
@@ -600,10 +601,10 @@ export const dividendSupportMeta = {
         "n_bdcs": 5,
         "fwd_nav_mean": -3.44,
         "fwd_nav_median": -2.72,
-        "rest_nav_mean": -0.36,
-        "rest_nav_median": -0.57,
-        "gap_mean": 3.08,
-        "gap_median": 2.15,
+        "rest_nav_mean": -0.38,
+        "rest_nav_median": -0.58,
+        "gap_mean": 3.06,
+        "gap_median": 2.14,
         "fwd_hard_mean": 3.99,
         "rest_hard_mean": 2.22
       },
@@ -613,9 +614,9 @@ export const dividendSupportMeta = {
         "n_bdcs": 5,
         "fwd_nav_mean": -3.03,
         "fwd_nav_median": -2.09,
-        "rest_nav_mean": -0.45,
+        "rest_nav_mean": -0.46,
         "rest_nav_median": -0.61,
-        "gap_mean": 2.58,
+        "gap_mean": 2.57,
         "gap_median": 1.48,
         "fwd_hard_mean": 3.95,
         "rest_hard_mean": 2.26
@@ -627,29 +628,29 @@ export const dividendSupportMeta = {
     "benchmark": {
       "measure": "all PIK income, % of NII (trailing four quarters)",
       "matched": {
-        "threshold": 28.67,
+        "threshold": 28.75,
         "n": 55,
         "n_bdcs": 5,
-        "fwd_nav_mean": -2.21,
-        "fwd_nav_median": -1.84,
-        "rest_nav_mean": -0.32,
-        "rest_nav_median": -0.53,
-        "gap_mean": 1.89,
-        "gap_median": 1.31,
-        "fwd_hard_mean": 2.74,
+        "fwd_nav_mean": -2.35,
+        "fwd_nav_median": -2.23,
+        "rest_nav_mean": -0.3,
+        "rest_nav_median": -0.5,
+        "gap_mean": 2.05,
+        "gap_median": 1.73,
+        "fwd_hard_mean": 2.73,
         "rest_hard_mean": 2.33
       },
       "best": {
         "threshold": 34.0,
-        "n": 32,
+        "n": 33,
         "n_bdcs": 4,
-        "fwd_nav_mean": -2.79,
-        "fwd_nav_median": -2.51,
+        "fwd_nav_mean": -2.82,
+        "fwd_nav_median": -2.63,
         "rest_nav_mean": -0.4,
         "rest_nav_median": -0.58,
-        "gap_mean": 2.39,
-        "gap_median": 1.93,
-        "fwd_hard_mean": 2.47,
+        "gap_mean": 2.42,
+        "gap_median": 2.05,
+        "fwd_hard_mean": 2.48,
         "rest_hard_mean": 2.39
       }
     },
