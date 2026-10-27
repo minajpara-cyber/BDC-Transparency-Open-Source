@@ -86,7 +86,7 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sub_sector": "Defense / federal IT",
     "description": "Defense and federal-government IT and engineering services."
   },
-  "deerfield-dakota": {
+  "kroll": {
     "sector": "Professional Services",
     "sub_sector": "Risk & financial advisory",
     "description": "Risk, governance and financial advisory (Kroll)."
@@ -186,7 +186,7 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sub_sector": "Utility management",
     "description": "Utility billing and expense management services."
   },
-  "vensure-employer": {
+  "vensure": {
     "sector": "Professional Services",
     "sub_sector": "HR outsourcing (PEO)",
     "description": "Professional employer organization / HR outsourcing."
@@ -236,7 +236,7 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sub_sector": "Insurance distribution",
     "description": "Life and health insurance distribution / marketing."
   },
-  "associations": {
+  "associa": {
     "sector": "Real Estate",
     "sub_sector": "Community / HOA management",
     "description": "Community-association (HOA) management services."
@@ -446,7 +446,7 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sub_sector": "Brokerage",
     "description": "Retail insurance brokerage and agency platform."
   },
-  "higginbotham-insurance": {
+  "higginbotham": {
     "sector": "Insurance",
     "sub_sector": "Brokerage & benefits",
     "description": "Insurance brokerage and employee benefits."
@@ -546,7 +546,7 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sub_sector": "Healthcare IT",
     "description": "Healthcare data-exchange and interoperability software."
   },
-  "one-call": {
+  "one-call-medical": {
     "sector": "Healthcare",
     "sub_sector": "Workers'-comp care management",
     "description": "Workers'-compensation medical care-management network."
@@ -651,7 +651,7 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sub_sector": "Aerospace (avionics)",
     "description": "Commercial-aviation avionics and flight systems (ex-L3Harris)."
   },
-  "curia-global": {
+  "curia": {
     "sector": "Healthcare",
     "sub_sector": "Pharma services (CDMO)",
     "description": "Pharma contract research and manufacturing (ex-AMRI)."
@@ -726,7 +726,7 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sub_sector": "Environmental consulting",
     "description": "Environmental, air-quality and EHS consulting."
   },
-  "coretrust-purchasing": {
+  "coretrust": {
     "sector": "Professional Services",
     "sub_sector": "Group purchasing (GPO)",
     "description": "Group purchasing organization for indirect spend."
@@ -761,7 +761,7 @@ export const borrowerEnrichment: Record<string, BorrowerEnrichment> = {
     "sub_sector": "Vitamins & supplements",
     "description": "Vitamins and nutritional supplements (ex-Nutraceutical)."
   },
-  "r-r-donnelley-sons": {
+  "r-r-donnelley": {
     "sector": "Professional Services",
     "sub_sector": "Marketing & print services",
     "description": "Commercial printing, marketing and business communications (RR Donnelley)."

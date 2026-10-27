@@ -49,6 +49,12 @@ export default function BorrowersIndexPage() {
           Borrowers extracted from the Schedule of Investments of our {nCovered}{" "}covered BDCs. Cross-held names
           (held by 2+ BDCs) are flagged — those are where mark-dispersion analysis becomes possible.
         </p>
+        <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
+          A borrower carries its operating company&apos;s name when one is known: a filing&apos;s own &quot;dba&quot;,
+          the bdctransparency.io alias list, or a lender&apos;s list of its own borrowers (Apollo&apos;s quarterly ADS
+          holdings report, which names the company behind each legal borrower — &quot;Deerfield Dakota Holding&quot;
+          is Kroll). Otherwise it shows its legal name.
+        </p>
       </div>
 
       {/* Stat strip */}
