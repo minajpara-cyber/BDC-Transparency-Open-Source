@@ -24,17 +24,16 @@ export interface SectorCredit {
 }
 
 export const sectorCredit: SectorCredit[] = [
-  { sector: "Software & IT", period_end: "2026-06-30", n_positions: 2393, total_cost_b: 70.506, debt_cost_b: 66.427, mark_coverage_pct: 99.550, pct_below_95: 20.43, pct_below_90: 13.77, pct_non_accrual: 2.93, pct_pik: 18.45 },
-  { sector: "Healthcare", period_end: "2026-06-30", n_positions: 2077, total_cost_b: 52.774, debt_cost_b: 48.643, mark_coverage_pct: 99.644, pct_below_95: 16.64, pct_below_90: 10.76, pct_non_accrual: 2.39, pct_pik: 21.21 },
-  { sector: "Professional Services", period_end: "2026-06-30", n_positions: 2068, total_cost_b: 46.431, debt_cost_b: 44.537, mark_coverage_pct: 99.722, pct_below_95: 11.69, pct_below_90: 4.63, pct_non_accrual: 0.64, pct_pik: 9.16 },
-  { sector: "Industrial", period_end: "2026-06-30", n_positions: 1290, total_cost_b: 27.530, debt_cost_b: 26.193, mark_coverage_pct: 99.920, pct_below_95: 11.74, pct_below_90: 9.29, pct_non_accrual: 3.38, pct_pik: 9.82 },
-  { sector: "Other", period_end: "2026-06-30", n_positions: 984, total_cost_b: 21.588, debt_cost_b: 12.625, mark_coverage_pct: 99.130, pct_below_95: 12.01, pct_below_90: 7.69, pct_non_accrual: 0.54, pct_pik: 6.88 },
-  { sector: "Financial Services", period_end: "2026-06-30", n_positions: 670, total_cost_b: 15.759, debt_cost_b: 11.459, mark_coverage_pct: 99.250, pct_below_95: 6.94, pct_below_90: 0.66, pct_non_accrual: 0.02, pct_pik: 12.80 },
-  { sector: "Insurance", period_end: "2026-06-30", n_positions: 516, total_cost_b: 15.719, debt_cost_b: 13.915, mark_coverage_pct: 99.320, pct_below_95: 11.19, pct_below_90: 1.55, pct_non_accrual: 0.59, pct_pik: 12.95 },
-  { sector: "Consumer / Retail", period_end: "2026-06-30", n_positions: 811, total_cost_b: 13.381, debt_cost_b: 12.572, mark_coverage_pct: 99.856, pct_below_95: 14.71, pct_below_90: 8.55, pct_non_accrual: 3.69, pct_pik: 12.40 },
-  { sector: "Media & Entertainment", period_end: "2026-06-30", n_positions: 274, total_cost_b: 8.386, debt_cost_b: 7.250, mark_coverage_pct: 99.598, pct_below_95: 5.49, pct_below_90: 3.26, pct_non_accrual: 1.52, pct_pik: 20.43 },
-  { sector: "Materials & Chemicals", period_end: "2026-06-30", n_positions: 215, total_cost_b: 4.901, debt_cost_b: 4.613, mark_coverage_pct: 99.957, pct_below_95: 10.83, pct_below_90: 2.16, pct_non_accrual: 1.48, pct_pik: 7.92 },
-  { sector: "Utilities & Energy", period_end: "2026-06-30", n_positions: 175, total_cost_b: 4.415, debt_cost_b: 3.752, mark_coverage_pct: 99.045, pct_below_95: 3.99, pct_below_90: 2.84, pct_non_accrual: 1.19, pct_pik: 4.32 },
-  { sector: "Real Estate", period_end: "2026-06-30", n_positions: 99, total_cost_b: 4.281, debt_cost_b: 4.005, mark_coverage_pct: 98.557, pct_below_95: 8.64, pct_below_90: 6.70, pct_non_accrual: 3.16, pct_pik: 20.51 },
-  { sector: "Unclassified", period_end: "2026-06-30", n_positions: 90, total_cost_b: 2.864, debt_cost_b: 0.475, mark_coverage_pct: 100.000, pct_below_95: 6.84, pct_below_90: 3.64, pct_non_accrual: 0.00, pct_pik: 2.18 }
+  { sector: "Software & IT", period_end: "2026-09-30", n_positions: 1368, total_cost_b: 34.847, debt_cost_b: 31.323, mark_coverage_pct: 99.125, pct_below_95: 16.52, pct_below_90: 9.98, pct_non_accrual: 2.12, pct_pik: 17.93 },
+  { sector: "Healthcare", period_end: "2026-09-30", n_positions: 1131, total_cost_b: 32.973, debt_cost_b: 29.408, mark_coverage_pct: 99.780, pct_below_95: 14.74, pct_below_90: 10.71, pct_non_accrual: 3.30, pct_pik: 21.20 },
+  { sector: "Professional Services", period_end: "2026-09-30", n_positions: 1237, total_cost_b: 23.295, debt_cost_b: 21.782, mark_coverage_pct: 99.913, pct_below_95: 13.88, pct_below_90: 6.43, pct_non_accrual: 1.33, pct_pik: 10.36 },
+  { sector: "Other", period_end: "2026-09-30", n_positions: 455, total_cost_b: 15.269, debt_cost_b: 8.684, mark_coverage_pct: 99.901, pct_below_95: 4.87, pct_below_90: 3.15, pct_non_accrual: 0.46, pct_pik: 9.23 },
+  { sector: "Industrial", period_end: "2026-09-30", n_positions: 797, total_cost_b: 14.833, debt_cost_b: 13.748, mark_coverage_pct: 99.967, pct_below_95: 13.38, pct_below_90: 10.45, pct_non_accrual: 3.87, pct_pik: 10.34 },
+  { sector: "Financial Services", period_end: "2026-09-30", n_positions: 406, total_cost_b: 11.988, debt_cost_b: 8.843, mark_coverage_pct: 99.560, pct_below_95: 4.22, pct_below_90: 0.35, pct_non_accrual: 0.33, pct_pik: 15.12 },
+  { sector: "Consumer / Retail", period_end: "2026-09-30", n_positions: 485, total_cost_b: 10.781, debt_cost_b: 10.091, mark_coverage_pct: 99.849, pct_below_95: 16.22, pct_below_90: 11.47, pct_non_accrual: 3.45, pct_pik: 12.99 },
+  { sector: "Insurance", period_end: "2026-09-30", n_positions: 326, total_cost_b: 9.463, debt_cost_b: 7.709, mark_coverage_pct: 99.264, pct_below_95: 11.55, pct_below_90: 2.85, pct_non_accrual: 0.30, pct_pik: 9.86 },
+  { sector: "Media & Entertainment", period_end: "2026-09-30", n_positions: 186, total_cost_b: 6.092, debt_cost_b: 5.319, mark_coverage_pct: 99.215, pct_below_95: 3.13, pct_below_90: 2.83, pct_non_accrual: 1.96, pct_pik: 19.75 },
+  { sector: "Materials & Chemicals", period_end: "2026-09-30", n_positions: 160, total_cost_b: 4.128, debt_cost_b: 3.847, mark_coverage_pct: 99.955, pct_below_95: 4.08, pct_below_90: 1.64, pct_non_accrual: 1.04, pct_pik: 7.26 },
+  { sector: "Real Estate", period_end: "2026-09-30", n_positions: 59, total_cost_b: 3.052, debt_cost_b: 2.885, mark_coverage_pct: 99.983, pct_below_95: 10.63, pct_below_90: 9.53, pct_non_accrual: 4.07, pct_pik: 28.75 },
+  { sector: "Utilities & Energy", period_end: "2026-09-30", n_positions: 119, total_cost_b: 2.347, debt_cost_b: 1.901, mark_coverage_pct: 99.182, pct_below_95: 10.13, pct_below_90: 5.38, pct_non_accrual: 3.40, pct_pik: 7.60 }
 ];

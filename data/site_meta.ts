@@ -3,40 +3,40 @@ export const siteMeta = {
   "latest_period": "2026-09-30",
   "latest_quarter": "2026 Q3",
   "n_bdcs": 19,
-  "n_filings": 626,
+  "n_filings": 637,
   "dataset_periods": {
     "core": {
       "first_period": "2014-09-30",
       "latest_period": "2026-09-30"
     },
     "long_tail": {
-      "max": "2026-06-30",
+      "max": "2026-09-30",
       "independently_revalidated": false
     }
   },
   "issuer_latest_periods": {
-    "ADS": "2026-06-30",
+    "ADS": "2026-09-30",
     "ARCC": "2026-09-30",
     "ASIF": "2026-06-30",
-    "BBDC": "2026-06-30",
+    "BBDC": "2026-09-30",
     "BCRED": "2026-06-30",
-    "BXSL": "2026-06-30",
+    "BXSL": "2026-09-30",
     "CCAP": "2026-06-30",
-    "CGBD": "2026-06-30",
-    "FSK": "2026-06-30",
+    "CGBD": "2026-09-30",
+    "FSK": "2026-09-30",
     "GBDC": "2026-06-30",
-    "HTGC": "2026-06-30",
-    "MAIN": "2026-06-30",
-    "MFIC": "2026-06-30",
-    "NMFC": "2026-06-30",
-    "OBDC": "2026-06-30",
-    "OCIC": "2026-06-30",
+    "HTGC": "2026-09-30",
+    "MAIN": "2026-09-30",
+    "MFIC": "2026-09-30",
+    "NMFC": "2026-09-30",
+    "OBDC": "2026-09-30",
+    "OCIC": "2026-09-30",
     "OCSL": "2026-06-30",
-    "OTF": "2026-06-30",
-    "TSLX": "2026-06-30"
+    "OTF": "2026-09-30",
+    "TSLX": "2026-09-30"
   },
-  "release_id": "bdc-f4d53284a021b649af256875",
-  "generated_at": "2026-10-27",
-  "checked_at": "2026-10-27T10:37:38-04:00",
+  "release_id": "bdc-4f1f035f7a7adb42eee8ff64",
+  "generated_at": "2026-11-06",
+  "checked_at": "2026-11-06T14:23:46-05:00",
   "validation_scope": "Automated consistency checks: data files well-formed and consistent, database invariants, and each BDC's latest book against the filing's reported total investments. Not an independent audit of every loan or event."
 };
