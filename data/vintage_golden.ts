@@ -17,29 +17,29 @@ export const vintageGolden = {
   "n_reference_rows_unmatched": 6,
   "n_conflicting_loans_excluded": 18,
   "overall": {
-    "n": 572,
+    "n": 573,
     "exact": 351,
     "within_1y": 404,
-    "pct_within_1y": 70.6,
-    "mean_err_years": 0.27,
+    "pct_within_1y": 70.5,
+    "mean_err_years": 0.28,
     "mae_years": 1.27
   },
   "high_conf": {
-    "n": 448,
+    "n": 449,
     "exact": 286,
     "within_1y": 323,
-    "pct_within_1y": 72.1,
-    "mean_err_years": 0.43,
-    "mae_years": 1.21
+    "pct_within_1y": 71.9,
+    "mean_err_years": 0.44,
+    "mae_years": 1.22
   },
   "by_bucket": {
     "borrowed": {
-      "n": 171,
+      "n": 172,
       "exact": 117,
       "within_1y": 125,
-      "pct_within_1y": 73.1,
-      "mean_err_years": 0.72,
-      "mae_years": 1.19
+      "pct_within_1y": 72.7,
+      "mean_err_years": 0.74,
+      "mae_years": 1.21
     },
     "corrected": {
       "n": 23,
@@ -148,12 +148,12 @@ export const vintageGolden = {
       "mae_years": 2.29
     },
     "xbdc_borrow": {
-      "n": 171,
+      "n": 172,
       "exact": 117,
       "within_1y": 125,
-      "pct_within_1y": 73.1,
-      "mean_err_years": 0.72,
-      "mae_years": 1.19
+      "pct_within_1y": 72.7,
+      "mean_err_years": 0.74,
+      "mae_years": 1.21
     },
     "xbdc_borrow_loose": {
       "n": 1,
@@ -196,12 +196,12 @@ export const vintageGolden = {
       "mae_years": 0.18
     },
     "against_deal_year": {
-      "n": 314,
+      "n": 315,
       "exact": 169,
       "within_1y": 206,
-      "pct_within_1y": 65.6,
-      "mean_err_years": 1.58,
-      "mae_years": 1.64
+      "pct_within_1y": 65.4,
+      "mean_err_years": 1.59,
+      "mae_years": 1.65
     },
     "by_maturity_evidence": {
       "inferred_tenor": {
