@@ -266,7 +266,7 @@ export default function IncomePage() {
               sub={`${drU1y ? `${drU1y.default_rate.toFixed(1)}% a year earlier · ` : ""}${drU.n_bdcs} BDCs pooled, by $ · adds term changes (inferred)`}
               color="#f97316" highlight />
             <StatCard label="Hard default rate" value={`${drU.hard_rate.toFixed(1)}%`}
-              sub={`new non-accruals ${drU.rate_non_accrual.toFixed(1)}% + distressed exits ${drU.rate_distressed_exit.toFixed(1)}% (inferred from exit marks and restructurings)`}
+              sub={`new non-accruals and Chapter 11 filings ${drU.rate_non_accrual.toFixed(1)}% + distressed exits ${drU.rate_distressed_exit.toFixed(1)}% (inferred from exit marks and restructurings)`}
               color="#ef4444" />
             <StatCard label="Shadow rate by borrower count" value={`${drU.count_rate.toFixed(1)}%`}
               sub={`hard rate by count ${drU.count_rate_hard.toFixed(1)}%`} color="#fde68a" />
@@ -301,7 +301,11 @@ export default function IncomePage() {
             months earlier is followed through the year at the same BDC; it counts once, under its first event. CLO
             and other structured notes, joint ventures, funds and securitizations are not borrowers and are left out
             altogether, judged on the labels of every quarter a loan was filed.
-            New non-accruals are observed in the filings. The other legs are inferred, not disclosed:{" "}
+            New non-accruals are observed in the filings, and so are Chapter 11 filings: a BDC&apos;s first
+            debtor-in-possession (DIP) loan to a borrower is a hard default that quarter even where the BDC keeps the
+            borrower&apos;s loans accruing (Sixth Street kept Bed Bath &amp; Beyond&apos;s accruing for three years after its
+            April 2023 petition), and a borrower is not counted as performing while the BDC holds DIP loans to it.
+            The other legs are inferred, not disclosed:{" "}
             <span className="text-white">distressed exits</span>{" "}are inferred from the exit mark or a restructuring (the loan left
             the book below 85¢, or below 90¢ after a mark under 80¢, while marked under 90% of its cost or purchase
             price, without going non-accrual; or a marked-down loan was swapped for new equity or much smaller or
@@ -313,7 +317,11 @@ export default function IncomePage() {
             <span className="text-white">restructurings and PIK amendments</span>{" "}are inferred from changes in
             the loan&apos;s terms between filings. A PIK amendment counts only when PIK becomes at least a fifth of
             the coupon after at least two cash-pay quarters, and a modification only when it touches at least a
-            quarter of the borrower&apos;s debt at that BDC.
+            quarter of the borrower&apos;s debt at that BDC. A cut in principal is a restructuring only when it does
+            not read as a partial sale, paydown or amortisation: a cut where cost falls in step with par, no new loan
+            or equity arrives and the BDC&apos;s other loans of the same lien are untouched is left out. FS KKR cut its
+            Peraton second lien from $130m to $78m in 2026 while OBDC, OCIC and OTF kept the same loan at full size,
+            and OBDC&apos;s own 10-Q lists its 2026 Conair cut among partial sales.
           </p>
           <p>
             <span className="text-white">Which BDCs are in it.</span>{" "}A BDC&apos;s twelve months count only when

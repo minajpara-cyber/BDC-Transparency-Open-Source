@@ -22,7 +22,7 @@ type Metric = "pct_ever_default" | "pct_ever_modified" | "pct_ever_na" | "pct_ev
 const METRIC_META: Record<Metric, { label: string; sub: string; color: string }> = {
   pct_ever_default: {
     label: "% Cost Ever Defaulted (cumulative default exposure)",
-    sub: "Cumulative — share of vintage cost ever flagged non-accrual OR that left in distress (when its borrower left the BDC: ever on non-accrual, or marked more than 10% below its cost or purchase price with a last mark below 85¢, or below 90¢ after a mark under 80¢) or was restructured while the borrower kept debt there (distressed debt re-papered into new equity, much smaller or junior debt, or a new loan). Filings do not say whether an exit ended in a write-off, a distressed sale or a debt-for-equity swap. Directionally comparable to Raymond James's 'cumulative 1L default exposure' (ours spans all loans unless First-lien only is ticked; equity is left out of every curve, because it cannot default, and so are CLO and other structured notes, joint ventures, funds and securitizations, which are not borrowers). Loans whose non-accrual status is unknown at an age are left out of that point, never counted as performing.",
+    sub: "Cumulative — share of vintage cost ever flagged non-accrual OR that left in distress (when its borrower left the BDC: ever on non-accrual, or marked more than 10% below its cost or purchase price with a last mark below 85¢, or below 90¢ after a mark under 80¢) or was restructured while the borrower kept debt there (distressed debt re-papered into new equity, much smaller or junior debt, or a new loan), OR whose borrower entered Chapter 11 while the loan was held (the BDC's first debtor-in-possession loan to it, whether or not the BDC stopped accruing: Sixth Street kept Bed Bath & Beyond's 2022 loan accruing for three years after the 2023 petition). DIP loans themselves are not new loans of their year: they count with the loan they re-paper, or not at all when the BDC had no earlier loan to the borrower. Filings do not say whether an exit ended in a write-off, a distressed sale or a debt-for-equity swap. Directionally comparable to Raymond James's 'cumulative 1L default exposure' (ours spans all loans unless First-lien only is ticked; equity is left out of every curve, because it cannot default, and so are CLO and other structured notes, joint ventures, funds and securitizations, which are not borrowers). Loans whose non-accrual status is unknown at an age are left out of that point, never counted as performing.",
     color: "#dc2626",
   },
   pct_ever_modified: {
@@ -32,7 +32,7 @@ const METRIC_META: Record<Metric, { label: string; sub: string; color: string }>
   },
   pct_ever_na: {
     label: "% Cost Ever Non-Accrual (on-book only)",
-    sub: "Counts loans flagged non-accrual on a BDC's schedule, and keeps counting them after they leave the book; loans that left in distress or were restructured without ever being flagged are not included. Never runs above % Cost Ever Defaulted.",
+    sub: "Counts loans flagged non-accrual on a BDC's schedule, and keeps counting them after they leave the book; loans that left in distress or were restructured without ever being flagged are not included, nor is a Chapter 11 filing the BDC never flagged. Never runs above % Cost Ever Defaulted.",
     color: "#ef4444",
   },
   pct_ever_b80: {
@@ -415,8 +415,8 @@ export default function VintagePage() {
       <>
       <div className="rounded-lg border p-3 text-xs mb-4" style={{ background: "rgba(99,102,241,0.05)", borderColor: "rgba(99,102,241,0.2)", color: "#9ca3af" }}>
         <span className="text-white font-semibold">How to read this page.</span>{" "}
-        The primary metric is <span className="text-white">% Cost Ever Defaulted</span>{" "}(a non-accrual flag, or a loan that left in
-        distress or was restructured).
+        The primary metric is <span className="text-white">% Cost Ever Defaulted</span>{" "}(a non-accrual flag, a Chapter 11 filing shown by a
+        debtor-in-possession loan, or a loan that left in distress or was restructured).
         A point at age T only counts loans whose vintage date is at least T old at their BDC&apos;s latest filing, so every loan
         counted has had the full T years to go wrong; younger loans are left out and a curve stops when too few loans are old
         enough. Hover a point for how much of the cohort it counts. Each age adds only the new events among the loans old
