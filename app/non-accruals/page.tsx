@@ -377,8 +377,11 @@ export default function NonAccrualsPage() {
             Borrowers held by 2+ covered BDCs where at least one BDC has a loan to the borrower on non-accrual
             while another clearly still accrues its loans (lenders whose status we can&apos;t read are left out). Only loans count: a
             preferred share that stopped accruing is noted but does not create a disagreement. Each chip shows the BDC&apos;s loans at
-            fair value and their mark — fair value ÷ par in cents per dollar of par, never including equity (&quot;—&quot; when the
-            loans have no usable par, or only part of them has one). Names are normalized via the bdctransparency.io alias dictionary so divergent legal-entity
+            fair value and their mark — fair value ÷ par in cents per dollar of par, never including equity; at the twelve BDCs whose
+            schedules net the undrawn discount into a facility&apos;s fair value, a loan with an undrawn commitment is priced on its whole
+            commitment. &quot;—&quot; means the loans have no usable par (among the reasons: the par is the whole commitment of a partly
+            drawn facility, a revolver or delayed draw would price 5¢ or more below the borrower&apos;s other loans, or a loan&apos;s
+            undrawn commitment could not be tied to it), or only part of them has one. Names are normalized via the bdctransparency.io alias dictionary so divergent legal-entity
             strings roll up to a single operating company.
           </p>
         </div>
@@ -419,7 +422,7 @@ export default function NonAccrualsPage() {
                       <span className="font-bold">{h.ticker}</span>
                       <span style={{ color: "#d1d5db" }}>${h.debt_fv_m.toFixed(1)}M</span>
                       <span style={{ color: "#8b8ba8" }}
-                            title={h.mark_at_par != null ? "Loan mark: fair value ÷ par of this BDC's loans" : "No loan mark: no usable par, or only part of the loans has one"}>
+                            title={h.mark_at_par != null ? "Loan mark: fair value ÷ par of this BDC's loans (a loan with an undrawn commitment priced on its whole commitment where the schedule nets the undrawn discount into fair value)" : "No loan mark: no usable par, or only part of the loans has one"}>
                         · {h.mark_at_par != null ? `${(h.mark_at_par * 100).toFixed(0)}¢` : "—"}
                       </span>
                       <span>{h.is_non_accrual ? "NA" : "perf"}</span>

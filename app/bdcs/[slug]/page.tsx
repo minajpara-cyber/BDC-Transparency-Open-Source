@@ -19,6 +19,7 @@ import { holdingsAsOfByTicker } from "@/data/bdc_holdings";
 import EwsTrendChart from "@/components/EwsTrendChart";
 import NaForecastSummary from "@/components/NaForecastSummary";
 import { ewsInfo, ewsLabelText, scoreText, signalLabel, validationWindow } from "@/lib/earlyWarningDisplay";
+import { signalsReadFor } from "@/lib/naForecastDisplay";
 import { creditQuality } from "@/data/credit_quality";
 import { modificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
@@ -552,10 +553,15 @@ export default async function BDCDetailPage({ params }: PageProps) {
                   )}
                 </div>
                 <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
-                  Each quarter as a % of the prior book: capital <span style={{ color: "#a5b4fc" }}>deployed</span>{" "}(new
-                  originations, above zero) vs capital leaving — <span style={{ color: "#22c55e" }}>repaid/refinanced</span> and{" "}
-                  <span style={{ color: "#ef4444" }}>distressed exits</span>{" "}(below zero). Net = book growth or run-off.
-                  Dashed lines are the industry averages on each side.
+                  Each quarter as a % of the prior quarter&apos;s loan book: capital <span style={{ color: "#a5b4fc" }}>deployed</span>{" "}(new
+                  loans, above zero) vs capital leaving — <span style={{ color: "#22c55e" }}>repaid/refinanced</span> and{" "}
+                  <span style={{ color: "#ef4444" }}>distressed exits</span>, loans that left in distress or restructured
+                  (below zero). Net = book growth or run-off. Loans only: equity, preferred stock, warrants and cash
+                  equivalents are left out of the book and of every flow, and so are CLO and other structured notes, joint
+                  ventures, funds and securitizations: a vehicle that leaves is neither a repayment nor a distressed exit.
+                  A quarter where the BDC&apos;s exits pass 15% or its new loans pass 35% of its book, or where a merger
+                  brought in another fund&apos;s book, is a coverage gap and is not shown. Dashed lines are the industry
+                  averages on each side, pooled over the BDCs that filed both that quarter and the one before.
                 </p>
                 <RepaymentChart data={repayRows} />
               </div>
@@ -640,7 +646,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                           {formatPikPublication(pik)}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_below_95 == null ? "#8b8ba8" : r.pct_below_95 >= 15 ? "#ef4444" : "#9ca3af" }}
-                          title={r.pct_below_95 == null ? "Unknown: par was not read for this quarter's loans, so the mark (fair value ÷ par) cannot be computed" : undefined}>
+                          title={r.pct_below_95 == null ? "Unknown: under half of this quarter's loan cost has a mark (fair value ÷ par; at the twelve BDCs whose schedules net the undrawn discount into a facility's fair value, a loan with an undrawn commitment is priced on its whole commitment), or no book of loans was read" : undefined}>
                           {r.pct_below_95 == null ? "Unknown" : `${r.pct_below_95.toFixed(1)}%`}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: r.pct_below_90 == null ? "#8b8ba8" : r.pct_below_90 >= 10 ? "#ef4444" : "#9ca3af" }}>
@@ -671,39 +677,38 @@ export default async function BDCDetailPage({ params }: PageProps) {
       {/* This BDC's row from the four-quarter non-accrual projection (scripts/83). */}
       <NaForecastSummary ticker={bdc.ticker} />
 
-      {/* Forward queue — out-of-sample-tested 2Q early-warning score, this BDC vs
-          industry, plus its top queued (pre-non-accrual) positions. */}
+      {/* Forward queue — the hazard model's chance of non-accrual within a year, this
+          BDC vs industry, plus its top queued (pre-non-accrual) positions. */}
       {(() => {
         const mine = ewsByBdc.find((r) => r.ticker === bdc.ticker);
         if (!mine) return null;
         const ind = ewsByBdc.find((r) => r.ticker === "industry");
         const peers = ewsByBdc
           .filter((r) => r.ticker !== "industry")
-          .sort((a, b) => b.implied_na_2q_pct - a.implied_na_2q_pct);
+          .sort((a, b) => b.implied_na_4q_pct - a.implied_na_4q_pct);
         const rank = peers.findIndex((r) => r.ticker === bdc.ticker) + 1;
         const queue = ewsTopByBdc.filter((r) => r.ticker === bdc.ticker);
-        const vsInd = ind ? mine.implied_na_2q_pct / Math.max(ind.implied_na_2q_pct, 0.0001) : null;
+        const vsInd = ind ? mine.implied_na_4q_pct / Math.max(ind.implied_na_4q_pct, 0.0001) : null;
         const tone = vsInd == null ? "#9ca3af" : vsInd >= 1.25 ? "#ef4444" : vsInd >= 1 ? "#f59e0b" : "#22c55e";
         const oosWindow = validationWindow(ewsInfo.validated);
-        const partialCoverage = mine.signal_coverage_pct < 100;
-        const nullableSignals = ewsInfo.observability?.nullable_signals ?? [];
+        // "% of signals read" on the forecast's own definition, as its outlook card prints it
+        const signalsRead = signalsReadFor(bdc.ticker);
         return (
           <div className="rounded-xl border p-5 mb-8" style={{ background: "#111118", borderColor: "#1e1e2e" }}
             id="forward-queue">
             <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
               <div>
                 <h2 className="font-semibold text-white">
-                  Forward queue: loans likely to go non-accrual{" "}
+                  Forward queue: borrowers likely to go on non-accrual{" "}
                   <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-                    next 2 quarters · as of {holdingsAsOfByTicker[bdc.ticker] ?? ewsInfo.as_of ?? "—"}
+                    next 4 quarters · as of {holdingsAsOfByTicker[bdc.ticker] ?? ewsInfo.as_of ?? "—"}
                   </span>
                 </h2>
                 <p className="text-xs mt-1 max-w-3xl" style={{ color: "#8b8ba8" }}>
-                  Every loan not yet on non-accrual is scored on warning signs whose weights were fitted on data
-                  through {ewsInfo.trained_through ?? "—"}{" "}and then tested
-                  {oosWindow ? ` on ${oosWindow.from} to ${oosWindow.to} data` : " on later data"}{" "}the fit never saw.
-                  Each score is turned into the share of similar loans that went non-accrual within two quarters in
-                  that test; adding those up gives the dollars queued for non-accrual.{" "}
+                  Every borrower not yet on non-accrual gets a chance of going on non-accrual within a year, from a
+                  model tested{oosWindow ? ` on ${oosWindow.from} to ${oosWindow.to}` : ""}, each quarter fitted only on
+                  outcomes already known then. Adding those chances up by cost gives the dollars queued for non-accrual,
+                  the same figure as this BDC&apos;s forward projection above.{" "}
                   <Link href="/credit#forward-queue" className="text-indigo-400 hover:text-indigo-300">
                     All BDCs ranked →
                   </Link>
@@ -714,21 +719,21 @@ export default async function BDCDetailPage({ params }: PageProps) {
               <div>
                 <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Implied new NA</div>
                 <div className="text-xl font-bold" style={{ color: tone }}>
-                  {mine.implied_na_2q_pct.toFixed(2)}%
+                  {mine.implied_na_4q_pct.toFixed(2)}%
                 </div>
                 <div className="text-xs" style={{ color: "#6b7280" }}>
-                  of book scored{ind ? ` · industry ${ind.implied_na_2q_pct.toFixed(2)}%` : ""}
+                  of book scored{ind ? ` · industry ${ind.implied_na_4q_pct.toFixed(2)}%` : ""}
                 </div>
               </div>
               <div>
                 <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Implied dollars</div>
-                <div className="text-xl font-bold text-white">${mine.implied_na_2q_m.toFixed(0)}M</div>
-                <div className="text-xs" style={{ color: "#6b7280" }}>over ~2 quarters</div>
+                <div className="text-xl font-bold text-white">${mine.implied_na_4q_m.toFixed(0)}M</div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>over the next year</div>
               </div>
               <div>
-                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>High-score positions</div>
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>High-tier borrowers</div>
                 <div className="text-xl font-bold text-white">{mine.n_hi}</div>
-                <div className="text-xs" style={{ color: "#6b7280" }}>{mine.pct_book_hi.toFixed(1)}% of book at score ≥5</div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>{mine.pct_book_hi.toFixed(1)}% of book at a 25%+ chance</div>
               </div>
               <div>
                 <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Rank among {peers.length} BDCs</div>
@@ -736,43 +741,37 @@ export default async function BDCDetailPage({ params }: PageProps) {
                 <div className="text-xs" style={{ color: "#6b7280" }}>#1 = most queued risk</div>
               </div>
               <div>
-                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Signal coverage</div>
-                <div className="text-xl font-bold" style={{ color: partialCoverage ? "#fbbf24" : "#fafafa" }}>
-                  {mine.signal_coverage_pct.toFixed(0)}%
+                <div className="text-xs mb-1" style={{ color: "#8b8ba8" }}>Signals read</div>
+                <div className="text-xl font-bold"
+                  style={{ color: signalsRead == null ? "#8b8ba8" : signalsRead < 100 ? "#fbbf24" : "#fafafa" }}>
+                  {signalsRead == null ? "—" : `${signalsRead}%`}
                 </div>
-                <div className="text-xs" style={{ color: "#6b7280" }}>
-                  {nullableSignals.length > 0
-                    ? `${nullableSignals.map(signalLabel).join(" and ")} signals observed, by value`
-                    : "signals observed, by value"}
-                </div>
+                <div className="text-xs" style={{ color: "#6b7280" }}>of the model&apos;s inputs, by cost</div>
               </div>
             </div>
             <p className="text-xs mb-4" style={{ color: "#6b6b88" }}>
-              {partialCoverage
-                ? "Where a signal can't be observed it counts as not firing, so with coverage below 100% these figures are lower bounds. "
-                : ""}
-              {ewsLabelText}
+              A signal that can&apos;t be read is recorded as missing rather than assumed clear. {ewsLabelText}
             </p>
             {(() => {
               const mineH = ewsHistory.filter((r) => r.ticker === bdc.ticker);
               if (mineH.length < 4) return null;
               const indH = new Map(
                 ewsHistory.filter((r) => r.ticker === "industry")
-                  .map((r) => [r.period_end, r.implied_na_2q_pct]),
+                  .map((r) => [r.period_end, r.implied_na_4q_pct]),
               );
               const trend = mineH.map((r) => ({
                 period_end: r.period_end,
-                bdc: r.implied_na_2q_pct,
+                bdc: r.implied_na_4q_pct,
                 industry: indH.get(r.period_end) ?? null,
               }));
               return (
                 <div className="mb-4">
                   <EwsTrendChart data={trend} ticker={bdc.ticker} />
                   <p className="text-xs mt-1" style={{ color: "#6b6b88" }}>
-                    Today&apos;s signal weights applied to past quarters, as a trend view (quarters with fewer than
-                    50 scored positions are dropped). Only quarters after{" "}
-                    {ewsInfo.trained_through ?? "the training period"}{" "}were unseen by the fit; earlier points are
-                    in-sample.
+                    The same figure at past quarter-ends, from the first quarter whose chances are scaled to the new
+                    non-accruals already seen: each past quarter comes from a fit and a scale on outcomes known by then,
+                    and {bdc.ticker}&apos;s newest point is its figure above. The industry line pools the BDCs that filed
+                    each quarter. Quarters with fewer than 50 borrowers are dropped.
                   </p>
                 </div>
               );
@@ -782,7 +781,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                 <table className="w-full text-sm">
                   <thead style={{ background: "#0f0f16", borderBottom: "1px solid #1e1e2e" }}>
                     <tr>
-                      {["Borrower", "Score", "Fired signals", "Reported FV", "Mark"].map((h) => (
+                      {["Borrower", "Chance ≤1yr", "Why", "Reported FV", "Mark"].map((h) => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#8b8ba8" }}>{h}</th>
                       ))}
                     </tr>
@@ -791,7 +790,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                     {queue.map((r, i) => (
                       <tr key={i} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16" }}>
                         <td className="px-3 py-2" style={{ color: "#d1d5db" }}>{r.borrower}</td>
-                        <td className="px-3 py-2 font-bold" style={{ color: r.score >= 5 ? "#ef4444" : r.score >= 3 ? "#f97316" : "#eab308" }}>{scoreText(r)}</td>
+                        <td className="px-3 py-2 font-bold" style={{ color: r.score >= 25 ? "#ef4444" : r.score >= 10 ? "#f97316" : "#eab308" }}>{scoreText(r)}</td>
                         <td className="px-3 py-2">
                           {r.signals.map((s) => (
                             <span key={s} className="inline-block mr-1 mb-0.5 px-1.5 py-0.5 rounded text-xs"
@@ -807,8 +806,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                   </tbody>
                 </table>
                 <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-                  Top {queue.length}{" "}positions by score, not yet on non-accrual. A &ldquo;≥&rdquo; score had some
-                  signals we couldn&apos;t observe.{" "}
+                  Top {queue.length}{" "}borrowers by chance of non-accrual, not yet on non-accrual.{" "}
                   <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Full watchlist →</Link>
                 </p>
               </div>
@@ -1064,14 +1062,14 @@ export default async function BDCDetailPage({ params }: PageProps) {
               </span>
             </div>
             <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-              Cumulative <span className="text-white">cost-weighted % ever defaulted</span>{" "}(on-book non-accrual OR a distressed exit)
+              Cumulative <span className="text-white">cost-weighted % ever defaulted</span>{" "}(on-book non-accrual, or left in distress or restructured)
               at standard ages for each vintage, next to the industry at the same age. A cell appears only once <span className="text-white">every
               loan</span> in {bdc.ticker}&apos;s cohort is old enough to have reached that age. Cells tagged{" "}
               <span className="px-1 py-0 rounded text-[10px]" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}>HC</span>{" "}
               compare high-confidence (HIGH+MED) dates only, against the industry&apos;s HC rate; untagged cells use all dated loans because
               the HC subset was too thin (under 15 loans, or under {MIN_HC_COST_PCT}% of the cohort&apos;s counted cost). Rows marked{" "}
               <span className="text-white">mostly estimated</span>{" "}have more than {MOSTLY_ESTIMATED_PCT}% of their entry cost dated by an
-              estimate rather than a disclosed date — estimated the same way as the &ldquo;Dated by estimate&rdquo; column above, which
+              estimate rather than a disclosed date or a first sighting — estimated the same way as the &ldquo;Dated by estimate&rdquo; column above, which
               measures today&apos;s book rather than the cohort at entry. * = non-accrual status partly unknown. Cohorts under 30 loans and
               vintages predating our coverage of {bdc.ticker}{" "}are omitted; for vintages before most of our coverage there is no industry
               figure, so {bdc.ticker}&apos;s own rate is shown alone (&ldquo;no industry baseline&rdquo;).
@@ -1098,7 +1096,7 @@ export default async function BDCDetailPage({ params }: PageProps) {
                         <tr key={vy} className="border-t" style={{ borderColor: "#1a1a28", background: i % 2 === 0 ? "#111118" : "#0f0f16", opacity: mostlyEst ? 0.75 : 1 }}>
                           <td className="px-3 py-2 font-semibold text-white whitespace-nowrap">
                             {vy}
-                            {mostlyEst && <span className="ml-1.5 px-1.5 py-0 rounded text-[10px]" style={{ background: "rgba(107,107,136,0.15)", color: "#9ca3af" }} title={`${est.toFixed(0)}% of this cohort's entry cost is dated by an estimate rather than a disclosed date`}>mostly estimated</span>}
+                            {mostlyEst && <span className="ml-1.5 px-1.5 py-0 rounded text-[10px]" style={{ background: "rgba(107,107,136,0.15)", color: "#9ca3af" }} title={`${est.toFixed(0)}% of this cohort's entry cost is dated by an estimate rather than a disclosed date or a first sighting`}>mostly estimated</span>}
                           </td>
                           <td className="px-3 py-2 text-xs" style={{ color: "#9ca3af" }}>
                             {cohort ? `${cohort.n_loans_cohort} loans · $${cohort.cohort_entry_cost_b.toFixed(1)}B` : "—"}

@@ -157,7 +157,7 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
     { key: "mark", label: "Loan mark", sortable: true, align: "right", render: (h) => (
       <span className="tabular-nums" title={h.mark == null
         ? "No loan mark: no loans, no loan with a usable par in US dollars, or loans without one (or a left-out loan on non-accrual) big enough to move the mark"
-        : "Fair value ÷ par of the BDC's loans to this borrower, in cents per dollar of par (equity left out)"}>
+        : "Fair value ÷ par of the BDC's loans to this borrower, in cents per dollar of par (equity left out). At the twelve BDCs whose schedules net the undrawn discount into a facility's fair value, a loan with an undrawn commitment is priced on its whole commitment"}>
         {markCents(h.mark)}
       </span>
     ) },
@@ -243,9 +243,12 @@ export default function BDCHoldingsTable({ ticker }: { ticker: string }) {
         <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
           Each row is one capital-structure slice of a borrower — its own fair value, % of book, mark
           and maturity, <span className="text-white">not the borrower&apos;s blended total</span>.
-          Equity and structured/JV slices have no mark or maturity (no par), so those show &ldquo;—&rdquo;;
-          a loan slice shows &ldquo;—&rdquo; when its par is not usable (missing, in a currency we cannot convert,
-          or the whole commitment of a partly drawn facility). Written-down loans keep their own low marks.
+          Equity slices, and fund or joint-venture interests, have no mark or maturity (no par), so those show
+          &ldquo;—&rdquo;; a loan or note slice shows &ldquo;—&rdquo; when its par is not usable (missing, in a currency we
+          cannot convert, the whole commitment of a partly drawn facility, a revolver or delayed draw that would price
+          5¢ or more below the borrower&apos;s other loans, or a loan whose undrawn commitment could not be tied to it).
+          At the twelve BDCs whose schedules net the undrawn discount into a facility&apos;s fair value, a loan with an
+          undrawn commitment is priced on its whole commitment. Written-down loans keep their own low marks.
         </p>
       )}
 

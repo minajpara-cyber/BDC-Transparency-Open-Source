@@ -5,10 +5,24 @@ import { creditQuality } from "@/data/credit_quality";
 import { industryNaPool, naPoolExclusionText } from "@/lib/naCoverage";
 import { dataReleaseManifestPath, laggingIssuers, longTailReportingDate } from "@/lib/dataRelease";
 import { checkDataRelease } from "@/lib/dataReleaseCheck";
+import { creditPikPublication, formatPikPublication } from "@/lib/pikPublication";
 
 export default function AboutPage() {
   const lagging = laggingIssuers();
   const naPool = industryNaPool(creditQuality);
+  // The PIK share of the parsed BDCs' combined book at cost, at the newest
+  // quarter at least 10 of them have filed (the industry row of credit_quality).
+  const filedBy = (period: string) => creditQuality.filter((r) => r.ticker !== "industry" && r.period_end === period).length;
+  const pikRow = creditQuality
+    .filter((r) => r.ticker === "industry" && filedBy(r.period_end) >= 10)
+    .sort((a, b) => a.period_end.localeCompare(b.period_end))
+    .pop();
+  const pik = pikRow ? creditPikPublication(pikRow) : null;
+  const pikText = pikRow && pik && pik.status !== "unavailable" && pik.lower != null
+    ? ` At ${pikRow.period_end}, positions paying some interest in kind made up ${formatPikPublication(pik, 1)} of the`
+      + ` combined book at cost of the ${filedBy(pikRow.period_end)} BDCs we parse that have filed that quarter`
+      + " (preferred stock paying its dividend in kind included)."
+    : "";
   // The release file's checksums must still match the data this build ships;
   // otherwise its checks describe an earlier version of the data.
   const release = checkDataRelease();
@@ -194,7 +208,7 @@ export default function AboutPage() {
             },
             {
               q: "What is PIK (Payment-in-Kind)?",
-              a: "PIK stands for Payment-in-Kind. A PIK loan allows the borrower to 'pay' interest by adding it to the principal balance rather than making cash payments. While not necessarily a sign of distress, high PIK rates can indicate that borrowers are cash-constrained. PIK interest accounted for ~12.8% of BDC loan portfolios as of Q3 2025.",
+              a: "PIK stands for Payment-in-Kind. A PIK loan allows the borrower to 'pay' interest by adding it to the principal balance rather than making cash payments. While not necessarily a sign of distress, high PIK rates can indicate that borrowers are cash-constrained." + pikText,
             },
             {
               q: "What is ARR-based lending?",
@@ -222,14 +236,20 @@ export default function AboutPage() {
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Cumulative default exposure (vintage)</h3>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          Share of a vintage&apos;s entry cost ever flagged non-accrual OR that left the book in distress (a last
-          mark below 85¢, or after non-accrual or a sub-80¢ mark) — directionally comparable to Raymond
-          James&apos;s &ldquo;cumulative 1L default exposure&rdquo; (our headline spans all instruments; a first-lien
-          toggle gives the comparable view). A loan&apos;s vintage is the BDC&apos;s own disclosed acquisition date,
-          else the same tranche&apos;s date at a peer BDC, else a labelled estimate; the default view uses
-          high-confidence dates only, and a cohort gets a high-confidence figure only when those loans carry at least
-          a quarter of its cost. Each age adds the new defaults among the loans old enough to have reached it, so
-          the cumulative rate never falls at a cohort&apos;s oldest ages, and loans whose non-accrual status is
+          Share of a vintage&apos;s entry cost ever flagged non-accrual OR that left in distress or was restructured
+          (its borrower left the BDC with the loan below 85¢, or below 90¢ after a mark under 80¢, while marked under
+          90% of its cost or purchase price; or, while the borrower kept debt there, it was swapped for new equity or
+          much smaller or junior debt) — directionally comparable to Raymond James&apos;s &ldquo;cumulative 1L default
+          exposure&rdquo; (ours spans all loans, with equity and vehicles such as CLO notes and joint ventures left out; a first-lien toggle gives the comparable view). A
+          loan&apos;s vintage is the BDC&apos;s own disclosed acquisition date (a peer&apos;s earlier date replaces it only
+          for the same tranche, due in the same year and within three months of it), else the same deal&apos;s date at a
+          fund of the same adviser, else the quarter the BDC (or an earlier holder of the tranche) first showed it, else
+          another BDC&apos;s date for the same tranche (which also gives a first sighting its day when it falls in the
+          same year), else a labelled estimate; the default view uses high-confidence dates only, and a cohort gets a
+          high-confidence
+          figure only when those loans carry at least a quarter of its cost. Each age adds the new defaults among the
+          loans old enough to have reached it, so the cumulative rate never falls at a cohort&apos;s oldest ages, and
+          loans whose non-accrual status is
           unknown are left out rather than counted as performing.
         </p>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
@@ -290,8 +310,8 @@ export default function AboutPage() {
         <ul className="text-xs leading-relaxed pl-5 list-disc" style={{ color: "#9ca3af" }}>
           <li>The industry vintage rollup leaves out a loan when none of the BDCs holding its borrower was yet in our data by the end of its vintage year (such cohorts would count only the loans that survived until coverage began), and vintages where fewer than 60% of BDCs were yet in our data are marked thin.</li>
           <li>Matching a loan across quarters can mistake a refinancing or a relabelled loan for an amendment, and the rules can&apos;t confirm legal terms or promise to catch every modification.</li>
-          <li>Acquisition disclosures can refer to purchases, amendments or new securities, so a disclosed date can reset after a refinancing. Dates later than our first sighting of a loan are rejected, and estimated dates are graded LOW. The dating check on /vintage uses a small reference set of public financings; it is not a representative accuracy benchmark.</li>
-          <li>Several BDCs never disclose acquisition dates; their vintages rest on peer dates or estimates (see &ldquo;How each book is dated&rdquo; on /vintage).</li>
+          <li>Acquisition disclosures can refer to purchases, amendments or new securities, so a disclosed date can reset after a refinancing. No loan is dated after the year we first saw it, and estimated dates are graded LOW (defaulted paper dated from its holder&apos;s first loan to the borrower, MED). The dating check on /vintage uses a small reference set of public financings; it is not a representative accuracy benchmark.</li>
+          <li>Several BDCs never disclose acquisition dates; their vintages rest on sister funds&apos; or peers&apos; dates, first sightings or estimates (see &ldquo;How each book is dated&rdquo; on /vintage).</li>
         </ul>
       </div>
 

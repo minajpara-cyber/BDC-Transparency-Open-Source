@@ -142,6 +142,8 @@ export default function IncomePage() {
   );
   const drU = drUniverse[drUniverse.length - 1];
   const drU1y = drU ? drUniverse.find((u) => u.period_end === shiftYears(drU.period_end, -1)) : undefined;
+  // BDCs whose latest window ends before the pooled line's newest point have not filed that quarter yet.
+  const drBehind = drU ? drLatest.filter((r) => r.period_end < drU.period_end).map((r) => r.ticker).sort() : [];
   const drFirst = drUniverse[0];
   const drPoolSizes = drUniverse.map((u) => u.n_bdcs);
   const drPoolMin = drPoolSizes.length ? Math.min(...drPoolSizes) : null;
@@ -264,7 +266,7 @@ export default function IncomePage() {
               sub={`${drU1y ? `${drU1y.default_rate.toFixed(1)}% a year earlier · ` : ""}${drU.n_bdcs} BDCs pooled, by $ · adds term changes (inferred)`}
               color="#f97316" highlight />
             <StatCard label="Hard default rate" value={`${drU.hard_rate.toFixed(1)}%`}
-              sub={`new non-accruals ${drU.rate_non_accrual.toFixed(1)}% + distressed exits ${drU.rate_distressed_exit.toFixed(1)}% (inferred from exit mark)`}
+              sub={`new non-accruals ${drU.rate_non_accrual.toFixed(1)}% + distressed exits ${drU.rate_distressed_exit.toFixed(1)}% (inferred from exit marks and restructurings)`}
               color="#ef4444" />
             <StatCard label="Shadow rate by borrower count" value={`${drU.count_rate.toFixed(1)}%`}
               sub={`hard rate by count ${drU.count_rate_hard.toFixed(1)}%`} color="#fde68a" />
@@ -296,13 +298,18 @@ export default function IncomePage() {
           )}
           <p className="mb-2">
             <span className="text-white">How this one is built.</span>{" "}Every borrower that was performing twelve
-            months earlier is followed through the year at the same BDC; it counts once, under its first event.
+            months earlier is followed through the year at the same BDC; it counts once, under its first event. CLO
+            and other structured notes, joint ventures, funds and securitizations are not borrowers and are left out
+            altogether, judged on the labels of every quarter a loan was filed.
             New non-accruals are observed in the filings. The other legs are inferred, not disclosed:{" "}
-            <span className="text-white">distressed exits</span>{" "}are inferred from the exit mark (the loan left
-            the book below 85¢, or after a mark below 80¢, without going non-accrual, or a marked-down loan was
-            swapped for new equity or much smaller or junior debt — a low last mark is not proof of a loss, and some
-            of these may be sales at a discount; a piece repaid or refinanced while the borrower keeps its debt at the
-            BDC is not counted; CLO and other structured-finance notes are left out altogether), and{" "}
+            <span className="text-white">distressed exits</span>{" "}are inferred from the exit mark or a restructuring (the loan left
+            the book below 85¢, or below 90¢ after a mark under 80¢, while marked under 90% of its cost or purchase
+            price, without going non-accrual; or a marked-down loan was swapped for new equity or much smaller or
+            junior debt — a low last mark is not proof of a loss, and some of these may be sales at a discount; a
+            piece repaid or refinanced while the borrower keeps its debt at the BDC is not counted, nor is a loan
+            that carries on under the borrower&apos;s new name, a small stub or rounding residual, or a revolver with
+            nothing drawn; a loan whose cost sits above its par is judged on its par, and a preferred stake growing by
+            its own PIK dividend is not new equity), and{" "}
             <span className="text-white">restructurings and PIK amendments</span>{" "}are inferred from changes in
             the loan&apos;s terms between filings. A PIK amendment counts only when PIK becomes at least a fifth of
             the coupon after at least two cash-pay quarters, and a modification only when it touches at least a
@@ -312,7 +319,8 @@ export default function IncomePage() {
             <span className="text-white">Which BDCs are in it.</span>{" "}A BDC&apos;s twelve months count only when
             every loan&apos;s non-accrual status is known at the start and in every quarter of the year — an unknown
             status is never treated as &quot;performing&quot;.
-            {drU ? ` The latest pooled figure covers ${drU.n_bdcs} of ${drLatest.length} BDCs.` : ""}
+            {drU ? ` The latest pooled figure covers ${drU.n_bdcs} of ${drLatest.length} BDCs${drBehind.length > 0
+              ? `; ${joinList(drBehind)} ${drBehind.length === 1 ? "has" : "have"} not filed ${drU.period_end} yet` : ""}.` : ""}
             {drWithheld.length > 0
               ? ` Withheld: ${drWithheld.map((r) => `${r.ticker} (${withheldReason(r.window_observation_status)})`).join("; ")}.`
               : ""}

@@ -110,6 +110,14 @@ function benchmarkText(): string {
 const SCAN_TEXT = scanText();
 const BENCHMARK_TEXT = benchmarkText();
 
+const fac = vintageGolden.facilities;
+const holdout = vintageGolden.holdout;
+// The hold-out's head-to-head on the loans both first sighting and another
+// BDC's date for the tranche can date (holdout.order; not in the export's type).
+const holdoutOrder = (holdout as (NonNullable<typeof holdout> & { order?: { n: number;
+  first_sighting?: { exact_pct?: number }; peer_date?: { exact_pct?: number } } }) | undefined)?.order;
+const statedMaturity = fac?.by_maturity_evidence?.stated;
+
 export default function MethodologyPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -231,8 +239,9 @@ export default function MethodologyPage() {
           </p>
           <p>
             <span className="text-white">Vintage assignment:</span>{" "}each loan gets a vintage date from
-            the best evidence available — the BDC&apos;s own disclosed acquisition date, else the same
-            tranche&apos;s date at a peer BDC, else a labelled estimate — and a HIGH / MED / LOW
+            the best evidence available — the BDC&apos;s own disclosed acquisition date, else the same deal&apos;s
+            date at a fund of the same adviser, else the quarter the BDC (or an earlier holder of the tranche) first
+            showed it, else another BDC&apos;s date for the same tranche, else a labelled estimate — and a HIGH / MED / LOW
             confidence tier (see <a href="#vintage" className="text-indigo-400 hover:underline">Vintage
             dating</a>). These are acquisition or first-seen dates, not proven origination dates. The
             /vintage page defaults to HIGH+MED dates only.
@@ -240,9 +249,17 @@ export default function MethodologyPage() {
           <p>
             <span className="text-white">Loan exits:</span>{" "}when a loan stops appearing in a BDC&apos;s
             schedule we tag it as exited. We can&apos;t tell <em>why</em>{" "}— refinancing, paydown, sale or
-            write-off — but we flag <em>distress exits</em>: a last mark below 85¢, or any non-accrual or
-            sub-80¢ mark before the loan left. Those count toward cumulative default on /vintage, and
-            the last mark before exit gives the mark-based loss proxy (not realized loss).
+            write-off — but we flag loans that <em>left in distress or were restructured</em>. When the borrower
+            leaves the BDC, that is a loan ever on non-accrual, or one that left below 85¢ (or below 90¢ after a mark
+            under 80¢) while marked under 90% of its cost or purchase price. When the borrower keeps debt at the BDC,
+            a distressed loan counts only when it was restructured: swapped for new equity (not a preferred stake growing
+            by its own PIK dividend), for much smaller or only junior debt, or re-papered as another loan while on
+            non-accrual or marked under 80¢. Not counted: a loan that carries on under the borrower&apos;s new name (a
+            continuation, not a repayment), a small stub or rounding residual, or a revolver with nothing drawn; a loan
+            carried above par is judged on its par. CLO and other structured notes, joint ventures, funds and
+            securitizations are not borrowers: a vehicle that leaves the book is neither a repayment nor a distressed
+            exit. Those events count toward cumulative default on /vintage, and the loan&apos;s fair value against its
+            cost at the last filing before the event gives the mark-based loss proxy (not realized loss).
           </p>
         </div>
       </section>
@@ -261,21 +278,21 @@ export default function MethodologyPage() {
             <tbody className="text-xs" style={{ color: "#d1d5db" }}>
               {[
                 ["% non-accrual", "Amortized cost of positions flagged non-accrual ÷ amortized cost of all positions in the filing's schedule (debt and equity alike), when every position's flag can be read. Cash, money-market funds and unfunded commitments are left out of both sides. Where a BDC reports only a total, its reported rate is shown; where the filing states that nothing was on non-accrual on that date, 0.00% is shown with the quoted sentence as its source. A quarter whose flags are incomplete or on hold shows as unknown, never as zero. The industry line on /credit is dollar-weighted across the BDCs with a usable rate that quarter; it shows how many BDCs each point pools and which were left out of the latest one, and plots quarters with at least 5."],
-                ["% below 95¢ / 90¢ / 80¢ of par", "Cost of loans marked below the threshold, divided by the cost of loans with a mark. A loan's mark is its fair value ÷ par, counted only when par is a price basis. The rules, in full: (1) a funded loan, not an unfunded commitment; (2) par in US dollars — a par printed in euros, sterling or another currency is converted at the balance-sheet date's exchange rate, and the currency the filing prints beats the one in its XBRL tags; (3) par between half and twice cost — or up to fifty times cost for a loan that was written down or restructured (on non-accrual, paying PIK, or valued more than 10% away from its cost), so a distressed loan keeps its low mark; (4) cost no more than 1.06× par, or 1.35× par for a converted foreign-currency par (its cost is at the exchange rate on the day it was bought) as long as it is not marked above 103¢; (5) not a partly drawn revolver or delayed draw whose par is the whole commitment — fair value close to the drawn cost (0.95–1.15×) while under 95¢ of par, or par above twice cost. MFIC (Sep 2021–Mar 2024) and ADS (Sep 2022–Mar 2024) printed the whole commitment as the par of unlabelled loans, so their loans in those quarters are treated like revolvers. Equity, preferred, warrants, fund and joint-venture interests and CLO equity are never in it. A BDC-quarter with a mark on under half of its loan cost shows as unknown. The industry line adds the SEC bulk-data funds on the same mark."],
-                ["Loan mark (borrower pages, holdings, cross-holder views)", "For one BDC's position in one borrower: the fair value of its loans to the borrower ÷ their par, over the loans that have a usable US-dollar par (same rules as above, written-down loans included), in cents per dollar of par. Shown only when the loans left out cannot move it: the marked loans carry at least 80% of the BDC's loan cost and of its loan fair value to the borrower (a partly drawn revolver's commitment-sized par is left out of both), and no left-out loan is on non-accrual. Otherwise \"—\". Preferred, common, warrants and other equity are never in it: they are shown separately, at fair value and as a % of what the BDC paid."],
+                ["% below 95¢ / 90¢ / 80¢ of par", "Cost of loans marked below the threshold, divided by the cost of loans with a mark. A loan's mark is its fair value ÷ par, counted only when par is a price basis. Twelve BDCs (OBDC, OCIC, OTF, BCRED, BXSL, ADS, MFIC, CCAP, OCSL, BBDC, TSLX and CGBD) print one fair value for a facility, net of the discount on its undrawn part: there, in filings that tag their unfunded-commitment table, a loan with an undrawn commitment is priced on its whole commitment, from that table. The rules, in full: (1) a funded loan, not an unfunded commitment; (2) par in US dollars — a par printed in euros, sterling or another currency is converted at the balance-sheet date's exchange rate, and the currency the filing prints beats the one in its XBRL tags; (3) par between half and twice cost — or up to fifty times cost for a loan that was written down or restructured (on non-accrual, paying PIK, or valued more than 10% away from its cost), so a distressed loan keeps its low mark; (4) cost no more than 1.06× par, or 1.35× par for a converted foreign-currency par (its cost is at the exchange rate on the day it was bought) as long as it is not marked above 103¢; (5) not a partly drawn revolver or delayed draw whose par is the whole commitment — fair value close to the drawn cost (0.95–1.15×) while under 95¢ of par, or par above twice cost — unless one of those twelve BDCs' commitment tables prices it, and then not if that price would sit 5¢ or more below the borrower's other loans (its par is not its drawn par); (6) at those twelve BDCs, not a loan whose undrawn commitment could not be tied to it; (7) not marked above 150¢ (a loan with an equity feature). MFIC (Sep 2021–Mar 2024) and ADS (Sep 2022–Mar 2024) printed the whole commitment as the par of unlabelled loans, so their loans in those quarters are treated like revolvers. Equity, preferred, warrants, fund and joint-venture interests and CLO equity are never in it. A BDC-quarter with a mark on under half of its loan cost shows as unknown. The industry line adds the SEC bulk-data funds on the same mark."],
+                ["Loan mark (borrower pages, holdings, cross-holder views)", "For one BDC's position in one borrower: the value of its loans to the borrower ÷ their par — fair value, or the whole-commitment price for a loan with an undrawn commitment at the twelve BDCs above — over the loans that have a usable US-dollar par (same rules as above, written-down loans included), in cents per dollar of par. Shown only when the loans left out cannot move it: the marked loans carry at least 80% of the BDC's loan cost and of its loan fair value to the borrower (a partly drawn revolver's commitment-sized par, and a loan whose undrawn commitment could not be tied to it, are left out of both), and no left-out loan is on non-accrual. Otherwise \"—\". Preferred, common, warrants and other equity are never in it: they are shown separately, at fair value and as a % of what the BDC paid."],
                 ["% PIK", "Cost of positions known to pay any PIK ÷ cost of all positions in the schedule. Preferred stock paying its dividend in kind counts as PIK. Where some positions' PIK status is unknown, an upper figure counts them all as PIK. One number (the known share) is shown unless the two differ by more than 1pp, in which case the range is shown; otherwise the range is in the hover text. A figure is called 'bounded' only when the two differ by at least 0.1pp, and a quarter-on-quarter change is shown when both quarters differ by under 0.25pp. Coverage is the share of cost whose PIK status is known. This is a stock measure, unlike the quarterly cash → PIK flow below."],
                 ["Severe PIK, by type", "Severe PIK is PIK making up half or more of a position's coupon, or all of it. Each severe position is typed by why it pays in kind: preferred stock, equity and convertible notes (PIK by design); debt already paying PIK the first time it appears in our data; debt that switched from cash to PIK while held (the same loan, or a new PIK loan cut from it at a restructuring); or debt whose history is unclear. The four add up to severe PIK. See Severe PIK below."],
                 ["Inferred cash → PIK modification rate", "Current USD cost of material-rule PIK events / eligible debt cost. A loan is eligible when it is funded, identified debt and its PIK status was read at both adjacent calendar quarter-ends; an event also needs two earlier cash-pay quarters. Only PIK status is needed: a missing spread, par or maturity does not remove a loan or an event from this rate (those inputs have their own denominators in the broad measure). Next-quarter persistence may be provisional. Zero-event issuers and unknown severity remain in totals. A BDC-quarter from an era whose PIK marks could not be read reliably shows no rate (a gap, not 0%). This does not confirm a disclosed amendment or rule out refinancing."],
                 ["Weighted-avg spread (bps)", "Parsed from the SOI's reference-rate text (e.g. 'SOFR + 5.75%' → 575 bps). Cost-weighted across positions. Floating-rate loans give a clean read; fixed-rate notes fall through to coupon as a proxy."],
-                ["Cumulative default exposure (vintage)", "Entry cost of loans ever flagged non-accrual OR that left the book in distress, as % of the vintage cohort's entry cost. Each age adds the new defaults at that age among the loans old enough to have reached it (leaving out loans whose non-accrual status is unknown then), so the cumulative rate never falls when fewer loans are old enough at a cohort's oldest ages. Directionally comparable to Raymond James's 'cumulative 1L default exposure' (our headline spans all instruments; the first-lien toggle gives the strictly comparable view: loans labelled first lien, one stop, unitranche or senior secured)."],
-                ["Mark-based loss proxy (vintage)", "For distress exits: last reported fair value − last reported cost of every piece of the loan in its last quarter, as % of that cost. Filings don't disclose sale prices, so this is the final markdown, not realized loss-given-default. Only loans can be distress exits — an equity stake sold or written off is not. Shown only for vintages with at least 10 distress exits; a net markup shows as 0%, never as a negative loss."],
+                ["Cumulative default exposure (vintage)", "Entry cost of loans ever flagged non-accrual OR that left in distress or were restructured, as % of the vintage cohort's entry cost. Each age adds the new defaults at that age among the loans old enough to have reached it (leaving out loans whose non-accrual status is unknown then), so the cumulative rate never falls when fewer loans are old enough at a cohort's oldest ages. Directionally comparable to Raymond James's 'cumulative 1L default exposure' (ours spans all loans: equity, warrants and fund interests are out of every curve, and so are CLO and other structured notes, joint ventures, funds and securitizations; the first-lien toggle gives the strictly comparable view: loans labelled first lien, one stop, unitranche, senior secured, senior loan or first out)."],
+                ["Mark-based loss proxy (vintage)", "For loans that left in distress or were restructured: fair value − cost of every piece of the loan at the last filing before the exit or restructuring (the filing before that when the BDC wrote the loan's cost down to its mark in it), as % of that cost. A loan whose money rolled into the loan that defaulted counts at no cost of its own. Filings don't disclose sale prices, so this is the final markdown, not realized loss-given-default. Only loans can be distress exits — an equity stake sold or written off is not. Shown only for vintages with at least 10 distress exits; a net markup shows as 0%, never as a negative loss."],
                 ["% of cohort still on book", "Share of a vintage's entry cost still on a BDC's schedule at age T, chained age by age (at each age, the share of the old-enough loans on the book at the previous age that are still there). Cannot exceed 100% and never rises."],
                 ["Disclosed-dates-only NA bounds", "The stricter cross-check tab on /vintage: fixed initial-cost share of holding groups (dated only by the holder's own acquisition date or first observation) with any observed quarter-end non-accrual (lower), plus groups with unresolved past status, including every exit (upper). Not default rates."],
-                ["PIK cascade", "For every loan tranche that switched from cash interest to PIK, where it was a year later: back to cash-pay, still PIK (split by mark: 90¢ or more, 80–90¢, under 80¢, or mark unknown), or gone from the book while the BDC was still filing. The mark is the loan's fair value ÷ par (unknown when par is not a price basis, such as a commitment-sized par). 'Left the book' does not say whether the loan was repaid, refinanced, sold or written off. Follow-ups that have not happened yet are 'not yet seasoned', and a switch whose later filing is missing or unreadable is 'status unknown' rather than any outcome, so each year adds to 100%."],
-                ["Default rate (hard / shadow)", "Of the debt that was performing twelve months earlier, the share whose borrower defaulted during the year, counted once at its first event. Hard = new non-accrual (observed) or a distressed exit (inferred from the exit mark: left below 85¢, or after a mark below 80¢, without going non-accrual). Shadow adds restructurings and PIK amendments inferred from term changes. Published only for BDC windows where every loan's non-accrual status is known at the start and in every quarter; others are listed as withheld with the reason."],
+                ["PIK cascade", "For every loan tranche that switched from cash interest to PIK, where it was a year later: back to cash-pay, still PIK (split by mark: 90¢ or more, 80–90¢, under 80¢, or mark unknown), or gone from the book while the BDC was still filing. The mark is the loan's mark as above: fair value ÷ par, or its whole-commitment price at one of the twelve BDCs that net the undrawn discount into fair value (unknown when par is not a price basis, such as a commitment-sized par). 'Left the book' does not say whether the loan was repaid, refinanced, sold or written off. Follow-ups that have not happened yet are 'not yet seasoned', and a switch whose later filing is missing or unreadable is 'status unknown' rather than any outcome, so each year adds to 100%."],
+                ["Default rate (hard / shadow)", "Of the debt that was performing twelve months earlier, the share whose borrower defaulted during the year, counted once at its first event. Hard = new non-accrual (observed) or a distressed exit (inferred, without going non-accrual: left below 85¢, or below 90¢ after a mark under 80¢, while marked under 90% of its cost or purchase price; or swapped for new equity or much smaller or junior debt). Shadow adds restructurings and PIK amendments inferred from term changes. CLO and other structured notes, joint ventures, funds and securitizations are not borrowers and are left out of both sides; a borrower merely named with \"JV\" (such as Vector JV Bidco) is not a vehicle. Published only for BDC windows where every loan's non-accrual status is known at the start and in every quarter; others are listed as withheld with the reason."],
                 ["Where did the PIK go (PIK ledger)", "The PIK booked since the window start, allocated to loans by their disclosed PIK rates (a floating loan that pays its whole coupon in kind but is printed as a spread accrues at the quarter-end reference rate plus the spread, or at the filer's all-in rate where one is printed) and followed to today; the loan-level dollars are scaled to the cash-flow statement's PIK in quarters where at least 97% of the book's cost has a known PIK status and rate. Still in the book (performing, relabelled to another equity line at the same borrower, impaired, or PIK status unknown) is observed. Collected (loans that left valued at 97% of their cost or more — fair value ÷ cost, not cents of par — or were refinanced at the same BDC) is an estimate, compared with the BDCs that report their PIK collections. Lost is estimated from the last value against cost before exit, not from sale proceeds."],
-                ["Forward queue (implied non-accrual formation)", "Each loan not yet on non-accrual is scored on warning signals (mark below 90¢, mark drop, cash → PIK switch, modification, junior ranking, another holder already on non-accrual); a signal gets points in proportion to how much more often loans carrying it went non-accrual, and none if too few loans carried it to measure. The score was fitted on older data and tested on later quarters it had not seen; each score bucket's hit rate there (share going non-accrual within two quarters) is applied to the BDC's scored book. Loans whose status is unknown at the start or at either later quarter are left out of the test rather than counted as performing, and so are loans whose borrower was already on non-accrual at the same BDC; a signal that cannot be checked counts as absent, so a BDC's figure is a lower bound where its signal coverage is below 100%."],
-                ["Cross-BDC mark dispersion", "For borrowers whose loans are held by ≥3 BDCs with a loan mark, the spread between the highest and lowest loan mark (fair value ÷ par of each BDC's loans to the borrower), each BDC at its latest book. Equity and preferred stakes are never in a mark; a loan written to zero counts at 0¢."],
+                ["Forward queue (expected new non-accruals)", "Each borrower observed performing at a BDC gets a chance of going on non-accrual there within a year, from one logistic regression read by the watchlist, this queue and the forward forecast. Its inputs are the BDC's mark, the lowest mark any holder puts on the borrower, its mark against other holders' marks, how the mark moved over a quarter and a year, PIK, equity written down, an earlier non-accrual at the same BDC, a maturity inside three years, the spread, the loan's age and size, the holder, and a loan already on non-accrual at another BDC. Each past quarter's chance comes from a fit only on borrowers whose four-quarter outcome was already known then. A loan marked below 80¢ has its chance read against the record of earlier loans marked that low. The book is loans only, so a fund or joint-venture stake with no loan is not in it; a holding that is mostly CLO, structured or other vehicle paper stays out of the fit and carries the rate at which such holdings have gone on non-accrual. The chances are then moved together, by one shift on the log-odds, until their average across BDCs matches the rate of new non-accruals over the latest four starting quarters whose year has passed; each BDC's own total sits above or below that level as its borrowers' chances put it. The figure is those chances added up by cost over the performing book. Borrowers whose non-accrual status we could not see are left out of the test rather than counted as performing, except that a single unread quarter between two quarters read as performing counts as performing; borrowers already on non-accrual at the same BDC are left out too, and an input that cannot be observed is recorded as missing, not assumed clear."],
+                ["Cross-BDC mark dispersion", "For borrowers whose loans are held by ≥3 BDCs with a loan mark, the spread between the highest and lowest loan mark (each BDC's loan mark on the borrower, as defined above, whole-commitment prices included), each BDC at its latest book. Equity and preferred stakes are never in a mark; a loan written to zero counts at 0¢."],
               ].map(([metric, desc]) => (
                 <tr key={metric} style={{ borderBottom: "1px solid #1a1a28" }}>
                   <td className="px-4 py-3 font-semibold text-white whitespace-nowrap align-top">{metric}</td>
@@ -447,26 +464,58 @@ export default function MethodologyPage() {
             order of trust:
           </p>
           <ol className="list-decimal list-inside space-y-1.5">
-            <li><span className="text-white">Own disclosed date</span> — the earliest date this BDC ever printed for the loan (two-digit years such as BBDC&apos;s &ldquo;04/22&rdquo; read as April 2022), overridden when peers holding the <em>same tranche</em> (same lien, maturity within ±2 years) agree on a meaningfully earlier date.</li>
-            <li><span className="text-white">Peer date, same tranche</span> — another BDC&apos;s disclosed date for the same facility.</li>
-            <li><span className="text-white">Estimates (graded LOW)</span> — a long-tail fund&apos;s date for the same borrower name, a sibling facility&apos;s date, the borrower&apos;s first appearance in SEC bulk data, maturity minus a typical tenor (first lien ≈ 6y, calibrated on stable disclosed loans), or the first quarter we saw the loan when the quarter before was reliably parsed.</li>
+            <li><span className="text-white">Own disclosed date</span> — the earliest date this BDC ever printed for the loan (two-digit years such as BBDC&apos;s &ldquo;04/22&rdquo; read as April 2022), replaced only when a peer holding the <em>same tranche</em>{" "}(same borrower and lien, due in the same year and within three months) printed one more than 90 days earlier: a BDC that joined a facility late cannot make it younger. A date printed as a merger or seed-portfolio day is not a loan&apos;s date.</li>
+            <li><span className="text-white">Same deal at a sister fund</span> — the date a fund of the same adviser printed for the same tranche. Funds of one adviser invest together and print the deal&apos;s own date.</li>
+            <li><span className="text-white">First sighting</span> — the quarter this BDC first showed the loan, when its previous book is on file and no merger landed that quarter; or the earlier year in which another holder showed the same tranche, which also dates a loan first shown in a merger quarter or an opening book. A piece of a borrower it already held, seen a year later or with four years or less left to maturity, dates from that first position instead (usually not new money), graded LOW — but not when that first position came in a merger or seed book or the first book on file of a BDC that lent before, nor when the piece is new money (no debt to the borrower in the book before and due later than anything held, or seven or more years left).</li>
+            <li><span className="text-white">Another BDC&apos;s date, same tranche</span> — when it falls in the year first sighting gives, it dates the day; it also dates loans that no sighting dates.</li>
+            <li><span className="text-white">Estimates (graded LOW)</span> — a peer&apos;s tranche maturing within two years, a long-tail fund&apos;s date for the same borrower name, maturity minus a typical tenor (never after first sighting), a sibling facility&apos;s date. Otherwise the loan stays undated and is left out.</li>
           </ol>
+          <p>
+            <span className="text-white">The order is measured, not assumed.</span>{" "}
+            {holdout?.overall?.n ? (
+              <>
+                Hide a date a BDC did print, together with the dates its adviser&apos;s other funds printed, and see which rule
+                recovers it: across {holdout.overall.n.toLocaleString()}{" "}debt
+                loans, {holdout.overall.exact_pct?.toFixed(0)}% land on the exact year and {holdout.overall.within_1y_pct?.toFixed(0)}% within a year
+                {holdout.by_source?.xbdc_borrow?.exact_pct != null && <> (another BDC&apos;s date for the same tranche {holdout.by_source.xbdc_borrow.exact_pct.toFixed(0)}% exact; first sighting {holdout.by_source.first_obs_reliable?.exact_pct?.toFixed(0)}%; maturity minus tenor {holdout.by_source.tenor_model?.exact_pct?.toFixed(0)}%)</>}.{" "}
+                {holdoutOrder?.first_sighting?.exact_pct != null && holdoutOrder.peer_date?.exact_pct != null && <>On the {holdoutOrder.n.toLocaleString()}{" "}loans that both first sighting and another BDC&apos;s date can date, the sighting gets the year right {holdoutOrder.first_sighting.exact_pct.toFixed(0)}% of the time and the other BDC&apos;s date {holdoutOrder.peer_date.exact_pct.toFixed(0)}%, so where they disagree on the year the sighting wins.{" "}</>}
+              </>
+            ) : null}
+            A sister fund&apos;s date comes first because it is the deal&apos;s own. A first sighting outranks a date borrowed
+            from a different facility of the same borrower, and older rules that clipped a first sighting by maturity or by a
+            discounted mark are gone: they landed on the right year far less often than the sighting they replaced. The
+            test&apos;s truth is what the holder printed, so a rule that finds a facility&apos;s true start scores low when the
+            holder joined late.
+          </p>
           <p>
             <span className="text-white">A loan can&apos;t be dated after we saw it.</span>{" "}If a candidate date is
             more than two quarters after the first filing that shows the loan (typically an amendment
-            re-dating the loan, or a peer&apos;s date for a later facility), it is rejected and the next
-            source is used. A BDC&apos;s own re-dated date replaced by the same tranche&apos;s peer date or a
-            reliably covered first sighting counts as corrected (MED); anything else is an estimate (LOW). Each loan&apos;s tier comes from how stable its
-            disclosure is across quarters and holders (HIGH ≤90 days of drift, MED ≤12 months); the
-            default view uses HIGH+MED only. Refinancings that extend maturity are stitched to the
+            re-dating the loan), it is rejected and the next source is used. A BDC&apos;s own date replaced by a
+            peer&apos;s or a sister fund&apos;s date for the same tranche, or by a first sighting, counts as corrected
+            (MED). A date&apos;s tier comes from how stable it is across quarters and across holders of the same tranche
+            (HIGH ≤90 days of drift, MED ≤12 months); a first sighting is MED with five or more years left to maturity,
+            else LOW; estimates are LOW, except re-dated defaulted paper (below), which is MED. The default view uses
+            HIGH+MED only. Refinancings that extend maturity are stitched to the
             original loan, and loans are keyed on the entity matcher&apos;s borrower id, so a renamed
             borrower stays one loan. When a filer starts printing a maturity it used to put only in the
             description (ARCC before 2022-09 &ldquo;… due 05/2029&rdquo;, OCSL before 2023), the description&apos;s
             date is used, so the loan is not split in two at the format change.
           </p>
           <p>
+            <span className="text-white">Mergers and re-papered defaults.</span>{" "}What first appears the quarter a BDC
+            merges with another (FSK with CCT and FSKR, OBDC with OBDE, GBDC with GBDC 3, MFIC with AFT and AIF, and others listed
+            in our data) came with that book, so its own first sighting says nothing about when it was made (another
+            holder&apos;s earlier sighting of the tranche can still date it). A loan first seen already on non-accrual, or cut
+            from a borrower already on non-accrual at that BDC, is defaulted paper in new clothes, not a young cohort&apos;s
+            loan: it goes back to the BDC&apos;s first position in the borrower where that position was a real start (not a
+            merger or seed book, or the first book on file of a BDC that lent before), an estimate graded MED; otherwise it
+            stays undated. Beside another default of the same credit and cohort it counts once. Equity and
+            warrants keep their dates in the exposure table but are out of every curve, because they cannot default and a
+            preferred share going on non-accrual is not the borrower defaulting.
+          </p>
+          <p>
             <span className="text-white">Weights and pieces.</span>{" "}Each loan is weighted by its cost in the
-            first quarter we saw it, summing every piece of the facility that quarter (for example a
+            first quarter we saw it funded, summing every piece of the facility that quarter (for example a
             USD term loan, a GBP tranche and an add-on). Only a filing row read twice is dropped as a
             duplicate. Unfunded commitments are left out.
           </p>
@@ -492,13 +541,28 @@ export default function MethodologyPage() {
             when those loans number at least 15 and carry at least a quarter of its counted cost; otherwise the
             all-dated figure is shown, untagged, and the BDC is not ranked on the HIGH+MED view. &ldquo;Mostly
             estimated&rdquo; means more than half of a cohort&apos;s entry cost is dated by an estimate rather than a
-            disclosed date. MFIC joins the curves from 2022-03-31, the first quarter its schedule marks each
-            non-accrual loan.
+            disclosed date or a first sighting. Every BDC counts from its first accepted filing: FSK and OBDC before
+            2022-06, and MFIC and CCAP before 2022-03, used to be cut off, which hid what they wrote off before then, but
+            their older books tie to the filings&apos; totals and their non-accrual flags to the rates they print.
           </p>
           <p>
             <span className="text-white">Dating check:</span>{" "}
+            {fac?.overall?.n ? (
+              <>
+                against {fac.n_facilities_matched}{" "}facilities whose closing year was looked up from public sources, without
+                sight of our dates ({fac.overall.n.toLocaleString()} matched loan-tranches),{" "}
+                {fac.overall.exact != null ? `${Math.round((100 * fac.overall.exact) / fac.overall.n)}%` : "—"} of assigned years are exact,{" "}
+                {fac.overall.pct_within_1y?.toFixed(0)}% are within a year and the mean absolute error is {fac.overall.mae_years?.toFixed(2)}{" "}years
+                {fac.by_tier?.HIGH?.pct_within_1y != null && <> (HIGH dates {fac.by_tier.HIGH.pct_within_1y.toFixed(0)}% within a year, MED {fac.by_tier.MED?.pct_within_1y?.toFixed(0)}%, LOW {fac.by_tier.LOW?.pct_within_1y?.toFixed(0)}%)</>}.
+                Each facility is a borrower, a lien and a maturity year, so a 2024 refinancing is scored against 2024 rather than the 2020 buyout.
+                {fac.n_facilities_tenor_linked != null && statedMaturity?.n ? <> Of those facilities, {fac.n_facilities_tenor_linked}{" "}tie the maturity to the deal by a typical tenor rather than a stated maturity, as the tenor model does; the {statedMaturity.n}{" "}tranches with a stated maturity are {statedMaturity.exact != null ? `${Math.round((100 * statedMaturity.exact) / statedMaturity.n)}%` : "—"} exact.</> : null}
+                {fac.against_deal_year?.mae_years != null && <> Against the year the sponsor&apos;s deal began, the average gap is {fac.against_deal_year.mae_years.toFixed(1)}{" "}years, mostly refinancings dated when they closed.</>}{" "}
+                It is a small set compiled from press releases and filings, not a measure of the whole book.{" "}
+              </>
+            ) : null}
             {vintageGolden.overall.n > 0 ? (
               <>
+                The older, borrower-level check:{" "}
                 against a small reference set of {vintageGolden.n_reference_financings_matched}{" "}publicly documented
                 financings ({vintageGolden.overall.n.toLocaleString()} matched loan-tranches; scored {vintageGolden.scored_on}),{" "}
                 {vintageGolden.overall.pct_within_1y?.toFixed(0)}% of assigned vintage years are within ±1 year and the
@@ -582,7 +646,7 @@ export default function MethodologyPage() {
             <li>
               <span className="text-white">Position-level drilldown.</span>{" "}
               Every heatmap cell from {FIRST_CELL.slice(0, 7)}{" "}on has a stressed-loans list behind it. It names every
-              loan on non-accrual, and the largest 12 below the mark threshold or paying PIK, with the full count
+              position on non-accrual, and the largest 12 below the mark threshold or paying PIK, with the full count
               beside them (&quot;Largest 12 of 40 flagged positions&quot;). A cell with nothing flagged has nothing to
               list.
               {NO_BOOK_GAPS.length > 0
@@ -613,17 +677,17 @@ export default function MethodologyPage() {
               ["Amortized cost", "Original loan cost adjusted for OID accretion / discount amortization since acquisition. The 'book value' the BDC carries the loan at, before fair-value marks."],
               ["BDC", "Business Development Company. A publicly regulated investment vehicle that makes loans to private middle-market companies. Most are externally managed by a private credit GP."],
               ["Coupon / spread", "The interest rate on a loan, usually quoted as a reference rate (SOFR / LIBOR) plus a spread (e.g. 'SOFR + 5.75%'). Floor / ceiling cap the floating rate."],
-              ["Cumulative default", "Share of a vintage's cost that has ever been flagged non-accrual or left the book in distress, counting only loans old enough to reach that age. Cures don't reduce it."],
-              ["Distress exit", "A loan that exited the book with last mark below 85¢ of par, or that was ever non-accrual / sub-80¢ during its life. Only loans count; an equity stake leaving the book is not a distress exit."],
+              ["Cumulative default", "Share of a vintage's cost that has ever been flagged non-accrual or that left in distress or was restructured, counting only loans old enough to reach that age. Cures don't reduce it."],
+              ["Distress exit", "A loan that left in distress or was restructured. If its borrower left the BDC: the loan was ever on non-accrual, or it left below 85¢ of par (or below 90¢ after a mark under 80¢) while marked under 90% of its cost or purchase price. If the borrower still holds debt there: only a restructuring counts (new equity, much smaller or only junior debt, a defaulted loan re-papered). Only loans count; an equity stake leaving the book is not a distress exit, and neither is a vehicle (CLO and other structured notes, joint ventures, funds, securitizations), a loan carried on under the borrower's new name, a small stub or rounding residual, or a revolver with nothing drawn."],
               ["Fair value (FV)", "The BDC's quarterly estimate of what the loan would sell for in an orderly transaction. Reported per position in the SOI."],
-              ["Mark-based loss proxy", "Last reported fair value minus last reported cost for loans that left the book in distress, as % of cost. A markdown, not a realized loss."],
-              ["Mark", "A loan's fair value ÷ its par, in cents per dollar of par (a mark of 0.85 = 85¢). Below 100 = the BDC has marked the loan below face value. Counted only for loans whose par is a US-dollar principal (converted from another currency where printed so); equity and preferred have no mark — they are shown at fair value and as a % of cost, never in cents."],
+              ["Mark-based loss proxy", "Fair value minus cost at the last filing before a loan left in distress or was restructured (the filing before that when the BDC wrote the loan's cost down to its mark in it), as % of cost. A markdown, not a realized loss."],
+              ["Mark", "A loan's fair value ÷ its par, in cents per dollar of par (a mark of 0.85 = 85¢). Below 100 = the BDC has marked the loan below face value. At the twelve BDCs whose schedules net the undrawn discount into a facility's fair value, a loan with an undrawn commitment is priced on its whole commitment. Counted only for loans whose par is a US-dollar principal (converted from another currency where printed so); equity and preferred have no mark — they are shown at fair value and as a % of cost, never in cents."],
               ["Non-accrual", "Status applied when the BDC no longer expects full collection of interest. Position-level flag in the SOI footnotes."],
               ["OID (original issue discount)", "Discount at which a loan was issued vs. face value. Accretes back to par over the loan's life."],
               ["Par (face)", "The face value of the loan — what the borrower owes at maturity. Usually equals amortized cost ± small OID accretion."],
               ["PIK", "Payment-in-kind interest. Instead of paying cash, the borrower issues more debt to the lender. 'Cash → PIK' usually signals borrower distress."],
               ["SOI", "Schedule of Investments — the detailed position-by-position table in a BDC's 10-K / 10-Q filing."],
-              ["Vintage", "Year a loan came onto a BDC's book as best we can document it: the BDC's own disclosed acquisition date, else the same tranche's date at a peer BDC, else a labelled estimate. An acquisition or first-seen date, not a proven origination date."],
+              ["Vintage", "Year a loan came onto a BDC's book as best we can document it: the BDC's own disclosed acquisition date, else the same deal's date at a fund of the same adviser, else the quarter the BDC (or an earlier holder of the tranche) first showed it, else another BDC's date for the same tranche, else a labelled estimate. An acquisition or first-seen date, not a proven origination date."],
               ["XBRL", "Tagged-data format the SEC requires for financial filings (broadly since 2022). Pre-XBRL filings are HTML-only and harder to parse reliably."],
             ].map(([term, def]) => (
               <div key={term} className="px-5 py-3">

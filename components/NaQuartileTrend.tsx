@@ -25,26 +25,44 @@ const Q_META = [
 
 type TrendRow = Record<string, number | string | null>;
 
+/** The average projection across the quarter's BDCs: each group's average weighted by
+ *  its BDCs, since the groups are only about equal in size. */
 const avgPred = (row: TrendRow | undefined) => {
   if (!row) return null;
-  const values = Q_META.map((m) => row[`q${m.q}`]).filter((v): v is number => typeof v === "number");
-  return values.length ? values.reduce((s, v) => s + v, 0) / values.length : null;
+  let bdcs = 0;
+  let sum = 0;
+  for (const m of Q_META) {
+    const pred = row[`q${m.q}`];
+    const n = row[`n${m.q}`];
+    if (typeof pred === "number" && typeof n === "number" && n > 0) {
+      bdcs += n;
+      sum += pred * n;
+    }
+  }
+  return bdcs > 0 ? sum / bdcs : null;
 };
 
 const spread = (row: TrendRow | undefined) =>
   row && typeof row.q4 === "number" && typeof row.q1 === "number" && row.q1 > 0
     ? row.q4 / row.q1 : null;
 
+/** Highest group minus lowest, in percentage points. */
+const gapPp = (row: TrendRow | undefined) =>
+  row && typeof row.q4 === "number" && typeof row.q1 === "number" ? row.q4 - row.q1 : null;
+
 export default function NaQuartileTrend() {
   const [showActual, setShowActual] = useState(false);
 
-  const { data, firstUnrealised, lastRealised, nRealised, latest, first } = useMemo(() => {
+  const { data, firstUnrealised, lastRealised, nRealised, latest, first, bdcs } = useMemo(() => {
     const byPeriod = new Map<string, TrendRow>();
+    const bdcs = new Map<string, number>();
     for (const r of naQuartileSeries) {
       const row = byPeriod.get(r.period_end) ?? { period_end: r.period_end };
       row[`q${r.q}`] = r.pred;
       row[`a${r.q}`] = r.actual;
+      row[`n${r.q}`] = r.n;
       byPeriod.set(r.period_end, row);
+      bdcs.set(r.period_end, (bdcs.get(r.period_end) ?? 0) + r.n);
     }
     const data = Array.from(byPeriod.values()).sort((a, b) =>
       String(a.period_end).localeCompare(String(b.period_end)));
@@ -59,6 +77,7 @@ export default function NaQuartileTrend() {
       nRealised: data.filter(hasActual).length,
       latest: data[data.length - 1],
       first: data[0],
+      bdcs,
     };
   }, []);
 
@@ -84,7 +103,12 @@ export default function NaQuartileTrend() {
   const latestAvg = avgPred(latest);
   const firstSpread = spread(first);
   const latestSpread = spread(latest);
+  const firstGap = gapPp(first);
+  const latestGap = gapPp(latest);
   const label = (row: TrendRow | undefined) => String(row?.period_end ?? "").slice(0, 7);
+  // in a reporting season the newest quarter holds only the BDCs that have filed it
+  const latestBdcs = bdcs.get(String(latest?.period_end ?? ""));
+  const priorBdcs = data.length > 1 ? bdcs.get(String(data[data.length - 2].period_end)) : undefined;
 
   return (
     <div className="rounded-xl border overflow-hidden" style={{ background: "#111118", borderColor: "#1e1e2e" }}
@@ -97,7 +121,7 @@ export default function NaQuartileTrend() {
             </h2>
             <p className="text-xs mt-1 max-w-4xl" style={{ color: "#8b8ba8" }}>
               Each quarter, the BDCs with a projection are sorted by expected new non-accruals over the
-              following year and split into four equal groups; each line is one group&apos;s average.
+              following year and split into four groups of about equal size; each line is one group&apos;s average.
               This is universe-wide, not per BDC, and the groups are re-cut{" "}
               <span className="text-white">every quarter</span>, so a line tracks the shape of the
               distribution rather than a fixed set of names.
@@ -200,20 +224,22 @@ export default function NaQuartileTrend() {
         </div>
 
         <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
-          Each quarter&apos;s figures use only information available at the time — the model is re-fitted
-          on loans whose outcomes were already known — so this is what it would have said then, not a
-          fit to what later happened.{" "}
+          Each quarter&apos;s figures use only outcomes known at the time — the model is re-fitted
+          on loans whose outcomes were already known — so this is what it would have said then (but for a
+          loan&apos;s age, dated from all of its filings), not a fit to what later happened.{" "}
           {nRealised > 0
             ? `Outcomes are known for ${nRealised} of the ${data.length} quarters shown (through ${String(lastRealised).slice(0, 7)}); the shaded area is where the four-quarter outcome has not arrived yet. Where only some BDCs in a group have a known outcome, that group's actual is left blank.`
             : `None of the ${data.length} quarters shown has a known four-quarter outcome yet.`}
+          {latestBdcs != null && priorBdcs != null && latestBdcs < priorBdcs &&
+            ` The newest quarter, ${label(latest)}, has only the ${latestBdcs} BDCs that have filed it so far.`}
           {firstAvg != null && latestAvg != null &&
-            ` Across all four groups, the average projection moved from ${firstAvg.toFixed(2)}% in ${label(first)} to ${latestAvg.toFixed(2)}% in ${label(latest)}.`}
-          {firstSpread != null && latestSpread != null &&
-            (latestSpread < firstSpread
-              ? " The gap between the highest and lowest groups has narrowed: expected stress is spreading more evenly across BDCs."
-              : latestSpread > firstSpread
-                ? " The gap between the highest and lowest groups has widened: the riskiest BDCs are pulling away from the rest."
-                : "")}
+            ` Across the BDCs in all four groups, the average projection moved from ${firstAvg.toFixed(2)}% in ${label(first)} to ${latestAvg.toFixed(2)}% in ${label(latest)}.`}
+          {firstSpread != null && latestSpread != null && firstGap != null && latestGap != null &&
+            (latestSpread < firstSpread && latestGap < firstGap
+              ? ` The gap between the highest and lowest groups has narrowed, as a ratio and in points (${firstGap.toFixed(2)}pp to ${latestGap.toFixed(2)}pp): expected stress is spreading more evenly across BDCs.`
+              : latestSpread > firstSpread && latestGap > firstGap
+                ? ` The gap between the highest and lowest groups has widened, as a ratio and in points (${firstGap.toFixed(2)}pp to ${latestGap.toFixed(2)}pp): the riskiest BDCs are pulling away from the rest.`
+                : ` As a ratio the highest group has ${latestSpread < firstSpread ? "moved closer to" : "moved away from"} the lowest (${firstSpread.toFixed(1)}× to ${latestSpread.toFixed(1)}×), but in points the gap has ${latestGap > firstGap ? "widened" : "narrowed"}, from ${firstGap.toFixed(2)}pp to ${latestGap.toFixed(2)}pp.`)}
         </p>
       </div>
     </div>

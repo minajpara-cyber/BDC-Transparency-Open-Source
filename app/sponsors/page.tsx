@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { sponsors, SponsorIndex } from "@/data/sponsors_index";
-import { borrowers } from "@/data/borrowers_index";
 import { formatPikPublication, pikRangeText, sponsorPikPublication } from "@/lib/pikPublication";
 
 const fmtUSD = (v: number) => {
@@ -75,7 +74,8 @@ export default function SponsorsIndexPage() {
 
   const totalFV = rows.reduce((s, r) => s + r.total_fv, 0);
   const totalCompanies = rows.reduce((s, r) => s + r.n_companies, 0);
-  const indexedWithSponsor = borrowers.filter((b) => b.sponsors).length;
+  // the distinct companies the sponsor rows below attribute (a co-sponsored company once)
+  const indexedWithSponsor = new Set(sponsors.flatMap((s) => (s.companies ?? []).map((c) => c.slug ?? c.name))).size;
 
   const renderSortButton = ({
     k,
@@ -124,8 +124,8 @@ export default function SponsorsIndexPage() {
         <p className="text-sm" style={{ color: "#9ca3af" }}>
           Borrowers in our index attributed to each private-equity sponsor, with a
           credit lens layered on top. Sponsor mapping comes from bdctransparency.io&apos;s
-          curated company list; we intersect with our SOI parsing across all 14 covered
-          BDCs to pull per-sponsor exposure and credit metrics.
+          curated company list; we intersect with our SOI parsing across every BDC we
+          cover to pull per-sponsor exposure and credit metrics.
         </p>
       </div>
 
@@ -177,7 +177,7 @@ export default function SponsorsIndexPage() {
           <h2 className="font-semibold text-white">Sponsors by exposure &amp; credit lens</h2>
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
             Click any column header to sort. Credit metrics are debt-only and weighted
-            by position count across the latest snapshot per (BDC, borrower, loan).
+            by position count across every loan in each BDC&apos;s latest book.
             Higher = more stress on the credit columns. The two exit columns are proxies built from the
             filings — see the note under the table.
           </p>
@@ -204,14 +204,14 @@ export default function SponsorsIndexPage() {
                 <th
                   className="px-3 py-3 text-right border-l"
                   style={{ borderColor: "#1e1e2e", background: "rgba(239,68,68,0.04)" }}
-                  title="% of the sponsor's loans with a usable par marked below 95¢ per dollar of par (fair value ÷ par; equity and preferred stakes are left out)"
+                  title="% of the sponsor's loans with a usable par marked below 95¢ per dollar of par (fair value ÷ par; at the twelve BDCs whose schedules net the undrawn discount into a facility's fair value, a loan with an undrawn commitment is priced on its whole commitment; equity and preferred stakes are left out)"
                 >
                   {renderSortButton({ k: "pct_below_95", label: "< 95¢", align: "right" })}
                 </th>
                 <th
                   className="px-3 py-3 text-right"
                   style={{ background: "rgba(239,68,68,0.04)" }}
-                  title="% of the sponsor's loans with a usable par marked below 90¢ per dollar of par (fair value ÷ par; equity and preferred stakes are left out)"
+                  title="% of the sponsor's loans with a usable par marked below 90¢ per dollar of par (fair value ÷ par; at the twelve BDCs whose schedules net the undrawn discount into a facility's fair value, a loan with an undrawn commitment is priced on its whole commitment; equity and preferred stakes are left out)"
                 >
                   {renderSortButton({ k: "pct_below_90", label: "< 90¢", align: "right" })}
                 </th>
@@ -239,11 +239,11 @@ export default function SponsorsIndexPage() {
                 <th
                   className="px-3 py-3 text-right border-l"
                   style={{ borderColor: "#1a1a28", background: "rgba(239,68,68,0.06)" }}
-                  title="Of this sponsor's loans that have left a BDC's book across our panel, the share that left in distress: ever on non-accrual, or last marked below 85¢ at exit (or marked below 80¢ before exit). A proxy — the filings do not say why a loan left. The number in brackets is the count of exits."
+                  title="Of this sponsor's loans that have left a BDC's book across our panel, the share that left in distress or restructured: when the borrower left the BDC, ever on non-accrual, or a last mark below 85¢ (or below 90¢ after a mark under 80¢) with a markdown on cost or purchase price; when it kept other debt there, a restructuring into new equity, a smaller loan or more junior debt. A vehicle that leaves (CLO and other structured notes, joint ventures, funds, securitizations) is not a distress exit. A proxy — the filings do not say why a loan left. The number in brackets is the count of exits."
                 >
                   {renderSortButton({ k: "pct_exits_distress", label: "Distress exits", align: "right" })}
                   <div className="text-[10px] font-normal normal-case whitespace-nowrap text-right" style={{ color: "#6b6b88" }}>
-                    (proxy: ever non-accrual or exit mark &lt;85¢)
+                    (proxy: non-accrual, low exit mark, restructuring)
                   </div>
                 </th>
                 <th
@@ -359,8 +359,8 @@ export default function SponsorsIndexPage() {
       </div>
 
       <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
-        Credit lens: position-count weighted across the latest snapshot per (BDC, borrower,
-        investment type, maturity). Equity / preferred / warrants / partnership interests
+        Credit lens: position-count weighted across every position in each BDC&apos;s latest
+        book. Equity / preferred / warrants / partnership interests
         excluded from all credit metrics. The non-accrual denominator leaves out positions whose
         non-accrual status is unknown that quarter. Modified = loan flipped cash-pay → PIK
         within our observation window (from <code>loan_history.pik_modified_from_cash</code>).
@@ -371,8 +371,15 @@ export default function SponsorsIndexPage() {
       <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
         Exit columns are proxies. A loan &quot;exits&quot; when it leaves a BDC&apos;s schedule of investments;
         the filings do not say whether it was repaid, refinanced, sold or written off. A{" "}
-        <span style={{ color: "#8b8ba8" }}>distress exit</span>{" "}is one that was ever on non-accrual, or whose
-        last mark before leaving was below 85¢ (or that was marked below 80¢ at some point before it left). The{" "}
+        <span style={{ color: "#8b8ba8" }}>distress exit</span>{" "}is a loan that left in distress or restructured.
+        When the borrower left the BDC, that means the loan was ever on non-accrual, or it left marked below 85¢ (or
+        below 90¢, or written off, after a mark under 80¢) and marked down: fair value under 90% of its cost, or a price
+        under 90% of what the BDC paid. When the borrower kept other debt at the BDC, it means a restructuring: a
+        distressed loan swapped for new equity, a smaller loan or more junior debt, or re-papered while on non-accrual
+        or marked below 80¢. Not distress exits: a vehicle that leaves (CLO and other structured notes, joint
+        ventures, funds, securitizations), a loan carried on under another name, a stub left after a repayment, a
+        rounding residual or a revolver with nothing drawn. A preferred stake growing by its PIK dividend is not new
+        equity, and a loan whose cost sits above its par is priced on par. The{" "}
         <span style={{ color: "#8b8ba8" }}>realized-loss proxy</span>{" "}adds up last reported fair value minus cost
         over those distress exits — the last mark is not the sale price, so treat it as an estimate. Sponsors with
         fewer than 3 exits are greyed out.
@@ -380,8 +387,7 @@ export default function SponsorsIndexPage() {
       <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
         <span style={{ color: "#8b8ba8" }}>*</span> Italicized / muted rows have fewer than {THIN_COVERAGE}{" "}attributed
         borrowers in our scope — headline metrics may reflect a single concentrated holding
-        (e.g. Nordic Capital&apos;s Inovalon) rather than a sponsor-franchise pattern. Treat as
-        directional only.
+        rather than a sponsor-franchise pattern. Treat as directional only.
       </p>
     </div>
   );

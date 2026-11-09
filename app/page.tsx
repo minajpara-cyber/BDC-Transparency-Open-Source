@@ -12,7 +12,7 @@ import { nonAccrualFlow } from "@/data/non_accrual_events";
 import { ewsRows } from "@/data/early_warning_scores";
 import { maturityComparison } from "@/data/maturity";
 import { sponsors } from "@/data/sponsors_index";
-import { ewsIndustry, ewsInfo, scoreText, topValidationBucket } from "@/lib/earlyWarningDisplay";
+import { ewsIndustry, scoreText, topValidationBucket } from "@/lib/earlyWarningDisplay";
 
 const card: React.CSSProperties = {
   background: "#12121c",
@@ -141,11 +141,11 @@ export default function HomePage() {
             note: `${stats.nNewGroups} loan groups · ${fmtM(stats.newFV)} current FV · ${stats.cured.length} back to accruing`,
           },
           {
-            label: "High early-warning scores",
+            label: "Borrower positions in the High tier",
             value: ewsIndustry ? ewsIndustry.n_hi.toLocaleString() : "—",
             note: oosTop
-              ? `score ≥5 · ${oosTop.hit_rate_pct.toFixed(1)}% went NA within 2q when tested out-of-sample`
-              : "score ≥5",
+              ? `25%+ chance of non-accrual within a year · ${oosTop.hit_rate_pct.toFixed(0)}% went on non-accrual when tested out of sample`
+              : "25%+ chance of non-accrual within a year",
           },
         ].map((s) => (
           <div key={s.label} style={card} className="p-4">
@@ -201,7 +201,7 @@ export default function HomePage() {
 
         <Section
           title="Early-warning leaders"
-          sub={`Highest 2-quarter warning scores · weights fitted on data through ${ewsInfo.trained_through ?? "—"}, then tested out-of-sample`}
+          sub="Highest chance of non-accrual within a year · each past quarter scored only on outcomes known by then"
           href="/watchlist#signal-backtest"
           linkLabel="Full watchlist"
         >
@@ -210,10 +210,10 @@ export default function HomePage() {
               {ewsRows.slice(0, 8).map((r, i) => (
                 <tr key={`${r.ticker}-${r.borrower}-${i}`} className="border-t" style={{ borderColor: "#1e1e2e" }}>
                   <td className="py-1.5 pr-2 font-mono text-xs text-indigo-300">{r.ticker}</td>
-                  <td className="py-1.5 pr-2 text-gray-200">{r.borrower.slice(0, 36)}</td>
+                  <td className="py-1.5 pr-2 text-gray-200">{r.borrower.length > 36 ? `${r.borrower.slice(0, 35)}…` : r.borrower}</td>
                   <td className="py-1.5 pr-2 text-right">
                     <span className="px-1.5 py-0.5 rounded text-xs font-semibold"
-                      style={{ background: r.score >= 8 ? "rgba(239,68,68,.15)" : "rgba(245,158,11,.15)", color: r.score >= 8 ? "#f87171" : "#fbbf24" }}>
+                      style={{ background: r.score >= 25 ? "rgba(239,68,68,.15)" : "rgba(245,158,11,.15)", color: r.score >= 25 ? "#f87171" : "#fbbf24" }}>
                       {scoreText(r)}
                     </span>
                   </td>
@@ -224,7 +224,7 @@ export default function HomePage() {
             </tbody>
           </table>
           <p className="text-xs mt-2" style={{ color: "#6b7280" }}>
-            Loans not yet on non-accrual, ranked by score. A &ldquo;≥&rdquo; score had some signals we couldn&apos;t observe.
+            Borrowers not yet on non-accrual, ranked by the model&apos;s chance of non-accrual within a year.
           </p>
         </Section>
 
@@ -253,7 +253,7 @@ export default function HomePage() {
 
         <Section
           title="Sponsor distress league"
-          sub="Distress exits (proxy: ever non-accrual or exit mark <85¢) as % of each sponsor's completed exits · 8+ exits"
+          sub="Loans that left in distress or restructured (proxy: non-accrual, a low exit mark or a restructuring) as % of each sponsor's completed exits · 8+ exits"
           href="/sponsors"
           linkLabel="All sponsors"
         >
@@ -286,7 +286,7 @@ export default function HomePage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
           {[
             { href: "/vintage", icon: TrendingDown, t: "Vintage analysis", d: "Cumulative default curves by vintage year, with dating confidence and coverage shown" },
-            { href: "/credit", icon: AlertTriangle, t: "Credit quality", d: "Non-accruals, marks and PIK trends quarterly since 2018, with a 160-fund industry blend" },
+            { href: "/credit", icon: AlertTriangle, t: "Credit quality", d: "Non-accruals, marks and PIK trends quarterly since 2018, with an industry blend that adds smaller BDCs from SEC bulk data" },
             { href: "/maturity", icon: Clock, t: "Maturity walls", d: "When each BDC's borrowers must repay or refinance" },
             { href: "/borrowers", icon: Users, t: "Borrower universe", d: "Entity-resolved borrowers in each BDC's latest book, with cross-holder marks and history" },
           ].map((x) => (

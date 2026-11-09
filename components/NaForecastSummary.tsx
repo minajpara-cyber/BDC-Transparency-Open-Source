@@ -4,17 +4,19 @@ import Link from "next/link";
 import { naForecast } from "@/data/na_forecast";
 import {
   backtestText,
-  beyondBacktest,
   confidenceLabel,
   coverageText,
   fmtPct,
   forecastConfidence,
   formationMeta,
   lowerConfidenceReason,
+  nextQuarterMeta,
   notBacktested,
   notModelledReason,
   projectionValue,
   rangeText,
+  riseRankText,
+  riseRecordText,
   sortForecastRows,
   tiedRank,
 } from "@/lib/naForecastDisplay";
@@ -41,10 +43,9 @@ export default function NaForecastSummary({ ticker }: { ticker: string }) {
   const coverage = coverageText(row);
   const record = backtestText(row, formationMeta);
   const lowerReason = lowerConfidenceReason(row);
-  const rel = formationMeta.relative_effect;
-  const move = rel?.reference_period ? rel.moves?.[ticker] : undefined;
-  const fellAgainstScore = move != null && move.blend_now >= move.blend_then - 0.05
-    && move.forecast_now <= move.forecast_then - 0.5;
+  // how the next-quarter range held, built each quarter from the misses known then
+  const q1Held = nextQuarterMeta?.range_coverage?.inside;
+  const riseRecord = riseRecordText(row);
 
   return (
     <div className="rounded-xl border p-5 mb-8" style={{ background: "#111118", borderColor: "#1e1e2e" }}
@@ -59,8 +60,8 @@ export default function NaForecastSummary({ ticker }: { ticker: string }) {
           </h2>
           <p className="text-xs mt-1 max-w-3xl" style={{ color: "#8b8ba8" }}>
             The share of {ticker}&apos;s performing book (at cost) expected to newly go on non-accrual over
-            the next year, from warning signs on each borrower. It ranks BDCs; it is not a precise
-            forecast for any one of them.{" "}
+            the next year: each borrower&apos;s chance of non-accrual, added up by cost. It ranks BDCs; it is not a
+            precise forecast for any one of them, and the range shows how far off a year of a few lumpy names can land.{" "}
             <Link href="/watchlist#gated-na-projections" className="text-indigo-400 hover:text-indigo-300">
               All BDCs and how well the model has worked →
             </Link>
@@ -82,28 +83,26 @@ export default function NaForecastSummary({ ticker }: { ticker: string }) {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-sm">
             <Stat label="Expected new NA · next 4Q" value={fmtPct(value)}
-              sub={rangeText(row, value) == null
-                ? "no number in this data release"
-                : beyondBacktest(row) ? rangeText(row, value) ?? undefined : `80% range ${rangeText(row, value)}%`}
+              sub={rangeText(row, value) == null ? "no number in this data release" : `80% range ${rangeText(row, value)}%`}
               color={value == null ? "#8b8ba8" : value >= 3 ? "#ef4444" : value >= 1.5 ? "#f59e0b" : "#22c55e"} />
             <Stat label="Trailing 4Q actual" value={fmtPct(row.form_trailing)} sub="new NA over the past year" />
-            <Stat label="X-holder NA" value={fmtPct(row.xh_pp)} sub="cost in borrowers with a loan on NA at another BDC" />
-            <Stat label="Loans <90¢ of par" value={fmtPct(row.b90_pp, 1)} sub="of marked loan cost" />
+            <Stat label="X-holder NA" value={fmtPct(row.xh_pp)} sub="cost in its loans at or below a lien on NA at another BDC" />
+            <Stat label="Performing loans <90¢ of par" value={fmtPct(row.b90_pp, 1)}
+              sub="of marked loan cost, borrowers with nothing on NA" />
             <Stat label={`NA rate ${row.q1_label}`} value={fmtPct(row.na_q1)}
-              sub={row.lo_q1 != null && row.hi_q1 != null ? `80% range ${row.lo_q1.toFixed(2)}–${row.hi_q1.toFixed(2)}%` : undefined} />
-            <Stat label="P(rise ≥0.5pp)" value={row.p_rise == null ? "—" : `${(100 * row.p_rise).toFixed(0)}%`}
-              sub="next quarter · weak signal" />
+              sub={row.lo_q1 != null && row.hi_q1 != null
+                ? `80% range ${row.lo_q1.toFixed(2)}–${row.hi_q1.toFixed(2)}%${q1Held != null ? `, held ${Math.round(100 * q1Held)}% of the time` : ""}`
+                : undefined} />
+            <Stat label="Rank for a rise ≥0.5pp" value={riseRankText(row) ?? "—"}
+              sub={riseRecord ? `next quarter · ${riseRecord}` : "next quarter"} />
           </div>
           <p className="text-xs mt-3" style={{ color: "#6b6b88" }}>
             {place != null && `Ranks ${place.tiedWith.length ? "joint " : ""}#${place.rank} of ${ranked.length} BDCs with a projection${place.tiedWith.length ? ` (tied with ${place.tiedWith.join(", ")})` : ""} (#1 = most expected new non-accruals). `}
-            {value === 0 && `0.00% is the floor, not a forecast of no new non-accruals: ${ticker}'s warning signs are so far below its peers' that the method puts it at zero${row.form_hi != null ? `, and the 80% range still runs up to ${fmtPct(row.form_hi)}` : ""}. `}
             {confidence === "lower" && lowerReason && `Lower confidence: ${lowerReason}${value == null
               ? "; this data release has no four-quarter number for it yet, and the other figures above still apply. "
               : ". Treat the number as rougher than the others. "}`}
             {record && !notBacktested(row) && `${record}. `}
-            {rel?.level != null && `Projections are relative: each sits above or below ${fmtPct(rel.level)} according to how the BDC's warning signs compare with the other BDCs' this quarter, so a rise in other BDCs' scores lowers this one. `}
-            {fellAgainstScore && move && rel?.reference_period && `Since ${rel.reference_period.slice(0, 7)} ${ticker}'s own score went ${move.blend_then.toFixed(2)} → ${move.blend_now.toFixed(2)} while its projection went ${fmtPct(move.forecast_then)} → ${fmtPct(move.forecast_now)}, because the other BDCs' scores rose more${rel.since_reference ? ` (the average by ${rel.since_reference.change_pp.toFixed(2)}pp)` : ""}. `}
-            {formationMeta.n != null && `The model's back-test covers ${formationMeta.n} BDC-quarters without look-ahead.`}
+            {formationMeta.n != null && `The model's back-test covers ${formationMeta.n} BDC-quarters, each forecast made only from outcomes known at the time.`}
           </p>
         </>
       )}

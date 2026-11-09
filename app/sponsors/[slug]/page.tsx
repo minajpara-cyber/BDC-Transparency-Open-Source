@@ -179,7 +179,9 @@ export default async function SponsorDetailPage({ params }: PageProps) {
               <h3 className="text-sm font-semibold text-white mb-1">Credit lens over time</h3>
               <p className="text-xs mb-2" style={{ color: "#8b8ba8" }}>
                 Position-count weighted, loans only: % of loans with a usable par marked below 95¢ per dollar of par
-                (fair value ÷ par) / on non-accrual / paying PIK; where some positions&apos;
+                (fair value ÷ par; at the twelve BDCs whose schedules net the undrawn discount into a facility&apos;s fair
+                value, a loan with an undrawn commitment is priced on its whole commitment) / on non-accrual / paying
+                PIK; where some positions&apos;
                 PIK status is unknown, a second PIK line counts them all as PIK, and the dotted line shows how many
                 positions have a known PIK status.
                 Sponsor-quarters with fewer than 3 positions are filtered out.

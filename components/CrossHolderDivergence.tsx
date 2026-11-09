@@ -16,9 +16,11 @@ import { managerOf } from "@/lib/managerMap";
 
 const cleanName = (s: string) => s.replace(/\s*\((?:\d+|[a-z])\)(?:\((?:\d+|[a-z])\))*\s*$/i, "").trim();
 const fmtM = (m: number) => (m >= 1000 ? `$${(m / 1000).toFixed(2)}B` : m >= 1 ? `$${m.toFixed(0)}M` : `$${m.toFixed(1)}M`);
-// mark_at_par is each holder's LOAN mark: fair value ÷ par over its loans to
-// the borrower that have a US-dollar par (scripts/marks.py). Equity and
-// preferred are never in it, and a holder without one carries null ("—").
+// mark_at_par is each holder's LOAN mark (scripts/marks.py debt_marks:
+// debt_value ÷ debt_par): fair value ÷ par over its loans to the borrower that
+// have a usable US-dollar par, a loan with an undrawn commitment at a netting
+// BDC priced on its whole commitment. Equity and preferred are never in it,
+// and a holder without one carries null ("—").
 // (Before 2026-10-01 every row was summed — OCIC's Kaseya read 101¢ on loans
 // marked 73¢ because a preferred stake sat on top — and marks above 110¢ were
 // hidden here instead of fixed.)
@@ -187,8 +189,12 @@ export default function CrossHolderDivergence() {
         Borrowers matched by normalized name across covered BDCs (a conservative subset — different legal-entity names for the
         same credit may not link). Only loans count: a BDC is &quot;on non-accrual&quot; when one of its loans to the borrower is, and a
         preferred share that stopped accruing does not make a disagreement. Marks are each BDC&apos;s loan mark — fair value ÷ par of
-        its loans, in cents per dollar of par; equity and preferred are never in it, and &quot;—&quot; means the BDC&apos;s loans have no
-        usable par, or loans without one (or a left-out loan on non-accrual) are big enough to move the mark. &quot;$ still accruing&quot; is the fair value of the holdouts&apos; loans. An <span style={{ color: "#fcd34d" }}>amber</span>{" "}holdout
+        its loans, in cents per dollar of par; at the twelve BDCs whose schedules net the undrawn discount into a facility&apos;s fair
+        value, a loan with an undrawn commitment is priced on its whole commitment. Equity and preferred are never in it. A loan has
+        no mark when, among other reasons, its par is the whole commitment of a partly drawn facility, it is a revolver or delayed
+        draw that would price 5¢ or more below the borrower&apos;s other loans, or its undrawn commitment could not be tied to it;
+        &quot;—&quot; means the BDC&apos;s loans have no usable par, or loans without one (or a left-out loan on non-accrual) are big
+        enough to move the mark. &quot;$ still accruing&quot; is the fair value of the holdouts&apos; loans. An <span style={{ color: "#fcd34d" }}>amber</span>{" "}holdout
         is already carrying its loans below 85¢ while still accruing them. A holder whose non-accrual status is unknown that quarter is left out.
       </p>
     </section>

@@ -13,8 +13,9 @@ import { creditQuality, CreditQuality } from "@/data/credit_quality";
 import { modificationRate, ModificationRate } from "@/data/modification_rate";
 import { pikModifications } from "@/data/pik_modifications";
 import { modificationEvents } from "@/data/modification_events";
-import { ewsByBdc, ewsMeta } from "@/data/early_warning_scores";
-import { ewsLabelText, scoringSignals } from "@/lib/earlyWarningDisplay";
+import { ewsByBdc, ewsHistory, ewsMeta } from "@/data/early_warning_scores";
+import { ewsLabelText } from "@/lib/earlyWarningDisplay";
+import { pooledSignalsReadPct, signalsReadFor } from "@/lib/naForecastDisplay";
 import { watchlistByTicker } from "@/data/early_warning_history";
 import ModificationEventsTable from "@/components/ModificationEventsTable";
 import { assetComposition } from "@/data/asset_composition";
@@ -73,9 +74,9 @@ const COVERAGE_CAVEATS: Array<{
   // rate FSK discloses within 0.1pp in every quarter 2014-12..2022-03 (30 of
   // 30), so those quarters are no longer muted and join the industry line
   // like any other (the exporter pools them).
-  // PIK footnotes misread during the FSKR merger era (Q4 2019 – Q3 2021).
-  { ticker: "FSK",  until: "2021-09-30", metrics: ["pik"],
-    reason: "FSK PIK flag detection misfires during the FSKR-merger era (Q4 2019 – Q3 2021)" },
+  // FSK's PIK flags match the PIK each schedule prints in every quarter checked
+  // (2017-12, 2020-06, 2021-06, 2026-06, 2026-09: 0 mismatches, 2026-11-09), so
+  // its FSKR-merger era (Q4 2019 – Q3 2021) is no longer muted for PIK.
   // OBDC pre-XBRL: mark + NA parse cleanly, but PIK footnotes don't decode.
   { ticker: "OBDC", until: "2022-03-31", metrics: ["pik"],
     reason: "Pre-XBRL OBDC parser doesn't decode PIK footnotes" },
@@ -474,7 +475,7 @@ export default function CreditPage() {
   // Pre-computed rows for the BDC comparison panel (client component). We
   // do the reliability resolution here so the child component can stay
   // serialization-friendly.
-  // Watchlist severity per (ticker, quarter) as a share of book fair value.
+  // Watchlist severity per (ticker, quarter) as a share of the book at cost.
   // Cuts are CUMULATIVE ("Elevated or worse" contains High) for the same reason
   // below-95 contains below-90: a position sliding from Elevated into High must
   // not read as an improvement, which is what an isolated middle band would show.
@@ -496,9 +497,11 @@ export default function CreditPage() {
     });
   }
   // Industry benchmark for the watchlist metrics. watchlistByTicker carries no
-  // "industry" key, so aggregate it here: FV-weighted across BDCs that clear the
-  // same caveat gate, held to the usual cohort floor so an early-filer quarter
-  // can't masquerade as the industry.
+  // "industry" key, so aggregate it here: the BDCs' watchlist cost summed over
+  // their summed book cost (cost, not fair value), each quarter on its own
+  // calibration (the *_history fields), across BDCs that clear the same caveat
+  // gate, held to the usual cohort floor so an early-filer quarter can't
+  // masquerade as the industry.
   {
     const agg = new Map<string, { high: number; elev: number; all: number; book: number; n: number }>();
     for (const w of watchlistByTicker) {
@@ -506,9 +509,14 @@ export default function CreditPage() {
       if (!isReliable(w.key, w.period_end, "mark")) continue;
       if (!isReliable(w.key, w.period_end, "pik")) continue;
       const s = agg.get(w.period_end) ?? { high: 0, elev: 0, all: 0, book: 0, n: 0 };
-      s.high += w.cost_High;
-      s.elev += w.cost_Elevated;
-      s.all += w.wl_cost;
+      // Summed on each quarter's own calibration (scripts/51 *_history): in
+      // reporting season a late filer's newest book is centred on the newest
+      // level. Rows exported before those fields carry the published tiers.
+      const h = w as typeof w & Partial<Record<
+        "cost_High_history" | "cost_Elevated_history" | "wl_cost_history", number>>;
+      s.high += h.cost_High_history ?? w.cost_High;
+      s.elev += h.cost_Elevated_history ?? w.cost_Elevated;
+      s.all += h.wl_cost_history ?? w.wl_cost;
       s.book += w.book_cost_m;
       s.n += 1;
       agg.set(w.period_end, s);
@@ -621,10 +629,35 @@ export default function CreditPage() {
     0,
   );
 
+  // Each forward-queue row is its BDC's latest scored book: in reporting season
+  // a late filer's row is older than ewsMeta.as_of (ewsHistory carries the dates).
+  const queueLatest = new Map<string, string>();
+  for (const h of ewsHistory) {
+    if (h.ticker !== "industry" && h.period_end > (queueLatest.get(h.ticker) ?? "")) queueLatest.set(h.ticker, h.period_end);
+  }
+  const queueBehind = new Map<string, string[]>();
+  for (const r of ewsByBdc) {
+    const p = queueLatest.get(r.ticker);
+    if (r.ticker === "industry" || !p || p >= ewsMeta.as_of) continue;
+    queueBehind.set(p, [...(queueBehind.get(p) ?? []), r.ticker]);
+  }
+  const queueBehindText = Array.from(queueBehind.entries()).sort(([a], [b]) => a.localeCompare(b))
+    .map(([p, ts]) => `${joinList([...ts].sort())} at ${p}`).join("; ");
+  // The newest stressed-loans and sector quarters hold only the BDCs that have
+  // filed them; the others are named beside those tables.
+  const notFiled = (period: string) => tickers.filter((t) => t !== "industry"
+    && !creditQuality.some((r) => r.ticker === t && r.period_end === period));
+  const stressedNotFiled = stressedLatestPeriod ? notFiled(stressedLatestPeriod) : [];
+  const sectorPeriod = sectorCredit[0]?.period_end ?? "";
+  const sectorNotFiled = sectorPeriod ? notFiled(sectorPeriod) : [];
+  const naNotFiled = naLatestPeriod ? notFiled(naLatestPeriod) : [];
+
   // ---------- Cross-BDC mark dispersion (C.5) ----------
   // For each borrower held by 3+ BDCs in their latest books, the spread
   // between the highest and lowest LOAN mark: each holder's fair value ÷ par
-  // over its loans to the borrower (borrowers_history.debt_mark). Equity and
+  // over its loans to the borrower, a loan with an undrawn commitment at one of
+  // the twelve BDCs that net the undrawn discount into fair value priced on its
+  // whole commitment (borrowers_history.debt_mark). Equity and
   // preferred are never in a mark; a holder whose loans have no usable par is
   // left out of the min/max (and shown as "—"); a loan written to zero keeps
   // its 0¢ — that is exactly the disagreement this table looks for. Each BDC
@@ -755,7 +788,9 @@ export default function CreditPage() {
           data (below 95¢ / 90¢, asset mix, spread) surfaces back to {FIRST_YEAR.FSK ?? "—"}{" "}for FSK and{" "}
           {FIRST_YEAR.OBDC ?? "—"}{" "}for OBDC because those parsers capture par / cost / fv cleanly even pre-XBRL. The below-95¢ / 90¢
           share needs a usable par (the mark is fair value ÷ par, in US dollars — a par printed in
-          another currency is converted at the balance-sheet date&apos;s rate): where under half of a
+          another currency is converted at the balance-sheet date&apos;s rate; at the twelve BDCs whose schedules net
+          the undrawn discount into a facility&apos;s fair value, a loan with an undrawn commitment is priced on its
+          whole commitment): where under half of a
           quarter&apos;s loan cost has one, the share is shown as unknown (&quot;—&quot;), not zero, and
           left out of the industry line. FSK&apos;s
           unfunded commitments are read from each schedule&apos;s own legend back to {FIRST_YEAR.FSK ?? "—"}, so its
@@ -808,6 +843,7 @@ export default function CreditPage() {
               {naLeftOut.length > 0
                 ? ` Not in the ${naLast.period_end.slice(0, 7)} pool: ${naLeftOut.map((r) => `${r.ticker} (${plainNaReason(r.na_publication_status)})`).join(", ")}.`
                 : ""}
+              {naNotFiled.length > 0 ? ` Not yet filed for ${naLast.period_end.slice(0, 7)}: ${joinList(naNotFiled)}.` : ""}
             </p>
           )}
         </div>
@@ -816,11 +852,11 @@ export default function CreditPage() {
       {/* Section 2 — Below 95¢ */}
       <section id="below-95" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
-          Marked below 95¢ of par <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· % of debt cost where FV / par &lt; 0.95</span>
+          Marked below 95¢ of par <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>· % of marked debt cost where the mark &lt; 0.95</span>
         </h2>
         <CreditHeatmap
           title="% of debt cost marked below 95¢ of par"
-          description="Debt positions whose fair value sits below 95% of face. Denominator is debt cost only — equity, warrants, JV and cash positions are excluded since par doesn't apply. Cells colored 0% → 5% → 15% → ≥30%."
+          description="Loans marked below 95¢ of par. The mark is fair value ÷ par; at the twelve BDCs whose schedules net the undrawn discount into a facility's fair value, a loan with an undrawn commitment is priced on its whole commitment. Denominator is the cost of loans with a mark — equity, warrants, JV and cash positions are excluded since par doesn't apply. Cells colored 0% → 5% → 15% → ≥30%."
           periods={periods}
           tickers={tickers}
           cellMap={lt95Map}
@@ -847,7 +883,7 @@ export default function CreditPage() {
         </h2>
         <CreditHeatmap
           title="% of debt cost marked below 90¢ of par"
-          description="More severe markdown bucket. Denominator is debt cost only. Cells colored 0% → 3% → 10% → ≥20%."
+          description="More severe markdown bucket, on the same mark. Denominator is the cost of loans with a mark. Cells colored 0% → 3% → 10% → ≥20%."
           periods={periods}
           tickers={tickers}
           cellMap={lt90Map}
@@ -1035,48 +1071,49 @@ export default function CreditPage() {
           signals tested out of sample (scripts/78). */}
       <section id="forward-queue" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
-          Forward queue: implied non-accrual formation{" "}
+          Forward queue: expected new non-accruals{" "}
           <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            next 2 quarters, as of {ewsMeta.as_of}
+            next 4 quarters, as of {ewsMeta.as_of}{queueBehindText ? ` (${queueBehindText}, their latest books)` : ""}
           </span>
         </h2>
         <div className="rounded-xl border p-5" style={{ background: "#111118", borderColor: "#1e1e2e" }}>
           <p className="text-xs mb-4 max-w-4xl" style={{ color: "#9ca3af" }}>
             The modification tables above show the stress <span className="text-white">actions</span>{" "}
-            managers took this quarter; this is a <span className="text-white">forward</span>{" "}view. Every loan
-            not yet on non-accrual gets a score from the warning signals that carry points in the current fit
-            ({joinList(scoringSignals())}). The score was fitted on data through {ewsMeta.trained_through} and then tested on{" "}
-            {ewsMeta.validated.replace("..", " to ")}, which it had not seen: of the loans in each score bucket,{" "}
-            {ewsMeta.validation_buckets.map((b) => `${b.hit_rate_pct}% (score ${b.bucket.replace("-+", "+")})`).join(", ")}{" "}
-            went on non-accrual within two quarters, against {ewsMeta.validation_base_rate_pct}% overall.{" "}
-            {ewsLabelText}{" "}Each BDC&apos;s implied figure applies those hit rates to its own scored loans; where a
-            warning signal can&apos;t be observed it counts as not firing, so a BDC with signal coverage below 100% has
-            a lower-bound figure. Per-loan queue on the{" "}
-            <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Watchlist</Link>; the separate
-            BDC-level projection table is at{" "}
+            managers took this quarter; this is a <span className="text-white">forward</span>{" "}view. Every borrower
+            not yet on non-accrual gets a chance of going on non-accrual within a year, from one model read off its filings:
+            how it is marked (by this BDC, against its other holders and by the worst of them) and how fast that is moving,
+            PIK, equity written down, its next maturity, its spread, non-accrual at another BDC or earlier at this one, the age
+            and size of its loans and which BDC holds them. Tested on{" "}
+            {ewsMeta.validated.replace("..", " to ")}, each quarter fitted only on outcomes already known then:{" "}
+            {ewsMeta.validation_buckets.map((b) => `${b.hit_rate_pct}% of the ${b.bucket} band`).join(", ")}{" "}
+            went on non-accrual within a year, against {ewsMeta.validation_base_rate_pct}% overall.{" "}
+            {ewsLabelText}{" "}Each BDC&apos;s figure adds its borrowers&apos; chances up by cost; it is the same number as its
+            forward non-accrual projection. Per-loan queue on the{" "}
+            <Link href="/watchlist" className="text-indigo-400 hover:text-indigo-300">Watchlist</Link>; the
+            BDC-level projection and its range are at{" "}
             <Link href="/watchlist#gated-na-projections" className="text-indigo-400 hover:text-indigo-300">Watchlist → projections</Link>.
           </p>
           {(() => {
             const rows = ewsByBdc.filter((r) => r.ticker !== "industry");
             const ind = ewsByBdc.find((r) => r.ticker === "industry");
-            const maxPct = Math.max(0.0001, ...rows.map((r) => r.implied_na_2q_pct ?? 0));
-            const indPct = ind?.implied_na_2q_pct ?? null;
-            const covOf = (r: (typeof ewsByBdc)[number]) =>
-              typeof r.signal_coverage_pct === "number" && Number.isFinite(r.signal_coverage_pct) ? r.signal_coverage_pct : null;
-            const isLowerBound = (r: (typeof ewsByBdc)[number]) => (covOf(r) ?? 0) < 100;
+            const maxPct = Math.max(0.0001, ...rows.map((r) => r.implied_na_4q_pct ?? 0));
+            const indPct = ind?.implied_na_4q_pct ?? null;
+            // "% of signals read" on the forecast's definition (each BDC's forecast row), rounded down;
+            // the industry pools the BDCs' books by their at-risk cost
+            const covOf = (r: (typeof ewsByBdc)[number]) => signalsReadFor(r.ticker);
+            const indCov = pooledSignalsReadPct(rows.map((r) => ({ ticker: r.ticker, cost: r.book_cost_m })));
             return (
               <div className="space-y-1.5" data-forward-queue-rows={rows.length}>
                 <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider" style={{ color: "#6b6b88" }}>
                   <span className="w-14">BDC</span>
-                  <span className="flex-1">implied non-accrual formation, % of eligible debt</span>
+                  <span className="flex-1">expected new non-accruals, % of the performing book</span>
                   <span className="w-16 text-right">rate</span>
                   <span className="w-24 text-right">$ implied</span>
-                  <span className="w-20 text-right" title="share of the scored book whose signals could all be checked">signals seen</span>
-                  <span className="hidden sm:inline w-44 text-right">high-score loans</span>
+                  <span className="w-20 text-right" title="share of the model's inputs that could be read, weighted by cost and rounded down: the same figure as each BDC's forecast">signals read</span>
+                  <span className="hidden sm:inline w-44 text-right">High tier</span>
                 </div>
                 {rows.map((r) => {
                   const cov = covOf(r);
-                  const lb = isLowerBound(r) ? "≥" : "";
                   return (
                     <div key={r.ticker} className="flex items-center gap-3 text-sm">
                       <Link href={`/bdcs/${r.ticker.toLowerCase()}`}
@@ -1085,38 +1122,37 @@ export default function CreditPage() {
                       </Link>
                       <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: "#1a1a28" }}>
                         <div className="h-full rounded-full" style={{
-                          width: `${(100 * (r.implied_na_2q_pct ?? 0)) / maxPct}%`,
-                          background: indPct != null && r.implied_na_2q_pct >= indPct * 1.25
-                            ? "#ef4444" : indPct != null && r.implied_na_2q_pct >= indPct
+                          width: `${(100 * (r.implied_na_4q_pct ?? 0)) / maxPct}%`,
+                          background: indPct != null && r.implied_na_4q_pct >= indPct * 1.25
+                            ? "#ef4444" : indPct != null && r.implied_na_4q_pct >= indPct
                             ? "#f59e0b" : "#6366f1",
                         }} />
                       </div>
                       <span className="w-16 text-right tabular-nums font-semibold text-white">
-                        {r.implied_na_2q_pct == null ? "—" : `${lb}${r.implied_na_2q_pct.toFixed(2)}%`}
+                        {r.implied_na_4q_pct == null ? "—" : `${r.implied_na_4q_pct.toFixed(2)}%`}
                       </span>
                       <span className="w-24 text-right tabular-nums text-xs" style={{ color: "#9ca3af" }}>
-                        {r.implied_na_2q_m == null ? "—" : `${lb}$${r.implied_na_2q_m.toFixed(0)}M`}
+                        {r.implied_na_4q_m == null ? "—" : `$${r.implied_na_4q_m.toFixed(0)}M`}
                       </span>
                       <span className="w-20 text-right tabular-nums text-xs"
                         style={{ color: cov == null ? "#6b6b88" : cov < 80 ? "#fcd34d" : "#9ca3af" }}>
-                        {cov == null ? "—" : `${cov.toFixed(0)}%`}
+                        {cov == null ? "—" : `${cov}%`}
                       </span>
                       <span className="hidden sm:inline w-44 text-right tabular-nums text-xs whitespace-nowrap" style={{ color: "#6b7280" }}>
-                        {r.n_hi} loans · {r.pct_book_hi.toFixed(1)}% of book
+                        {r.n_hi} borrowers · {r.pct_book_hi.toFixed(1)}% of book
                       </span>
                     </div>
                   );
                 })}
                 {ind && (
                   <p className="text-xs pt-2" style={{ color: "#6b6b88" }}>
-                    Industry reference: {ind.implied_na_2q_pct.toFixed(2)}% of the eligible (not yet
-                    non-accrual) book, ${(ind.implied_na_2q_m / 1000).toFixed(1)}B implied across{" "}
-                    {ind.n_scored.toLocaleString()}{" "}positions
-                    {covOf(ind) != null ? `, with signals seen on ${covOf(ind)!.toFixed(0)}% of it` : ""}. Bars are % of
-                    each BDC&apos;s own eligible debt book — red ≥1.25× industry, amber ≥ industry. &quot;Signals
-                    seen&quot; is the share of the scored book whose signals could all be checked. A signal that
-                    could not be checked counts as absent, so where it is below 100% the implied figure is a lower
-                    bound (marked ≥). High-score loans score 5 or more.
+                    Industry reference: {ind.implied_na_4q_pct.toFixed(2)}% of the performing book,{" "}
+                    ${(ind.implied_na_4q_m / 1000).toFixed(1)}B expected across{" "}
+                    {ind.n_scored.toLocaleString()}{" "}borrower positions
+                    {indCov != null ? `, with ${indCov}% of the signals read` : ""}. Bars are % of
+                    each BDC&apos;s own performing book — red ≥1.25× industry, amber ≥ industry. A signal that could not be
+                    read is recorded as missing rather than assumed clear. High tier = a 25% or greater chance; its
+                    &quot;% of book&quot; is of the same performing book as the bars.
                   </p>
                 )}
               </div>
@@ -1229,7 +1265,7 @@ export default function CreditPage() {
       <section id="stressed-loans" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           Top stressed loans <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            · {stressedLatestPeriod}{" "}· biggest absolute write-downs across the industry
+            · {stressedLatestPeriod}{" "}· biggest absolute write-downs across the BDCs that have filed it
           </span>
         </h2>
         <SortableTable
@@ -1241,9 +1277,13 @@ export default function CreditPage() {
             <div className="px-5 py-4 flex items-start justify-between gap-3">
               <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
                 Loans only, ranked by absolute markdown (cost − fair value) in the most recent quarter we have
-                position-level data for. Mark = fair value ÷ par in cents per dollar of par — the same mark the
-                heatmaps above count; &quot;—&quot; when the loan has no usable par (a commitment-sized or
-                foreign-currency par). Click any column header to sort.
+                position-level data for{stressedNotFiled.length > 0 ? ` (not yet filed: ${joinList(stressedNotFiled)})` : ""}.
+                Mark = fair value ÷ par in cents per dollar of par, a loan with an undrawn commitment at one of the
+                twelve BDCs that net the undrawn discount into fair value priced on its whole commitment — the same
+                mark the heatmaps above count. &quot;—&quot; when the loan has no mark: no usable par (a
+                commitment-sized par, or a currency we cannot convert), an undrawn commitment that could not be tied to
+                it, or a revolver or delayed draw that would price 5¢ or more below the borrower&apos;s other loans (its
+                par is not its drawn par). Click any column header to sort.
               </p>
               <CsvDownloadButton
                 filename={`credit-top-stressed-loans-${stressedLatestPeriod}`}
@@ -1300,7 +1340,7 @@ export default function CreditPage() {
       <section id="sectors" className="mb-12 scroll-mt-6">
         <h2 className="text-lg font-semibold text-white mb-3">
           Credit metrics by sector <span className="text-xs font-normal" style={{ color: "#8b8ba8" }}>
-            · {sectorCredit[0]?.period_end ?? ""}{" "}· industry-wide
+            · {sectorCredit[0]?.period_end ?? ""}{" "}· every BDC that has filed it
           </span>
         </h2>
         <SortableTable
@@ -1311,10 +1351,12 @@ export default function CreditPage() {
           headerSlot={
             <div className="px-5 py-4 flex items-start justify-between gap-3">
               <p className="text-xs flex-1" style={{ color: "#8b8ba8" }}>
-                Free-text industry tags from each SOI normalized to ~10 canonical sectors.
+                Free-text industry tags from each SOI normalized to ~10 canonical sectors
+                {sectorNotFiled.length > 0 ? ` (not yet filed for this quarter: ${joinList(sectorNotFiled)})` : ""}.
                 Below 95¢ / 90¢ use the same mark as the main heatmaps: loans with a usable par in US dollars,
-                fair value ÷ par, as a share of those loans&apos; cost (&quot;—&quot; when under half a sector&apos;s
-                loans can be marked). &quot;Unclassified&quot; is positions whose SOI didn&apos;t carry
+                fair value ÷ par (a loan with an undrawn commitment at one of the twelve BDCs that net the undrawn
+                discount into fair value priced on its whole commitment), as a share of those loans&apos; cost
+                (&quot;—&quot; when under half a sector&apos;s loans can be marked). &quot;Unclassified&quot; is positions whose SOI didn&apos;t carry
                 an industry tag; &quot;Other&quot; is industry tags that didn&apos;t match any
                 canonical sector. PIK is the known-positive lower bound because this legacy
                 sector rollup does not yet publish an unknown-exposure upper bound. See <Link href="/methodology" className="hover:text-white underline" style={{ color: "#a5b4fc" }}>methodology</Link>{" "}for the mapping.
@@ -1391,7 +1433,8 @@ export default function CreditPage() {
                 Percentages are position-count weighted (not dollar-weighted) so a single mega-deal
                 doesn&apos;t dominate, and count loans only (equity and preferred stakes are left out). Below
                 95¢ / 90¢ is the share of loans with a usable par marked below 95 / 90 cents per dollar of par
-                (fair value ÷ par). Sponsor → company mapping comes from
+                (fair value ÷ par, a loan with an undrawn commitment at one of the twelve BDCs that net the undrawn
+                discount into fair value priced on its whole commitment). Sponsor → company mapping comes from
                 bdctransparency.io. Current PIK is the share of positions known to pay PIK; where some
                 positions&apos; PIK status is unknown and counting them all as PIK would add more than 1pp, the
                 range is shown (hover for coverage).
@@ -1553,7 +1596,9 @@ export default function CreditPage() {
                 When three or more BDCs hold loans to the same borrower, their marks should agree
                 (it&apos;s the same credit). Large dispersion means BDCs disagree on the credit
                 quality — worth investigating. A mark is a BDC&apos;s loan mark: fair value ÷ par of its
-                loans to the borrower, in cents per dollar of par, and the spread is in cents too. Equity and
+                loans to the borrower, in cents per dollar of par (at the twelve BDCs that net the undrawn discount into
+                fair value, a loan with an undrawn commitment is priced on its whole commitment), and the spread is in
+                cents too. Equity and
                 preferred stakes are never in it. &quot;Holders with loans&quot; and &quot;Loan cost&quot; count loans
                 only; a BDC whose loans have no usable par shows &quot;— (no usable par)&quot; (or &quot;— (partly
                 marked)&quot; when the loans without one could move the mark) and is left out of the min and max; a

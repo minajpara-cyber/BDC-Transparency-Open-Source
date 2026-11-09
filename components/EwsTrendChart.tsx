@@ -10,7 +10,7 @@ export interface EwsTrendPoint {
   industry: number | null;
 }
 
-/** Implied 2Q NA formation over time — this BDC vs the industry aggregate. */
+/** Expected new non-accruals over the next year, over time — this BDC vs the industry. */
 export default function EwsTrendChart({ data, ticker }: { data: EwsTrendPoint[]; ticker: string }) {
   if (data.length < 4) return null;
   return (

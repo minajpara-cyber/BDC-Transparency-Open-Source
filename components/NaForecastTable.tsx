@@ -4,17 +4,14 @@
 // OVER FOUR QUARTERS, not next quarter's rate: the signals predict defaults, and
 // defaults take time to arrive. Every BDC with non-accrual data is listed;
 // thinly observed inputs earn a "lower confidence" label rather than a blank.
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { bdcsHistory } from "@/data/bdcs_history";
-import { naForecast } from "@/data/na_forecast";
+import { naForecast, naForecastNames } from "@/data/na_forecast";
 import { latestNonAccrualSnapshots } from "@/lib/latestNonAccruals";
 import {
-  aboveShareText,
   backtestCount,
   backtestText,
-  bandText,
-  beyondBacktest,
   biasText,
   calibrationRows,
   confidenceLabel,
@@ -26,20 +23,25 @@ import {
   forecastConfidence,
   formationMeta,
   labelBasisText,
-  levelChangeText,
   levelText,
   lowerConfidenceReason,
   notBacktested,
-  relativeText,
   testedTailText,
   whyThisOneText,
-  zeroFloorText,
   modelSignalLabels,
+  nameChance,
   nextQuarterMeta,
+  nextQuarterSettingsInSample,
   notModelledReason,
+  outcomeInText,
   projectionValue,
   rangeText,
   readQuartiles,
+  riseRankText,
+  riseRecordText,
+  riseTiersText,
+  signalsReadPct,
+  simulatedRangeText,
   sortForecastRows,
 } from "@/lib/naForecastDisplay";
 import CsvDownloadButton from "./CsvDownloadButton";
@@ -73,8 +75,14 @@ const CONFIDENCE_STYLE = {
   none: { background: "rgba(107,114,128,0.12)", color: "#9ca3af" },
 } as const;
 
+const namesByTicker = new Map<string, typeof naForecastNames>();
+for (const name of naForecastNames) {
+  namesByTicker.set(name.ticker, [...(namesByTicker.get(name.ticker) ?? []), name]);
+}
+
 export default function NaForecastTable() {
   const [showRate, setShowRate] = useState(false);
+  const [openNames, setOpenNames] = useState<string | null>(null);
 
   const counts = { standard: 0, lower: 0, none: 0 };
   for (const row of rows) counts[forecastConfidence(row)] += 1;
@@ -92,26 +100,21 @@ export default function NaForecastTable() {
   const reading = readQuartiles(quartiles);
   const embargoQ = fm.observability?.training_embargo_quarters ?? fm.horizon_q ?? null;
   const signals = modelSignalLabels(fm.observability?.model_features);
-  const typedPik = (fm.observability?.model_features ?? []).includes("pik_first_seen");
-  const relative = fm.calibration?.kind === "relative";
+  const relative = fm.calibration?.kind === "relative" || fm.calibration?.kind === "odds_level";
   const level = levelText(fm);
-  const band = bandText(fm);
-  const zeroNote = zeroFloorText(rows, fm);
-  const aboveShare = aboveShareText(fm);
-  const relativeNote = relativeText(rows, fm);
+  const band = simulatedRangeText(fm);
   const testedTail = testedTailText(rows);
   const whyThisOne = whyThisOneText(fm);
-  const levelChange = levelChangeText(fm);
   const labels = labelBasisText(fm);
   const options = calibrationRows(fm);
   const shippedOption = options.find((option) => option.shipped);
   const realisedNow = fm.calibration_comparison?.realised;
-  const replacedLine = fm.calibration_comparison?.candidates?.all_history_line;
+  const realisedFewer = realisedNow?.latest_period ? outcomeInText(fm, realisedNow.latest_period) : null;
   const bias = biasText(fm);
-  // projections above every forecast the back-test scored (no 80% range)
-  const beyond = rows.filter((row) => projectionValue(row) != null && beyondBacktest(row)).map((row) => row.ticker);
-  const published = rows.filter((row) => projectionValue(row) != null).length;
-  const q1Label = rows.find((row) => row.q1_label)?.q1_label ?? "next quarter";
+  const riseTiers = riseTiersText(directionMeta);
+  const nextQuarterRange = nextQuarterMeta?.range_coverage;
+  const nextQuarterPit = nextQuarterMeta?.point_in_time?.mean_abs;
+  const brier = directionMeta?.brier;
 
   const csvColumns = [
     "ticker",
@@ -128,8 +131,14 @@ export default function NaForecastTable() {
     "xholder_na_pct",
     "marked_below_90_pct",
     "rate_next_q_pct",
-    "p_rise_next_q",
-    "form_feature_coverage_pct",
+    // the direction as the table shows it: a rank and its tier's record, not the score's own percentage
+    "rise_rank",
+    "rise_rank_of",
+    "rise_tier",
+    "rise_tier_rose",
+    "rise_tier_n",
+    // "% of signals read", as the confidence column prints it
+    "signals_read_pct",
     "form_observation_status",
     "confidence",
   ];
@@ -145,14 +154,18 @@ export default function NaForecastTable() {
       snapshot?.na_publication_reason ?? "",
       row.period_end,
       value,
-      value == null || beyondBacktest(row) ? null : row.form_lo,
-      value == null || beyondBacktest(row) ? null : row.form_hi,
+      value == null ? null : row.form_lo,
+      value == null ? null : row.form_hi,
       row.form_trailing,
       row.xh_pp,
       row.b90_pp,
       row.na_q1,
-      row.p_rise,
-      row.form_feature_coverage_pct,
+      row.rise_rank,
+      row.rise_rank_of,
+      row.rise_tier,
+      row.rise_tier_rose,
+      row.rise_tier_n,
+      signalsReadPct(row),
       row.form_observation_status,
       confidenceLabel(row),
     ];
@@ -173,12 +186,12 @@ export default function NaForecastTable() {
             <p className="text-xs mt-1 max-w-4xl" style={{ color: "#8b8ba8" }}>
               For each BDC, the share of today&apos;s performing book (at cost) we expect to{" "}
               <span className="text-white">newly</span>{" "}go on non-accrual over the next four quarters.
-              Every performing borrower is scored on warning signs — its mark, PIK, loan changes,
-              trouble at other lenders and loan age — and the scores are added up by cost, blended
-              with each BDC&apos;s own last year.{" "}
+              Every performing borrower gets a chance of going on non-accrual within a year, from the same model
+              as the <a href="#signal-backtest" className="text-indigo-400 hover:text-indigo-300">watchlist</a>, and those
+              chances are added up by cost.{" "}
               {level ?? "The total is then calibrated against what actually happened."}{" "}
               Use it to rank BDCs, not as a precise number for any one of them; the 80% range shows
-              how imprecise it is.
+              how imprecise it is. Click a BDC&apos;s &ldquo;names&rdquo; to see the borrowers behind its number.
             </p>
             <p className="text-xs mt-2 max-w-4xl" style={{ color: "#6b6b88" }}>
               {counts.standard} BDCs have standard-confidence projections.{" "}
@@ -186,8 +199,8 @@ export default function NaForecastTable() {
                 <>
                   {lowerForInputs} {lowerForInputs === 1 ? "is" : "are"} <span style={{ color: "#fbbf24" }}>lower confidence</span>{" "}because
                   {coverageFloorPct != null
-                    ? ` less than ${floorText()} of their model inputs (weighted by cost) could be observed`
-                    : " fewer of their model inputs could be observed"}
+                    ? ` less than ${floorText()} of the model's signals (weighted by cost) could be read`
+                    : " fewer of the model's signals could be read"}
                   {lowerWithoutNumber.length > 0
                     ? ` (this data release has no number yet for ${lowerWithoutNumber.join(", ")})`
                     : ""}
@@ -223,8 +236,8 @@ export default function NaForecastTable() {
           <thead style={{ background: "#0f0f16" }}>
             <tr>
               {["BDC", "NA now", "Expected new NA · next 4Q", "80% range", "Trailing 4Q actual",
-                "X-holder NA", "Loans <90¢ of par", "Confidence",
-                ...(showRate ? [`Rate ${q1Label}`, "P(rise ≥0.5pp)"] : [])]
+                "X-holder NA", "Performing loans <90¢ of par", "Confidence",
+                ...(showRate ? ["Rate next quarter", "Rank for a rise ≥0.5pp"] : [])]
                 .map((c, i) => (
                   <th key={c} className={`px-3 py-2 text-xs font-semibold uppercase tracking-wider whitespace-nowrap ${i === 0 ? "text-left" : "text-right"}`}
                     style={{ color: "#8b8ba8", borderBottom: "1px solid #1e1e2e" }}>
@@ -241,8 +254,8 @@ export default function NaForecastTable() {
               const basisLabel = snapshotBasisLabel(snapshot?.na_publication_status, snapshot?.na_basis);
               const coverage = coverageText(row);
               return (
+                <React.Fragment key={row.ticker}>
                 <tr
-                  key={row.ticker}
                   data-forecast-status={row.form_observation_status}
                   data-forecast-confidence={confidence}
                   data-projection-published={value != null ? "true" : "false"}
@@ -252,6 +265,13 @@ export default function NaForecastTable() {
                     <Link href={`/bdcs/${row.ticker.toLowerCase()}`} className="hover:underline" style={{ color: "#a5b4fc" }}>
                       {row.ticker}
                     </Link>
+                    {namesByTicker.has(row.ticker) && (
+                      <button onClick={() => setOpenNames(openNames === row.ticker ? null : row.ticker)}
+                        aria-expanded={openNames === row.ticker}
+                        className="ml-2 text-[10px] font-normal hover:underline" style={{ color: "#8b8ba8" }}>
+                        {openNames === row.ticker ? "hide names" : "names"}
+                      </button>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#9ca3af" }}>
                     <div>{fmtPct(snapshot?.na_pct_at_cost)}</div>
@@ -273,12 +293,12 @@ export default function NaForecastTable() {
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums"
                     style={{ color: row.xh_pp == null ? "#6b6b88" : row.xh_pp >= 2 ? "#ef4444" : row.xh_pp >= 0.5 ? "#f59e0b" : "#6b6b88" }}
-                    title="Share of this BDC's cost in borrowers with a loan already on non-accrual at another BDC (a preferred share on non-accrual does not count).">
+                    title="Share of this BDC's performing book (at cost) in its own loans on the same lien as, or junior to, a loan another BDC has on non-accrual. A preferred share or other equity on non-accrual does not count; a BDC that has not filed this quarter yet counts at its last filing.">
                     {fmtPct(row.xh_pp)}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums"
                     style={{ color: row.b90_pp != null && row.b90_pp >= 15 ? "#f59e0b" : "#6b6b88" }}
-                    title="Share of the loan cost of borrowers whose loans have a usable par, marked below 90¢ per dollar of par (fair value ÷ par; equity left out).">
+                    title="Share of the loan cost of performing borrowers (nothing on non-accrual here) whose loans, taken together, are marked below 90¢ per dollar of par. The mark is fair value ÷ par; at a BDC whose schedule nets the undrawn discount into a facility's fair value, a loan with an undrawn commitment is priced on its whole commitment. Borrowers with no usable par, and equity, are left out.">
                     {fmtPct(row.b90_pp, 1)}
                   </td>
                   <td className="px-3 py-2 text-right text-xs">
@@ -297,15 +317,59 @@ export default function NaForecastTable() {
                   {showRate && (
                     <>
                       <td className="px-3 py-2 text-right tabular-nums" style={{ color: "#9ca3af" }}>
-                        {fmtPct(row.na_q1)}
+                        <div>{fmtPct(row.na_q1)}</div>
+                        {row.na_q1 != null && row.q1_label && (
+                          <div className="text-[10px] mt-0.5 whitespace-nowrap" style={{ color: "#6b6b88" }}>
+                            {row.q1_label}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums font-semibold"
-                        style={{ color: row.p_rise == null ? "#8b8ba8" : row.p_rise >= 0.4 ? "#ef4444" : row.p_rise >= 0.25 ? "#f59e0b" : "#8b8ba8" }}>
-                        {row.p_rise == null ? "—" : `${(100 * row.p_rise).toFixed(0)}%`}
+                        style={{ color: row.rise_tier == null ? "#8b8ba8" : row.rise_tier === "top" ? "#ef4444" : row.rise_tier === "2-5" ? "#f59e0b" : "#8b8ba8" }}>
+                        <div>{riseRankText(row) ?? "—"}</div>
+                        {riseRecordText(row) && (
+                          <div className="text-[10px] font-normal mt-0.5 whitespace-nowrap" style={{ color: "#6b6b88" }}>
+                            {riseRecordText(row)}
+                          </div>
+                        )}
                       </td>
                     </>
                   )}
                 </tr>
+                {openNames === row.ticker && (
+                  <tr data-forecast-names={row.ticker} style={{ background: "#0d0d14" }}>
+                    <td colSpan={showRate ? 10 : 8} className="px-4 py-3">
+                      <div className="text-xs mb-1.5" style={{ color: "#8b8ba8" }}>
+                        The largest expected new non-accruals behind {row.ticker}&apos;s {fmtPct(value)}: cost × chance, as a share of its forecast.
+                      </div>
+                      <table className="text-xs">
+                        <thead>
+                          <tr style={{ color: "#6b6b88" }}>
+                            {["Borrower", "Chance ≤1yr", "Cost", "Expected", "Share of forecast"].map((h, k) => (
+                              <th key={h} className={`font-medium pb-1 ${k === 0 ? "text-left pr-6" : "text-right px-3"}`}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(namesByTicker.get(row.ticker) ?? []).map((n) => (
+                            <tr key={`${n.name}-${n.cost_m}`} style={{ color: "#c7c7e0" }}>
+                              <td className="pr-6 py-0.5">
+                                {n.slug
+                                  ? <Link href={`/borrowers/${n.slug}`} className="text-indigo-300 hover:text-indigo-200">{n.name}</Link>
+                                  : n.name}
+                              </td>
+                              <td className="text-right px-3 py-0.5 tabular-nums">{nameChance(n)}%</td>
+                              <td className="text-right px-3 py-0.5 tabular-nums">${n.cost_m.toFixed(0)}M</td>
+                              <td className="text-right px-3 py-0.5 tabular-nums">${n.expected_m.toFixed(0)}M</td>
+                              <td className="text-right px-3 py-0.5 tabular-nums">{n.share_of_forecast_pct == null ? "—" : `${n.share_of_forecast_pct.toFixed(0)}%`}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               );
             })}
           </tbody>
@@ -314,7 +378,7 @@ export default function NaForecastTable() {
 
       <div className="px-4 py-3 border-t" style={{ borderColor: "#1e1e2e" }}>
         <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "#8b8ba8" }}>
-          How well has it worked?{fm.n != null ? ` — ${fm.n} BDC-quarters, tested without look-ahead` : ""}
+          How well has it worked?{fm.n != null ? ` — ${fm.n} BDC-quarters, each forecast made only from outcomes known at the time` : ""}
         </div>
         {quartiles.length > 0 ? (
           <div className="overflow-x-auto">
@@ -358,8 +422,10 @@ export default function NaForecastTable() {
           <span className="text-white">The test.</span>{" "}We re-ran the model at past quarter-ends and compared
           each forecast with what then happened. Each past forecast was fitted only on loans whose
           {embargoQ != null ? ` ${embargoQ}-quarter` : ""}{" "}outcome was already known on that date, so the
-          test has no look-ahead (the outcome window is embargoed). Loans whose later status is unknown are left
-          out of the scoring rather than counted as &ldquo;no default&rdquo;.
+          test has no look-ahead on outcomes (the outcome window is embargoed), though the model&apos;s settings were chosen on
+          this same window and a loan&apos;s age is dated from all of its filings, later ones included. Borrowers
+          whose later status is unknown are left out of the scoring rather than counted as &ldquo;no default&rdquo;, except
+          that a single unread quarter between two quarters read as performing counts as performing.
           {fm.n != null && ` That strictness leaves a small sample — ${fm.n} BDC-quarters — so read these results as indicative.`}
         </p>
         {reading.lowest && reading.highest && (
@@ -374,7 +440,6 @@ export default function NaForecastTable() {
             {fm.mean_abs != null && fm.actual_mean != null &&
               ` The average miss is ${fm.mean_abs.toFixed(2)}pp on an average outcome of ${fmtPct(fm.actual_mean)}, so read which bucket a BDC sits in, not the decimal.`}
             {band && ` ${band}`}
-            {zeroNote && ` ${zeroNote}`}
           </p>
         )}
         {bias && (
@@ -383,19 +448,10 @@ export default function NaForecastTable() {
             {bias}
             {(fm.bias ?? 0) < 0
               ? relative
-                ? " The level of each forecast is the realised rate of the latest year whose outcomes are known — the only year a forecast can learn from — and new non-accruals kept rising through the test, so the forecast trailed them."
-                : " Each forecast can only learn from outcomes that are already known — a year old — and new non-accruals rose through the test, so the forecast trailed them."
+                ? " The level of each forecast is the realised rate of the latest year whose outcomes are known — the only year a forecast can learn from — and new non-accruals rose over the test, so the forecast trailed them."
+                : " Each forecast can only learn from outcomes that are already known — a year old — and new non-accruals rose over the test, so the forecast trailed them."
               : " Each forecast can only learn from outcomes that are already known — a year old — so it trails turns in the cycle."}
-            {aboveShare ? ` ${aboveShare}` : ""}
-            {beyond.length > 0 && fm.max_tested_pred != null
-              ? ` ${beyond.length} of ${published} projections (${beyond.join(", ")}) are above ${fm.max_tested_pred.toFixed(2)}%, the highest forecast the back-test ever scored${fm.max_tested_actual != null ? ` (the highest outcome it saw was ${fm.max_tested_actual.toFixed(2)}%)` : ""}. The past misses say nothing about a level never tested, so no 80% range is shown for them: read them as “higher than anything seen in the test”, not as a calibrated number.`
-              : ""}
             {testedTail ? ` ${testedTail}` : ""}
-          </p>
-        )}
-        {relativeNote && (
-          <p className="text-xs mt-2" style={{ color: "#6b6b88" }} data-relative-note="true">
-            <span className="text-white">Relative, not absolute.</span>{" "}{relativeNote}
           </p>
         )}
         {options.length > 1 && shippedOption && (
@@ -407,11 +463,11 @@ export default function NaForecastTable() {
               The model&apos;s raw scores have to be turned into an expected rate. We tried {options.length}{" "}ways of
               doing that on the same back-test, each refitted at every past quarter on outcomes already known
               then (settings picked on the first half of the test, {shippedOption.candidate.early?.from?.slice(0, 7)} to{" "}
-              {shippedOption.candidate.early?.to?.slice(0, 7)}, and checked on the second). The last column is
-              what each would publish today
+              {shippedOption.candidate.early?.to?.slice(0, 7)}, and checked on the second). The fifth column is
+              the average each would publish today
               {realisedNow?.latest_mean != null
-                ? `, against ${fmtPct(realisedNow.latest_mean)} of new non-accruals in the latest year with known outcomes (forecasts made ${realisedNow.latest_period?.slice(0, 7)})`
-                : ""}.
+                ? `, against ${fmtPct(realisedNow.latest_mean)} of new non-accruals in the latest year with known outcomes (forecasts made ${realisedNow.latest_period?.slice(0, 7)}${realisedFewer ? `, ${realisedFewer}` : ""})`
+                : ""}; the last counts the BDCs it would put above the highest forecast its own back-test scored.
             </p>
             <div className="overflow-x-auto">
               <table className="text-xs" style={{ minWidth: 560 }} data-calibration-options={options.length}>
@@ -439,10 +495,11 @@ export default function NaForecastTable() {
             </div>
             {relative && (
               <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-                <span className="text-white">Why this one.</span>{" "}The model&apos;s scores tell BDCs apart well, but
+                <span className="text-white">Why this one.</span>{" "}The model&apos;s chances tell BDCs apart well, but
                 their average across all BDCs has not tracked how many new non-accruals followed, so a method that
-                lets a rise in every BDC&apos;s score carry the level up can publish far above anything that has
-                happened. The order comes from the scores; the level comes from realised history.
+                lets a rise in every BDC&apos;s chance carry the level up can publish far above anything that has
+                happened. The order and proportions come from the model; the level comes from realised history, moved
+                together so that no BDC is pushed to zero and a BDC&apos;s names still add up to its number.
                 {whyThisOne ? ` ${whyThisOne}` : ""}
               </p>
             )}
@@ -455,44 +512,46 @@ export default function NaForecastTable() {
         )}
         {(nextQuarterMeta?.mean_abs != null || directionMeta?.auc != null) && (
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-            <span className="text-white">Next-quarter columns.</span>{" "}These come from a simpler model of the
-            non-accrual rate itself.
+            <span className="text-white">Next-quarter columns.</span>{" "}The rate comes from a simpler model of the
+            non-accrual rate itself, for each BDC&apos;s own next quarter.
             {nextQuarterMeta?.mean_abs != null && nextQuarterMeta.naive_mean_abs != null &&
-              ` Its average miss is ${nextQuarterMeta.mean_abs.toFixed(2)}pp against ${nextQuarterMeta.naive_mean_abs.toFixed(2)}pp for simply carrying today's rate forward${nextQuarterMeta.n != null ? ` (${nextQuarterMeta.n} BDC-quarters)` : ""}.`}
+              ` Its average miss is ${nextQuarterMeta.mean_abs.toFixed(2)}pp against ${nextQuarterMeta.naive_mean_abs.toFixed(2)}pp for simply carrying today's rate forward${nextQuarterMeta.n != null ? ` (${nextQuarterMeta.n} BDC-quarters)` : ""}${nextQuarterSettingsInSample && nextQuarterPit != null ? `, but its two settings were picked on those same quarters; re-picked each quarter from earlier outcomes only, it misses by ${nextQuarterPit.toFixed(2)}pp` : ""}.`}
+            {nextQuarterRange?.inside != null &&
+              ` Its 80% range, shown on each BDC's page, held ${Math.round(100 * nextQuarterRange.inside)}% of outcomes when rebuilt at each past quarter from the misses known then${nextQuarterRange.n != null ? ` (${nextQuarterRange.n} BDC-quarters)` : ""}.`}
             {directionMeta?.auc != null &&
-              ` P(rise) is only a weak guide to direction (AUC ${directionMeta.auc.toFixed(2)}, where 0.5 is a coin toss); it is kept for continuity, not confidence.`}
+              ` The rank orders the BDCs by a separate score for the rate rising ${directionMeta.threshold_pp ?? 0.5}pp or more next quarter, a weak guide (AUC ${directionMeta.auc.toFixed(2)}, where 0.5 is a coin toss).`}
+            {riseTiers && ` Beside each rank is how often BDCs at that rank rose in the back-test: ${riseTiers}.`}
+            {brier?.rank_tier_record != null && brier.score != null && brier.rank_tier_record < brier.score &&
+              " The score's own percentage is not shown: as a forecast of a rise, that record did better."}
           </p>
         )}
         {signals.length > 0 && (
           <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
             <span className="text-white">What drives it.</span>{" "}Borrower-level signals, each weighted by
-            cost: {signals.join("; ")}.{typedPik ? " Heavy PIK built into a preferred share or convertible note is not a warning sign and does not count." : ""}{" "}When a signal can&apos;t be observed for a loan, the model records
+            cost: {signals.join("; ")}.{" "}When a signal can&apos;t be observed for a loan, the model records
             that it is missing instead of assuming &ldquo;no&rdquo;; the confidence column shows how much of
-            each BDC&apos;s book had its inputs observed. A borrower counts as performing only if we can see it
-            is accruing today.
+            each BDC&apos;s book, by cost, had the model&apos;s inputs read: the mark, spread, maturity and age of its loans,
+            non-accrual at another BDC or here before, and PIK history (the lower of that and the same share for the last
+            three alone). A borrower counts as performing only if we can see
+            {fm.observability?.label_basis === "debt" ? " that all its funded loans are accruing today." : " it is accruing today."}
           </p>
         )}
         <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
           <span className="text-white">What we tested and dropped</span>, because the misses are as
-          informative as the hits: loans maturing within 1–2 years (a real warning sign for a single
-          borrower that made the BDC-level forecast worse), a separate flag for marks below 80¢ (deeply
-          marked loans are more often restructured or sold than put on non-accrual), how many lenders
-          report a borrower on non-accrual, quarter-over-quarter mark drops, how widely a loan is shared,
-          second-lien and subordinated flags, position size, spread cuts, maturity extensions, and the
-          high-yield credit spread.
+          informative as the hits: amend-and-extends, spread cuts, stressed cuts to the loan amount, lien downgrades,
+          debt-for-equity swaps, second-lien and subordinated flags, how stressed the borrower&apos;s sector, the BDC&apos;s book or the
+          whole market is, and a machine-learned model on the same inputs (gradient boosting ranked no better than this one, which
+          can be read term by term). They add nothing once the mark, PIK, equity, maturity and spread are counted.
         </p>
-        {typedPik && (
-          <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
-            <span className="text-white">Changed October 2026.</span>{" "}Heavy PIK is now read by why it is paid
-            in kind: a preferred share&apos;s PIK dividend no longer counts as a warning sign, and heavy PIK that was
-            there from the start or whose history is unclear is weighed on its own.
-            {relative && levelChange
-              ? ` ${levelChange}${replacedLine?.published_mean != null && realisedNow?.latest_mean != null
-                ? ` The line fitted on every past year, which it replaces, would publish an average of ${fmtPct(replacedLine.published_mean)} today against ${fmtPct(realisedNow.latest_mean)} realised in the latest year with known outcomes.`
-                : ""} The 80% range now comes from past misses at a similar level, never narrower than all the misses together give, and is checked only against misses that share no outcome quarter with the quarter checked.`
-              : ""}
-          </p>
-        )}
+        <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
+          <span className="text-white">Changed November 2026.</span>{" "}The watchlist, the forward queue and this table now read
+          one model instead of three scorings. FSK&apos;s non-accrual flags before 2021-09 now count (they match the rates FSK printed
+          within 0.07pp in every quarter tested), so the model has seen the 2020 defaults. CLO and other structured notes, joint
+          ventures, funds and securitizations are not borrowers: a vehicle&apos;s notes stay out of the fit and carry the low rate
+          at which such paper has gone on non-accrual, so they no longer teach it that a low mark means little, and fund and
+          joint-venture interests are not in the at-risk book at all. The range is simulated from each BDC&apos;s own
+          borrowers rather than taken from past misses at a similar level, and a forecast can no longer sit at exactly 0%.
+        </p>
         <p className="text-xs mt-2" style={{ color: "#6b6b88" }}>
           <span className="text-white">Corrected September 2026.</span>{" "}The back-test now waits for
           outcomes to be known before using a loan for training — earlier versions did not, which made

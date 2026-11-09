@@ -13,10 +13,12 @@ export interface RepaymentPoint {
   indOutflow?: number | null;   // industry-avg total outflow (below 0)
 }
 
-/** Portfolio FLOWS per quarter, as % of the prior-quarter book: capital
- *  DEPLOYED above zero (new originations entering), capital LEAVING below
- *  zero (healthy repayment + distressed exit). Net = book growth/run-off.
- *  Dashed lines are the industry averages on each side. */
+/** Portfolio FLOWS per quarter, as % of the prior-quarter LOAN book: capital
+ *  DEPLOYED above zero (new loans entering), capital LEAVING below zero
+ *  (healthy repayment + distressed exit). Net = book growth/run-off. Equity,
+ *  cash equivalents and vehicles are out of the book and of every flow
+ *  (scripts/50 fetch_repayment_dynamics). Dashed lines are the industry
+ *  averages on each side, pooled over the BDCs that filed both quarters. */
 export default function RepaymentChart({ data }: { data: RepaymentPoint[] }) {
   if (data.length < 3) return null;
   const hasIndustry = data.some((d) => d.indDeployed != null || d.indOutflow != null);

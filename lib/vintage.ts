@@ -15,10 +15,13 @@ export function fullySeasonedRow(rows: VintageRow[]): VintageRow | undefined {
 }
 
 /**
- * Share (0-100) of a cohort's entry cost dated by an ESTIMATE (long-tail name
- * match, sibling facility, DERA floor, tenor model or first sighting) rather
- * than by a disclosed acquisition date. Not the LOW confidence tier, which
- * also holds disclosed dates that drifted between quarters or holders.
+ * Share (0-100) of a cohort's entry cost dated by an ESTIMATE (nearby tranche,
+ * long-tail name match, sibling facility, tenor model, a holder's earlier
+ * position, defaulted paper re-dated to it, a merger day) rather than by a
+ * disclosed date or a first sighting. Not the LOW confidence tier, which also
+ * holds disclosed dates that drifted between quarters or holders and first
+ * sightings with little life left, and leaves out re-dated defaulted paper (an
+ * estimate graded MED).
  */
 export function estimatedShare(r: VintageRow): number {
   return r.cohort_entry_cost_b > 0 ? (100 * (r.cohort_estimated_b ?? 0)) / r.cohort_entry_cost_b : 0;
@@ -28,10 +31,11 @@ export function estimatedShare(r: VintageRow): number {
 export const MOSTLY_ESTIMATED_PCT = 50;
 
 /**
- * High-confidence (HIGH+MED) figures are published only when those loans carry
- * at least this share of the counted cost (scripts/vintage_engine.py
- * MIN_HC_COST_PCT); below it the HC field is null and the all-dated figure is
- * used, untagged.
+ * High-confidence (HIGH+MED) figures are published only when at least 15 of
+ * those loans carry at least this share of the counted cost, and only where the
+ * all-dated figure is published (scripts/vintage_engine.py MIN_HC_COST_PCT);
+ * otherwise the HC field is null: /vintage leaves the point blank, and the BDC
+ * page shows the all-dated figure, untagged.
  */
 export const MIN_HC_COST_PCT = 25;
 

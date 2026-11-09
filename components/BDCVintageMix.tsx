@@ -8,7 +8,7 @@ import { useState } from "react";
 // EVERY loan in the BDC's cohort has reached, next to the industry at that
 // same age — so no row rests on the early-dated part of a cohort only.
 export interface VintageMixRow {
-  vintage_year: number | null;   // null = undated loans
+  vintage_year: number | null;   // null = undated positions (equity and fund interests included)
   label?: string;                // display label override (e.g. "≤2017")
   pct_of_book: number;           // 0..100, share of the BDC's current cost
   current_cost_b: number;
@@ -17,7 +17,7 @@ export interface VintageMixRow {
   age_years: number | null;      // comparison age
   n_loans: number | null;
   pct_ever_na: number | null;    // on-book non-accrual (cumulative)
-  pct_ever_default: number | null; // NA OR distressed exit (cumulative)
+  pct_ever_default: number | null; // NA OR left in distress or restructured (cumulative)
   ind_ever_na: number | null;
   ind_ever_default: number | null;
   is_partial: boolean;           // vintage predates this BDC's filing coverage
@@ -63,13 +63,15 @@ export default function BDCVintageMix({ ticker, asOf, rows }: { ticker: string; 
         <h2 className="text-lg font-semibold text-white">{ticker} vintage mix &amp; non-accrual performance</h2>
         <span className="text-xs px-2 py-0.5 rounded border" style={{ color: "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)" }}>as of {asOf}</span>
         <span className="text-xs px-2 py-0.5 rounded border" style={{ color: estimatedShare > 50 ? "#eab308" : "#a5b4fc", background: "rgba(99,102,241,0.08)", borderColor: "rgba(99,102,241,0.2)" }}
-              title="Share of this BDC's current cost whose vintage date is a labelled estimate rather than a disclosed date (its own or the same tranche at a peer BDC).">
+              title="Share of this BDC's current cost whose vintage date is a labelled estimate rather than a disclosed date (its own, or one printed for the same tranche by a fund of its adviser or another BDC) or the quarter it was first shown.">
           {estimatedShare.toFixed(0)}% of cost dated by estimate
         </span>
       </div>
       <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-        How much of {ticker}&apos;s current book comes from each vintage year (by amortized cost), and how that vintage has performed.
-        Vintage = the BDC&apos;s own disclosed acquisition date, else the same tranche&apos;s date at a peer BDC, else a labelled estimate.
+        How much of {ticker}&apos;s current book (every instrument, at amortized cost) comes from each vintage year, and how that
+        vintage&apos;s loans have performed. Vintage = the BDC&apos;s own disclosed acquisition date, else the same deal&apos;s date at a
+        fund of the same adviser, else the quarter the BDC, or an earlier holder of the same tranche, first showed the loan, else another
+        BDC&apos;s date for the same tranche, else a labelled estimate.
         Performance is read at the oldest age every loan in {ticker}&apos;s cohort has reached and compared with the industry at that age;
         see <a href="/vintage" className="text-indigo-400 hover:underline">/vintage</a>{" "}for the curves and method.
       </p>
@@ -79,7 +81,7 @@ export default function BDCVintageMix({ ticker, asOf, rows }: { ticker: string; 
         {(Object.keys(METRIC) as MetricId[]).map((id) => (
           <button key={id} onClick={() => setMetric(id)} className="px-2.5 py-1 rounded border transition-all"
                   style={{ background: metric === id ? "rgba(99,102,241,0.15)" : "#111118", borderColor: metric === id ? "#6366f1" : "#2d2d45", color: metric === id ? "#a5b4fc" : "#9ca3af", whiteSpace: "nowrap" }}
-                  title={id === "default" ? "Cumulative % of vintage cost ever non-accrual OR exited in distress" : "Cumulative % of vintage cost flagged non-accrual while still on the book"}>
+                  title={id === "default" ? "Cumulative % of vintage cost ever non-accrual OR that left in distress or was restructured" : "Cumulative % of vintage cost ever flagged non-accrual on a schedule, still counted after the loan left"}>
             {METRIC[id].label}
           </button>
         ))}
@@ -113,7 +115,8 @@ export default function BDCVintageMix({ ticker, asOf, rows }: { ticker: string; 
         <div className="text-sm font-semibold text-white mb-1">Share of book by vintage</div>
         <p className="text-xs mb-3" style={{ color: "#8b8ba8" }}>
           Each segment is a vintage year, widened by its share of {ticker}&apos;s current cost and shaded by {m.label.toLowerCase()}.
-          Grey = no published rate (cohort under 30 loans, or undated). Hover for detail.
+          Grey = no published rate: undated or before 2018, a cohort under 30 loans or begun before our first {ticker}{" "}filing,
+          or one with too few loans to measure at some age. Hover for detail.
         </p>
         <div className="flex w-full h-12 rounded-lg overflow-hidden" style={{ border: "1px solid #1e1e2e" }}>
           {ordered.map((r) => {
@@ -200,10 +203,12 @@ export default function BDCVintageMix({ ticker, asOf, rows }: { ticker: string; 
           </table>
         </div>
         <div className="px-4 py-3 text-xs border-t" style={{ borderColor: "#1e1e2e", color: "#6b6b88" }}>
-          &quot;% of book&quot; = this vintage&apos;s amortized cost ÷ {ticker}&apos;s current cost (undated loans shown separately).
-          Rates are read at the oldest age every loan in the cohort has reached; &quot;—&quot; = cohort under 30 loans. On-book NA counts
-          only loans still held; cumulative default also counts loans that went non-accrual or were marked down and then left.
-          * = non-accrual status partly unknown at that age (unknown-status loans are left out, not counted as performing).
+          &quot;% of book&quot; = this vintage&apos;s amortized cost ÷ {ticker}&apos;s current cost (positions we could not date, equity and
+          fund interests among them, are shown separately as Undated). Rates are read at the oldest age every loan in the cohort
+          has reached; &quot;—&quot; = no published rate (undated or before 2018, a cohort under 30 loans or begun before our first{" "}
+          {ticker}{" "}filing, or one with too few loans to measure at some age). On-book NA counts loans ever flagged non-accrual,
+          whether or not they have since left; cumulative default adds loans that left in distress or were restructured without
+          a flag. * = non-accrual status partly unknown at that age (unknown-status loans are left out, not counted as performing).
         </div>
       </div>
     </section>

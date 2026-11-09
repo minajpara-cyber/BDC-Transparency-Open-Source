@@ -1578,7 +1578,7 @@ export const incomeUniverse: IncomeUniverseRow[] = [
 ];
 
 export const incomeMeta = {
-  "generated": "2026-11-06",
+  "generated": "2026-11-09",
   "latest_period": "2026-09-30",
   "n_bdcs": 19,
   "first_period": "2014-09-30",

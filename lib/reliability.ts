@@ -26,8 +26,8 @@ export function isReliable(ticker: string, period_end: string): boolean {
   return true;
 }
 
-// The 14 BDCs whose SOIs we parse from EDGAR (10 traded + 4 non-traded).
+// The 19 BDCs whose SOIs we parse from EDGAR.
 export const COVERED_TICKERS = new Set<string>([
-  "ARCC", "BXSL", "CGBD", "FSK", "GBDC", "MAIN", "MFIC", "OBDC", "OCSL", "TSLX",
-  "BCRED", "ASIF", "ADS", "OCIC",
+  "ADS", "ARCC", "ASIF", "BBDC", "BCRED", "BXSL", "CCAP", "CGBD", "FSK", "GBDC",
+  "HTGC", "MAIN", "MFIC", "NMFC", "OBDC", "OCIC", "OCSL", "OTF", "TSLX",
 ]);

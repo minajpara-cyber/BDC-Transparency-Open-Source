@@ -13,7 +13,10 @@ import CsvDownloadButton from "./CsvDownloadButton";
 // carry real cost for a few BDCs but one column each would be mostly empty.
 const OLD_BUCKET = 2018;
 const OLD_LABEL = `≤${OLD_BUCKET - 1}`;
-const UNDATED = -1;   // column key for loans with no evidence to date them
+const UNDATED = -1;   // column key for positions with no date (equity and fund interests included)
+
+// "A, B and C"
+const andList = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : xs.join(""));
 
 type View = "absolute" | "relative";
 
@@ -36,33 +39,34 @@ const panel = { background: "#111118", borderColor: "#1e1e2e" };
 export function VintageDatingCoverageTable() {
   const rows = [...vintageDatingCoverage].sort((a, b) =>
     a.ticker === "industry" ? 1 : b.ticker === "industry" ? -1 : a.ticker.localeCompare(b.ticker));
-  const csvRows = rows.map((r) => [r.ticker, r.period_end, r.debt_cost_b.toFixed(3), r.pct_own_disclosed.toFixed(1), r.pct_peer_disclosed.toFixed(1), r.pct_estimated.toFixed(1), r.pct_undated.toFixed(1), r.pct_high_conf.toFixed(1), r.pct_disclosed_only == null ? "" : r.pct_disclosed_only.toFixed(1)]);
+  const csvRows = rows.map((r) => [r.ticker, r.period_end, r.debt_cost_b.toFixed(3), r.pct_own_disclosed.toFixed(1), r.pct_peer_disclosed.toFixed(1), (r.pct_first_seen ?? 0).toFixed(1), r.pct_estimated.toFixed(1), r.pct_undated.toFixed(1), r.pct_high_conf.toFixed(1), r.pct_disclosed_only == null ? "" : r.pct_disclosed_only.toFixed(1)]);
   return (
     <div className="rounded-xl border overflow-hidden mb-6" style={panel}>
       <div className="px-4 py-3 border-b flex items-start justify-between gap-3 flex-wrap" style={{ borderColor: "#1e1e2e" }}>
         <div>
           <h2 className="font-semibold text-white">How each book is dated — % of debt cost</h2>
           <p className="text-xs mt-0.5 max-w-4xl" style={{ color: "#8b8ba8" }}>
-            Latest debt book of each BDC (every position that is not equity), split by where its vintage dates come from.
+            Latest debt book of each BDC (loans only: equity, fund interests and cash are out), split by where its vintage dates come from.
             <span className="text-white"> Own disclosed</span>{" "}= the BDC prints an acquisition date.
-            <span className="text-white"> Peer, same tranche</span>{" "}= another BDC holding the same facility (same lien, maturity within two years) prints one.
-            <span className="text-white"> Estimated</span>{" "}= a labelled inference (graded LOW).
-            <span className="text-white"> Undated</span>{" "}= no evidence, left out of the curves.
-            <span className="text-white"> Hi-conf</span>{" "}= cost with a HIGH or MED date (a disclosed date that stayed stable across
-            quarters and holders). The last column is the separate &ldquo;disclosed dates only&rdquo; view: it takes each BDC&apos;s own
+            <span className="text-white"> Peer, same tranche</span>{" "}= a fund of the same adviser, or another BDC, holding the same facility (same lien and maturity year) prints one.
+            <span className="text-white"> First seen</span>{" "}= the quarter this BDC, or an earlier holder of the same tranche, first showed the loan, when its previous book is on file and no merger landed that quarter.
+            <span className="text-white"> Estimated</span>{" "}= a labelled inference, graded LOW (defaulted paper dated from its holder&apos;s first loan to the borrower is graded MED).
+            <span className="text-white"> Undated</span>{" "}= no usable date (for example, defaulted paper whose holder&apos;s first loan to the borrower came in a merger or an opening book), left out of the curves.
+            <span className="text-white"> Hi-conf</span>{" "}= cost with a HIGH or MED date (a date that stayed stable across
+            quarters and holders, a corrected own date, re-dated defaulted paper, or a first sighting with five or more years left to maturity). The last column is the separate &ldquo;disclosed dates only&rdquo; view: it takes each BDC&apos;s own
             printed date without the stability grading, so it can date more cost than Hi-conf, but it never uses a peer&apos;s date or an
             estimate (0% for BDCs that never print acquisition dates).
           </p>
         </div>
         <CsvDownloadButton filename="vintage-dating-coverage"
-          columns={["ticker", "period_end", "debt_cost_b", "own_disclosed_pct", "peer_same_tranche_pct", "estimated_pct", "undated_pct", "high_conf_pct", "disclosed_only_view_pct"]}
+          columns={["ticker", "period_end", "debt_cost_b", "own_disclosed_pct", "peer_same_tranche_pct", "first_seen_pct", "estimated_pct", "undated_pct", "high_conf_pct", "disclosed_only_view_pct"]}
           rows={csvRows} />
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead style={{ background: "#0f0f16" }}>
             <tr>
-              {["BDC", "As of", "Debt cost $bn", "Own disclosed", "Peer, same tranche", "Estimated", "Undated", "Mix", "Hi-conf", "Disclosed-only view"].map((h) => (
+              {["BDC", "As of", "Debt cost $bn", "Own disclosed", "Peer, same tranche", "First seen", "Estimated", "Undated", "Mix", "Hi-conf", "Disclosed-only view"].map((h) => (
                 <th key={h} className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-left" style={{ color: "#8b8ba8", borderBottom: "1px solid #1e1e2e" }}>{h}</th>
               ))}
             </tr>
@@ -80,12 +84,14 @@ export function VintageDatingCoverageTable() {
                   <td className="px-3 py-1.5 tabular-nums" style={{ color: "#d1d5db" }}>{r.debt_cost_b.toFixed(1)}</td>
                   <td className="px-3 py-1.5 tabular-nums" style={{ color: "#e5e7eb" }}>{r.pct_own_disclosed.toFixed(0)}%</td>
                   <td className="px-3 py-1.5 tabular-nums" style={{ color: "#e5e7eb" }}>{r.pct_peer_disclosed.toFixed(0)}%</td>
+                  <td className="px-3 py-1.5 tabular-nums" style={{ color: "#e5e7eb" }}>{(r.pct_first_seen ?? 0).toFixed(0)}%</td>
                   <td className="px-3 py-1.5 tabular-nums" style={{ color: r.pct_estimated > 50 ? "#eab308" : "#9ca3af" }}>{r.pct_estimated.toFixed(0)}%</td>
                   <td className="px-3 py-1.5 tabular-nums" style={{ color: r.pct_undated > 5 ? "#f97316" : "#9ca3af" }}>{r.pct_undated.toFixed(0)}%</td>
                   <td className="px-3 py-1.5">
-                    <div className="flex h-2 w-28 overflow-hidden rounded" title={`own ${r.pct_own_disclosed.toFixed(1)}% · peer ${r.pct_peer_disclosed.toFixed(1)}% · estimated ${r.pct_estimated.toFixed(1)}% · undated ${r.pct_undated.toFixed(1)}%`}>
+                    <div className="flex h-2 w-28 overflow-hidden rounded" title={`own ${r.pct_own_disclosed.toFixed(1)}% · peer ${r.pct_peer_disclosed.toFixed(1)}% · first seen ${(r.pct_first_seen ?? 0).toFixed(1)}% · estimated ${r.pct_estimated.toFixed(1)}% · undated ${r.pct_undated.toFixed(1)}%`}>
                       <div style={{ width: `${r.pct_own_disclosed}%`, background: "#6366f1" }} />
                       <div style={{ width: `${r.pct_peer_disclosed}%`, background: "#38bdf8" }} />
+                      <div style={{ width: `${r.pct_first_seen ?? 0}%`, background: "#22c55e" }} />
                       <div style={{ width: `${r.pct_estimated}%`, background: "#eab308" }} />
                       <div style={{ width: `${r.pct_undated}%`, background: "#4b5563" }} />
                     </div>
@@ -99,8 +105,9 @@ export function VintageDatingCoverageTable() {
         </table>
       </div>
       <p className="text-xs px-4 py-3" style={{ color: "#6b6b88" }}>
-        Bar: <span style={{ color: "#6366f1" }}>own</span> · <span style={{ color: "#38bdf8" }}>peer</span> · <span style={{ color: "#eab308" }}>estimated</span> · <span style={{ color: "#9ca3af" }}>undated</span>.
-        Hi-conf = HIGH or MED confidence dates (disclosed and stable). Rows with blank instrument labels in the filing (e.g. most of CGBD&apos;s schedule) count as debt here.
+        Bar: <span style={{ color: "#6366f1" }}>own</span> · <span style={{ color: "#38bdf8" }}>peer</span> · <span style={{ color: "#22c55e" }}>first seen</span> · <span style={{ color: "#eab308" }}>estimated</span> · <span style={{ color: "#9ca3af" }}>undated</span>.
+        Hi-conf = HIGH or MED confidence dates. Rows printed without an instrument label (e.g. CGBD&apos;s schedule) are classed by the
+        instrument named beside the borrower or by the section they are printed under.
       </p>
     </div>
   );
@@ -111,7 +118,7 @@ export default function VintageExposureTable() {
   const [sortKey, setSortKey] = useState<string>("ticker");
   const [sortAsc, setSortAsc] = useState(true);
 
-  const { tickers, columns, cell, estimated, totals, industry, asOf, maxPct } = useMemo(() => {
+  const { tickers, columns, cell, estimated, totals, industry, asOf, lagging, maxPct } = useMemo(() => {
     const bucket = (y: number | null) => (y == null ? UNDATED : y < OLD_BUCKET ? OLD_BUCKET - 1 : y);
     const cell = new Map<string, number>();       // `${ticker}|${col}` -> pct
     const estimated = new Map<string, number>();  // `${ticker}|${col}` -> $bn dated by estimate
@@ -131,7 +138,16 @@ export default function VintageExposureTable() {
     const tickers = Array.from(new Set(vintageExposure.map((r) => r.ticker))).filter((t) => t !== "industry").sort();
     const industry = new Map<number, number>(columns.map((c) => [c, cell.get(`industry|${c}`) ?? 0]));
     const maxPct = Math.max(...tickers.flatMap((t) => columns.filter((c) => c !== UNDATED).map((c) => cell.get(`${t}|${c}`) ?? 0)));
-    return { tickers, columns, cell, estimated, totals, industry, asOf, maxPct };
+    // BDCs whose latest filing is older than the newest one, by filing date.
+    const latestOf = new Map<string, string>();
+    for (const r of vintageExposure) if (r.period_end > (latestOf.get(r.ticker) ?? "")) latestOf.set(r.ticker, r.period_end);
+    const behind = new Map<string, string[]>();
+    for (const t of tickers) {
+      const p = latestOf.get(t) ?? asOf;
+      if (p < asOf) behind.set(p, [...(behind.get(p) ?? []), t]);
+    }
+    const lagging = Array.from(behind.entries()).sort((a, b) => b[0].localeCompare(a[0]));
+    return { tickers, columns, cell, estimated, totals, industry, asOf, lagging, maxPct };
   }, []);
 
   // Cost-weighted average vintage year over DATED cost — "how young is this book".
@@ -189,10 +205,12 @@ export default function VintageExposureTable() {
           <div>
             <h2 className="font-semibold text-white">Vintage Exposure — where each book sits</h2>
             <p className="text-xs mt-0.5 max-w-4xl" style={{ color: "#8b8ba8" }}>
-              Share of each BDC&apos;s <span className="text-white">cost</span> by vintage year, as of {asOf}. Rows sum to 100%,
-              including an <span className="text-white">Undated</span>{" "}column for loans with no evidence to date them. This is
-              composition, not performance — a large 2024 cohort is not itself a problem, but it tells you whose results the
-              2021-22 vintages still drive. <span className="text-white">Italic</span>{" "}cells are mostly dated by estimate (hover for
+              Share of each BDC&apos;s <span className="text-white">cost</span>, every instrument included, by vintage year at its
+              latest filing: {asOf}{lagging.length > 0 ? ` (${lagging.map(([p, ts]) => `${andList(ts)}: ${p}`).join("; ")})` : ""}.
+              Rows sum to 100%, including an <span className="text-white">Undated</span>{" "}column for positions we could not date,
+              equity and fund interests among them. This is composition, not performance — a large 2024 cohort is not
+              itself a problem, but it tells you whose results the 2021-22 vintages still drive.{" "}
+              <span className="text-white">Italic</span>{" "}cells are mostly dated by estimate (hover for
               the split). Switch to <span className="text-white">vs industry</span>{" "}for percentage-point over/under-weights.
             </p>
           </div>
@@ -271,10 +289,12 @@ export default function VintageExposureTable() {
         </table>
       </div>
       <p className="text-xs px-4 py-3" style={{ color: "#6b6b88" }}>
-        Vintage dates come from the waterfall in the methodology note (own disclosed date, then the same tranche at a peer, then a
-        labelled estimate), so a BDC that discloses acquisition dates is dated more precisely than one that doesn&apos;t — see the
-        &ldquo;How each book is dated&rdquo; table. {OLD_LABEL}{" "}pools everything older. Weighted vintage is the cost-weighted mean
-        vintage year of the dated cost: higher means a younger book.
+        Vintage dates come from the waterfall in the methodology note (own disclosed date; then the same deal&apos;s date at a
+        fund of the same adviser; then the quarter the BDC, or an earlier holder of the tranche, first showed it; then another
+        BDC&apos;s date for the same tranche; then a labelled estimate), so a BDC that discloses acquisition dates is dated more
+        precisely than one that doesn&apos;t — see the &ldquo;How each book is dated&rdquo; table. {OLD_LABEL}{" "}pools everything
+        older. Weighted vintage is the cost-weighted mean vintage year of the dated cost, with {OLD_LABEL}{" "}counted as{" "}
+        {OLD_BUCKET - 1}: higher means a younger book.
       </p>
     </div>
   );

@@ -9,9 +9,15 @@ import { borrowerHistory, latestBookByTicker } from "@/data/borrowers_history";
 import { borrowerEnrichment } from "@/data/borrower_enrichment";
 import { splitCurrentHolders } from "@/lib/borrowerHolders";
 import BorrowerLoanTerms from "@/components/BorrowerLoanTerms";
-import { borrowerLoans } from "@/data/borrower_loans";
+import * as loanData from "@/data/borrower_loans";
 
 const SPONSOR_SLUGS = new Set(sponsorPages.map((s) => s.sponsor_slug));
+// The index names most pages by an entity-matcher key ("cambrex", "shelf", "22"); scripts/59 gives
+// each the filer's own name ("Cambrex Corporation"). A data file built before it has no titles.
+const { borrowerLoans, borrowerTitles = {} } = loanData as unknown as {
+  borrowerLoans: typeof loanData.borrowerLoans;
+  borrowerTitles?: Record<string, string>;
+};
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -70,9 +76,10 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
   const latestTotalCost = latestRows.reduce((s, r) => s + r.cost, 0);
 
   // Debt-mark spread at the latest quarter: each current holder's DEBT mark
-  // (fair value ÷ par of its loans, data/borrowers_history debt_mark). Equity,
-  // preferred and holders with no usable par are left out — never fair value
-  // ÷ cost in cents, never equity over the loans' par.
+  // (data/borrowers_history debt_mark = debt_value ÷ debt_par: fair value ÷ par
+  // of its loans, a loan with an undrawn commitment at a netting BDC priced on
+  // its whole commitment). Equity, preferred and holders with no usable par are
+  // left out — never fair value ÷ cost in cents, never equity over the loans' par.
   const dispersion = latestRows
     .map((r) => (r.debt_mark != null ? 100 * r.debt_mark : null))
     .filter((v): v is number => v !== null);
@@ -85,7 +92,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
     ? "This BDC holds no loans to the borrower here (equity or other interests only), so there is no mark in cents of par."
     : r.mark_status === "partial"
       ? "Some of this BDC's loans to the borrower have no usable par (or one of them is on non-accrual), and they are big enough to move the mark, so no mark is shown rather than a mark over the rest."
-      : "This BDC's loans to the borrower have no usable par in US dollars (missing, or the whole commitment of a partly drawn facility), so no mark is shown.";
+      : "This BDC's loans to the borrower have no usable par in US dollars, so no mark is shown. The reasons include: the par is missing, or is the whole commitment of a partly drawn facility; a revolver or delayed draw would price 5¢ or more below the borrower's other loans, so its par is not its drawn par; a loan's undrawn commitment could not be tied to it.";
   const noMarkLabel = (r: Snapshot) => r.mark_status === "no_debt" ? "— (equity only)"
     : r.mark_status === "partial" ? "— (partly marked)" : "— (no usable par)";
 
@@ -154,7 +161,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
             </span>
           )}
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{b.name}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{borrowerTitles[slug] ?? b.name}</h1>
         {b.sponsors && (
           <div className="text-sm mt-1 flex items-center gap-2 flex-wrap" style={{ color: "#d8b4fe" }}>
             <span style={{ color: "#8b8ba8" }}>Sponsor{b.sponsors.includes(";") ? "s" : ""}:</span>
@@ -237,7 +244,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
                   ["BDC", ""], ["Period", ""], ["Cost", "Every instrument the BDC holds in the borrower"],
                   ["Fair value", "Every instrument the BDC holds in the borrower"],
                   ["FV / cost", "Fair value as % of cost, every instrument"],
-                  ["Loan mark", "Fair value ÷ par of the BDC's loans to the borrower, in cents per dollar of par. Equity and preferred are not in it."],
+                  ["Loan mark", "Fair value ÷ par of the BDC's loans to the borrower, in cents per dollar of par. At the twelve BDCs whose schedules net the undrawn discount into a facility's fair value, a loan with an undrawn commitment is priced on its whole commitment. Equity and preferred are not in it."],
                   ["Equity & other", "Preferred, common, warrants, units and fund interests: fair value, and fair value as % of cost"],
                   ["Non-accrual", "Whether a loan is on non-accrual"],
                   ["PIK", "Whether a loan pays interest in kind"],
@@ -324,9 +331,14 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
         <p className="px-5 py-3 text-xs border-t" style={{ color: "#8b8ba8", borderColor: "#1e1e2e" }}>
           Loan mark = fair value ÷ par of each BDC&apos;s loans to the borrower, in cents per dollar of par, over the
           loans that have a par in US dollars (a non-dollar par is converted at the balance-sheet date&apos;s rate);
-          written-down and restructured loans count at their own low marks. &quot;—&quot; means no such mark: the
-          BDC holds only equity, its loans have no usable par, or loans without a usable par (or a left-out loan on
-          non-accrual) are big enough to move it.
+          written-down and restructured loans count at their own low marks. At the twelve BDCs whose schedules net
+          the undrawn discount into a facility&apos;s fair value, a loan with an undrawn commitment is priced on its
+          whole commitment. A loan has no mark when, among other reasons, its par is the whole commitment of a
+          partly drawn facility, it is a revolver or delayed draw that would price 5¢ or more below the
+          borrower&apos;s other loans (so its par is not its drawn par), or its undrawn commitment could not be tied
+          to it.
+          &quot;—&quot; means no such mark: the BDC holds only equity, its loans have no usable par, or loans without
+          a usable par (or a left-out loan on non-accrual) are big enough to move it.
           {anyEquity && (
             <>
               {" "}Preferred stock, common equity, warrants, units and fund interests are never in the loan mark; they are
@@ -372,7 +384,7 @@ export default async function BorrowerDetailPage({ params }: PageProps) {
       )}
 
       <p className="text-xs mt-6" style={{ color: "#6b6b88" }}>
-        Source: SEC EDGAR 10-K / 10-Q Schedule of Investments parsing across our 19 covered BDCs.
+        Source: SEC EDGAR 10-K / 10-Q Schedule of Investments parsing across our {Object.keys(latestBookByTicker).length}{" "}covered BDCs.
         Borrower-name dedup strips trailing footnote tokens (e.g. &quot;(2)(3)&quot;) so multiple
         loans to the same borrower roll up.
       </p>
