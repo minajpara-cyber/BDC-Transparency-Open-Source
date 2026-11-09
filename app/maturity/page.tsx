@@ -14,6 +14,24 @@ import {
 
 const asOfYear = parseInt(maturityMeta.as_of.slice(0, 4), 10);
 
+// Each BDC's wall is its latest book, so during reporting season the wall mixes
+// quarters. The BDCs still on an earlier filing, grouped by that filing (newest
+// first), are named rather than stamped with the newest date, as /watchlist does.
+// periods is read optionally: a data file exported before it existed has none.
+const PERIODS = (maturityMeta as typeof maturityMeta & { periods?: Record<string, string> }).periods ?? {};
+const BEHIND = (() => {
+  const by = new Map<string, string[]>();
+  for (const [ticker, period] of Object.entries(PERIODS)) {
+    if (period < maturityMeta.as_of) by.set(period, [...(by.get(period) ?? []), ticker]);
+  }
+  return Array.from(by, ([period, tickers]) => ({ period, tickers: [...tickers].sort() }))
+    .sort((a, b) => b.period.localeCompare(a.period));
+})();
+
+function listText(items: string[]): string {
+  return items.length < 2 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
 // column key for a bucket — mirrors the python: "<=2025"->le2025, "2033+"->2033plus
 const pctKey = (b: string) => `pct_${b.replace("<=", "le").replace("+", "plus")}`;
 const bucketLabel = (b: string) => (b === "<=2025" ? "≤25" : b === "2033+" ? "’33+" : `’${b.slice(2)}`);
@@ -108,7 +126,7 @@ export default function MaturityPage() {
           <h1 className="text-2xl font-bold text-white">Portfolio Maturity Wall</h1>
           <span className="px-2 py-1 rounded text-xs font-medium"
             style={{ background: "#1a1a28", color: "#a5b4fc", border: "1px solid #2d2d50" }}>
-            as of {maturityMeta.as_of}
+            {BEHIND.length ? `newest filing ${maturityMeta.as_of}` : `as of ${maturityMeta.as_of}`}
           </span>
         </div>
         <p className="text-sm max-w-3xl" style={{ color: "#9ca3af" }}>
@@ -118,6 +136,13 @@ export default function MaturityPage() {
           A tall <span style={{ color: "#f59e0b" }}>near-term</span>{" "}wall concentrates borrower repayment and refinancing
           in the next year or two — reinvestment risk for the BDC, plus credit risk if borrowers can&apos;t refinance when
           conditions tighten. Equity, warrants and structured/JV positions have no fixed maturity and are excluded.
+          {BEHIND.length > 0 && (
+            <>
+              {" "}Each BDC is shown at its latest filing:{" "}
+              {BEHIND.map((g) => `${listText(g.tickers)} ${g.tickers.length === 1 ? "is" : "are"} still at ${g.period}`).join("; ")},
+              the rest at {maturityMeta.as_of}.
+            </>
+          )}
         </p>
       </div>
 
