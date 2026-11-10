@@ -15,63 +15,63 @@ export const vintageGolden = {
   "n_reference_rows": 87,
   "n_reference_financings_matched": 81,
   "n_reference_rows_unmatched": 6,
-  "n_conflicting_loans_excluded": 18,
+  "n_conflicting_loans_excluded": 15,
   "overall": {
-    "n": 573,
+    "n": 569,
     "exact": 351,
-    "within_1y": 404,
-    "pct_within_1y": 70.5,
-    "mean_err_years": 0.28,
-    "mae_years": 1.27
+    "within_1y": 400,
+    "pct_within_1y": 70.3,
+    "mean_err_years": 0.26,
+    "mae_years": 1.28
   },
   "high_conf": {
-    "n": 449,
-    "exact": 286,
-    "within_1y": 323,
+    "n": 448,
+    "exact": 287,
+    "within_1y": 322,
     "pct_within_1y": 71.9,
-    "mean_err_years": 0.44,
-    "mae_years": 1.22
+    "mean_err_years": 0.41,
+    "mae_years": 1.23
   },
   "by_bucket": {
     "borrowed": {
-      "n": 172,
+      "n": 174,
       "exact": 117,
       "within_1y": 125,
-      "pct_within_1y": 72.7,
-      "mean_err_years": 0.74,
-      "mae_years": 1.21
+      "pct_within_1y": 71.8,
+      "mean_err_years": 0.69,
+      "mae_years": 1.24
     },
     "corrected": {
-      "n": 23,
-      "exact": 16,
-      "within_1y": 18,
-      "pct_within_1y": 78.3,
-      "mean_err_years": -0.35,
-      "mae_years": 0.61
+      "n": 25,
+      "exact": 18,
+      "within_1y": 20,
+      "pct_within_1y": 80.0,
+      "mean_err_years": -0.32,
+      "mae_years": 0.56
     },
     "disclosed": {
-      "n": 174,
-      "exact": 105,
-      "within_1y": 115,
-      "pct_within_1y": 66.1,
-      "mean_err_years": 0.21,
+      "n": 171,
+      "exact": 104,
+      "within_1y": 114,
+      "pct_within_1y": 66.7,
+      "mean_err_years": 0.19,
       "mae_years": 1.44
     },
     "first_seen": {
-      "n": 163,
+      "n": 161,
       "exact": 95,
-      "within_1y": 118,
-      "pct_within_1y": 72.4,
-      "mean_err_years": 0.2,
+      "within_1y": 116,
+      "pct_within_1y": 72.0,
+      "mean_err_years": 0.19,
       "mae_years": 1.17
     },
     "inferred": {
-      "n": 38,
-      "exact": 15,
-      "within_1y": 25,
-      "pct_within_1y": 65.8,
-      "mean_err_years": -0.76,
-      "mae_years": 1.76
+      "n": 35,
+      "exact": 14,
+      "within_1y": 22,
+      "pct_within_1y": 62.9,
+      "mean_err_years": -0.77,
+      "mae_years": 1.86
     },
     "name_matched": {
       "n": 3,
@@ -100,20 +100,20 @@ export const vintageGolden = {
       "mae_years": 0.5
     },
     "first_obs_reliable": {
-      "n": 129,
+      "n": 127,
       "exact": 80,
-      "within_1y": 95,
-      "pct_within_1y": 73.6,
-      "mean_err_years": 0.3,
-      "mae_years": 1.12
+      "within_1y": 93,
+      "pct_within_1y": 73.2,
+      "mean_err_years": 0.29,
+      "mae_years": 1.13
     },
     "holder_first": {
-      "n": 20,
-      "exact": 9,
-      "within_1y": 14,
-      "pct_within_1y": 70.0,
-      "mean_err_years": -0.55,
-      "mae_years": 1.35
+      "n": 17,
+      "exact": 8,
+      "within_1y": 11,
+      "pct_within_1y": 64.7,
+      "mean_err_years": -0.53,
+      "mae_years": 1.47
     },
     "ltail_enriched": {
       "n": 1,
@@ -124,11 +124,11 @@ export const vintageGolden = {
       "mae_years": 0.0
     },
     "own_acq": {
-      "n": 174,
-      "exact": 105,
-      "within_1y": 115,
-      "pct_within_1y": 66.1,
-      "mean_err_years": 0.21,
+      "n": 171,
+      "exact": 104,
+      "within_1y": 114,
+      "pct_within_1y": 66.7,
+      "mean_err_years": 0.19,
       "mae_years": 1.44
     },
     "reborn_holder_first": {
@@ -148,12 +148,12 @@ export const vintageGolden = {
       "mae_years": 2.29
     },
     "xbdc_borrow": {
-      "n": 172,
+      "n": 174,
       "exact": 117,
       "within_1y": 125,
-      "pct_within_1y": 72.7,
-      "mean_err_years": 0.74,
-      "mae_years": 1.21
+      "pct_within_1y": 71.8,
+      "mean_err_years": 0.69,
+      "mae_years": 1.24
     },
     "xbdc_borrow_loose": {
       "n": 1,
@@ -164,12 +164,12 @@ export const vintageGolden = {
       "mae_years": 0.0
     },
     "xbdc_earlier_peer": {
-      "n": 19,
-      "exact": 14,
-      "within_1y": 14,
-      "pct_within_1y": 73.7,
-      "mean_err_years": -0.32,
-      "mae_years": 0.63
+      "n": 21,
+      "exact": 16,
+      "within_1y": 16,
+      "pct_within_1y": 76.2,
+      "mean_err_years": -0.29,
+      "mae_years": 0.57
     },
     "xbdc_near": {
       "n": 1,
@@ -185,29 +185,29 @@ export const vintageGolden = {
     "n_facilities_matched": 91,
     "n_facilities_deal_year_only": 24,
     "n_facilities_tenor_linked": 73,
-    "n_tranches_tenor_linked": 219,
+    "n_tranches_tenor_linked": 220,
     "n_conflicting_loans_excluded": 0,
     "overall": {
-      "n": 266,
-      "exact": 226,
-      "within_1y": 260,
-      "pct_within_1y": 97.7,
+      "n": 267,
+      "exact": 227,
+      "within_1y": 261,
+      "pct_within_1y": 97.8,
       "mean_err_years": 0.09,
       "mae_years": 0.18
     },
     "against_deal_year": {
-      "n": 315,
-      "exact": 169,
-      "within_1y": 206,
-      "pct_within_1y": 65.4,
+      "n": 316,
+      "exact": 170,
+      "within_1y": 207,
+      "pct_within_1y": 65.5,
       "mean_err_years": 1.59,
-      "mae_years": 1.65
+      "mae_years": 1.64
     },
     "by_maturity_evidence": {
       "inferred_tenor": {
-        "n": 219,
-        "exact": 184,
-        "within_1y": 214,
+        "n": 220,
+        "exact": 185,
+        "within_1y": 215,
         "pct_within_1y": 97.7,
         "mean_err_years": 0.1,
         "mae_years": 0.2
@@ -247,11 +247,11 @@ export const vintageGolden = {
         "mae_years": 0.13
       },
       "first_seen": {
-        "n": 117,
-        "exact": 97,
-        "within_1y": 112,
-        "pct_within_1y": 95.7,
-        "mean_err_years": 0.15,
+        "n": 118,
+        "exact": 98,
+        "within_1y": 113,
+        "pct_within_1y": 95.8,
+        "mean_err_years": 0.14,
         "mae_years": 0.23
       },
       "inferred": {
@@ -289,9 +289,9 @@ export const vintageGolden = {
         "mae_years": 1.0
       },
       "first_obs_reliable": {
-        "n": 95,
-        "exact": 81,
-        "within_1y": 93,
+        "n": 96,
+        "exact": 82,
+        "within_1y": 94,
         "pct_within_1y": 97.9,
         "mean_err_years": 0.07,
         "mae_years": 0.18
@@ -355,10 +355,10 @@ export const vintageGolden = {
         "mae_years": 0.5
       },
       "MED": {
-        "n": 113,
-        "exact": 98,
-        "within_1y": 110,
-        "pct_within_1y": 97.3,
+        "n": 114,
+        "exact": 99,
+        "within_1y": 111,
+        "pct_within_1y": 97.4,
         "mean_err_years": 0.08,
         "mae_years": 0.17
       }
@@ -366,32 +366,32 @@ export const vintageGolden = {
   },
   "holdout": {
     "truth": "the holder's own disclosed date, hidden from the waterfall with the dates its adviser family printed",
-    "n_scored": 5415,
+    "n_scored": 5411,
     "undated_pct": 0.0,
     "overall": {
-      "n": 5414,
-      "cost_b": 155.1,
+      "n": 5410,
+      "cost_b": 155.0,
       "exact_pct": 83.2,
-      "within_1y_pct": 92.0,
-      "exact_cost_pct": 89.0,
-      "within_1y_cost_pct": 94.8,
+      "within_1y_pct": 91.9,
+      "exact_cost_pct": 88.8,
+      "within_1y_cost_pct": 94.7,
       "mean_err_years": -0.04,
       "mae_years": 0.34
     },
     "by_source": {
       "first_obs_elsewhere": {
-        "n": 238,
-        "cost_b": 1.6,
-        "exact_pct": 45.8,
+        "n": 242,
+        "cost_b": 1.8,
+        "exact_pct": 45.5,
         "within_1y_pct": 75.6,
-        "exact_cost_pct": 43.0,
-        "within_1y_cost_pct": 76.1,
-        "mean_err_years": -0.64,
+        "exact_cost_pct": 37.9,
+        "within_1y_cost_pct": 78.6,
+        "mean_err_years": -0.63,
         "mae_years": 0.96
       },
       "first_obs_reliable": {
-        "n": 3431,
-        "cost_b": 108.5,
+        "n": 3418,
+        "cost_b": 107.8,
         "exact_pct": 92.5,
         "within_1y_pct": 95.7,
         "exact_cost_pct": 94.2,
@@ -400,12 +400,12 @@ export const vintageGolden = {
         "mae_years": 0.18
       },
       "holder_first": {
-        "n": 355,
+        "n": 348,
         "cost_b": 2.5,
-        "exact_pct": 64.2,
-        "within_1y_pct": 79.4,
-        "exact_cost_pct": 48.0,
-        "within_1y_cost_pct": 66.1,
+        "exact_pct": 64.4,
+        "within_1y_pct": 79.3,
+        "exact_cost_pct": 46.1,
+        "within_1y_cost_pct": 63.5,
         "mean_err_years": -0.72,
         "mae_years": 0.9
       },
@@ -424,20 +424,20 @@ export const vintageGolden = {
         "cost_b": 13.5,
         "exact_pct": 51.9,
         "within_1y_pct": 83.3,
-        "exact_cost_pct": 51.2,
-        "within_1y_cost_pct": 86.9,
+        "exact_cost_pct": 51.1,
+        "within_1y_cost_pct": 86.8,
         "mean_err_years": -0.5,
         "mae_years": 0.8
       },
       "xbdc_borrow": {
-        "n": 714,
-        "cost_b": 28.9,
-        "exact_pct": 90.3,
-        "within_1y_pct": 94.1,
+        "n": 726,
+        "cost_b": 29.2,
+        "exact_pct": 89.7,
+        "within_1y_pct": 93.5,
         "exact_cost_pct": 93.5,
-        "within_1y_cost_pct": 96.6,
-        "mean_err_years": -0.1,
-        "mae_years": 0.19
+        "within_1y_cost_pct": 96.8,
+        "mean_err_years": -0.13,
+        "mae_years": 0.21
       },
       "xbdc_near": {
         "n": 4,
@@ -451,26 +451,26 @@ export const vintageGolden = {
       }
     },
     "order": {
-      "n": 702,
+      "n": 716,
       "first_sighting": {
-        "n": 702,
-        "cost_b": 28.0,
-        "exact_pct": 88.3,
-        "within_1y_pct": 93.6,
-        "exact_cost_pct": 93.3,
-        "within_1y_cost_pct": 96.4,
-        "mean_err_years": -0.08,
-        "mae_years": 0.24
+        "n": 716,
+        "cost_b": 28.6,
+        "exact_pct": 87.4,
+        "within_1y_pct": 92.7,
+        "exact_cost_pct": 92.7,
+        "within_1y_cost_pct": 96.0,
+        "mean_err_years": -0.11,
+        "mae_years": 0.26
       },
       "peer_date": {
-        "n": 702,
-        "cost_b": 28.0,
-        "exact_pct": 86.2,
-        "within_1y_pct": 90.7,
-        "exact_cost_pct": 92.0,
-        "within_1y_cost_pct": 96.4,
-        "mean_err_years": -0.24,
-        "mae_years": 0.33
+        "n": 716,
+        "cost_b": 28.6,
+        "exact_pct": 85.3,
+        "within_1y_pct": 89.9,
+        "exact_cost_pct": 91.4,
+        "within_1y_cost_pct": 95.9,
+        "mean_err_years": -0.26,
+        "mae_years": 0.35
       }
     }
   }
