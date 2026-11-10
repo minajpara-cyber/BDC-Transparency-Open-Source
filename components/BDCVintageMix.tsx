@@ -17,7 +17,7 @@ export interface VintageMixRow {
   age_years: number | null;      // comparison age
   n_loans: number | null;
   pct_ever_na: number | null;    // on-book non-accrual (cumulative)
-  pct_ever_default: number | null; // NA OR left in distress or restructured (cumulative)
+  pct_ever_default: number | null; // NA, Chapter 11 (DIP paper) OR left in distress or restructured (cumulative)
   ind_ever_na: number | null;
   ind_ever_default: number | null;
   is_partial: boolean;           // vintage predates this BDC's filing coverage
@@ -81,7 +81,7 @@ export default function BDCVintageMix({ ticker, asOf, rows }: { ticker: string; 
         {(Object.keys(METRIC) as MetricId[]).map((id) => (
           <button key={id} onClick={() => setMetric(id)} className="px-2.5 py-1 rounded border transition-all"
                   style={{ background: metric === id ? "rgba(99,102,241,0.15)" : "#111118", borderColor: metric === id ? "#6366f1" : "#2d2d45", color: metric === id ? "#a5b4fc" : "#9ca3af", whiteSpace: "nowrap" }}
-                  title={id === "default" ? "Cumulative % of vintage cost ever non-accrual OR that left in distress or was restructured" : "Cumulative % of vintage cost ever flagged non-accrual on a schedule, still counted after the loan left"}>
+                  title={id === "default" ? "Cumulative % of vintage cost ever non-accrual, in Chapter 11 while held (a debtor-in-possession loan), OR that left in distress or was restructured" : "Cumulative % of vintage cost ever flagged non-accrual on a schedule, still counted after the loan left"}>
             {METRIC[id].label}
           </button>
         ))}
@@ -207,8 +207,8 @@ export default function BDCVintageMix({ ticker, asOf, rows }: { ticker: string; 
           fund interests among them, are shown separately as Undated). Rates are read at the oldest age every loan in the cohort
           has reached; &quot;—&quot; = no published rate (undated or before 2018, a cohort under 30 loans or begun before our first{" "}
           {ticker}{" "}filing, or one with too few loans to measure at some age). On-book NA counts loans ever flagged non-accrual,
-          whether or not they have since left; cumulative default adds loans that left in distress or were restructured without
-          a flag. * = non-accrual status partly unknown at that age (unknown-status loans are left out, not counted as performing).
+          whether or not they have since left; cumulative default adds Chapter 11 filings (the BDC&apos;s first debtor-in-possession
+          loan to the borrower, flagged or not) and loans that left in distress or were restructured without a flag. * = non-accrual status partly unknown at that age (unknown-status loans are left out, not counted as performing).
         </div>
       </div>
     </section>

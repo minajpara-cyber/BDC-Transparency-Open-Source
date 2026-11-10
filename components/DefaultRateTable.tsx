@@ -1,8 +1,8 @@
 "use client";
 
 // Latest trailing-twelve-month default rate per BDC, split into the events that
-// make up the "shadow" rate: new non-accruals, restructurings, PIK amendments
-// and distressed exits. Only fully observed windows show numbers; every other
+// make up the "shadow" rate: new non-accruals and Chapter 11 filings,
+// restructurings, PIK amendments and distressed exits. Only fully observed windows show numbers; every other
 // BDC is listed as withheld with the reason (lib/defaultRatePublication.ts).
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -25,8 +25,9 @@ function heat(v: number | null | undefined, hi: number): string {
 const HEAD: [Key, string, string, string][] = [
   ["ticker", "BDC", "", ""],
   ["default_rate", "Shadow rate", "", "hard rate plus loans kept accruing by changing their terms"],
-  ["hard_rate", "Hard rate", "", "new non-accruals plus distressed exits"],
-  ["rate_non_accrual", "New non-accrual", "observed", "the BDC flagged the loan non-accrual during the year"],
+  ["hard_rate", "Hard rate", "", "new non-accruals and Chapter 11 filings, plus distressed exits"],
+  ["rate_non_accrual", "New non-accrual or Ch. 11", "observed",
+    "the BDC flagged the loan non-accrual during the year, or the borrower filed for Chapter 11 (the BDC's first debtor-in-possession loan to it), even where its loans stayed accruing"],
   ["rate_distressed_exit", "Distressed exit", "inferred from exits",
     "without the loan ever going non-accrual: its borrower left the BDC with the loan below 85¢, or below 90¢ after a mark under 80¢, while marked under 90% of its cost or purchase price; or, while the borrower kept debt there, a marked-down loan was swapped for new equity or much smaller or junior debt — inferred from the last mark and the holdings that replaced the loan, not from sale proceeds. A piece repaid or refinanced while the borrower keeps its debt at the BDC is not a distressed exit"],
   ["rate_restructuring", "Restructuring", "inferred from term changes",
@@ -80,7 +81,8 @@ export default function DefaultRateTable({ rows, history }: {
           <h3 className="font-semibold text-white text-sm">Default rate by BDC, last twelve months</h3>
           <p className="text-xs mt-1" style={{ color: "#8b8ba8" }}>
             % of the debt that was performing a year ago. Each defaulted borrower is counted once, under its
-            first event. <span className="text-white">Hard</span>{" "}= a new non-accrual (observed) or a distressed
+            first event. <span className="text-white">Hard</span>{" "}= a new non-accrual or a Chapter 11 filing (both observed;
+            a Chapter 11 filing is the BDC&apos;s first debtor-in-possession loan to the borrower) or a distressed
             exit (inferred from the exit mark). <span className="text-white">Shadow</span>{" "}adds restructurings
             and PIK amendments, both inferred from term changes — loans kept accruing by changing their terms.
             Hover a column heading for its definition. A BDC is shown only when every loan&apos;s non-accrual

@@ -1,7 +1,7 @@
 "use client";
 
 // Universe default rate over time, trailing twelve months: the conventional
-// "hard" rate (non-accrual + distressed exits), the "shadow" rate that adds
+// "hard" rate (non-accrual or Chapter 11 + distressed exits), the "shadow" rate that adds
 // material distressed modifications, and the same shadow rate counted by
 // borrower rather than by dollars — three of the ways published private-credit
 // default rates end up disagreeing. The pooled series (scripts/92) uses only
@@ -21,8 +21,8 @@ import type { DefaultRateUniverse } from "@/data/default_rate";
 
 const SERIES: { key: keyof DefaultRateUniverse; label: string; color: string; dash?: string }[] = [
   { key: "default_rate", label: "Shadow rate: hard + term changes (inferred)", color: "#f97316" },
-  { key: "hard_rate", label: "Hard rate: new non-accruals + distressed exits", color: "#ef4444" },
-  { key: "rate_non_accrual", label: "New non-accruals only (observed)", color: "#a5b4fc" },
+  { key: "hard_rate", label: "Hard rate: new non-accruals and Chapter 11 filings + distressed exits", color: "#ef4444" },
+  { key: "rate_non_accrual", label: "New non-accruals and Chapter 11 filings (observed)", color: "#a5b4fc" },
   { key: "rate_distressed_exit", label: "Distressed exits only (inferred from exit mark)", color: "#fca5a5", dash: "4 3" },
   { key: "count_rate", label: "Shadow rate by borrower count", color: "#fde68a", dash: "6 3" },
   { key: "na_stock_pct", label: "Non-accrual stock, debt only (point in time)", color: "#6b7280", dash: "2 3" },

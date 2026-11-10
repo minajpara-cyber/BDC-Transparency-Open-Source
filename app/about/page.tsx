@@ -236,7 +236,9 @@ export default function AboutPage() {
 
         <h3 className="text-sm font-semibold text-white mt-4 mb-2">Cumulative default exposure (vintage)</h3>
         <p className="text-xs leading-relaxed mb-2" style={{ color: "#9ca3af" }}>
-          Share of a vintage&apos;s entry cost ever flagged non-accrual OR that left in distress or was restructured
+          Share of a vintage&apos;s entry cost ever flagged non-accrual, whose borrower entered Chapter 11 while the BDC
+          held it (shown by the BDC&apos;s first debtor-in-possession loan to the borrower, accruing or not), OR that left
+          in distress or was restructured
           (its borrower left the BDC with the loan below 85¢, or below 90¢ after a mark under 80¢, while marked under
           90% of its cost or purchase price; or, while the borrower kept debt there, it was swapped for new equity or
           much smaller or junior debt) — directionally comparable to Raymond James&apos;s &ldquo;cumulative 1L default

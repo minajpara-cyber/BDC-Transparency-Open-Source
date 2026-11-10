@@ -683,7 +683,8 @@ export default function VintagePage() {
         <div className="px-5 py-4 border-b" style={{ borderColor: "#1e1e2e" }}>
           <h2 className="font-semibold text-white">Cumulative Default % at Standard Ages</h2>
           <p className="text-xs mt-0.5" style={{ color: "#8b8ba8" }}>
-            Share of vintage cost that has defaulted (a non-accrual flag, or a loan that left in distress or was restructured) by
+            Share of vintage cost that has defaulted (a non-accrual flag, a Chapter 11 filing shown by a debtor-in-possession loan,
+            or a loan that left in distress or was restructured) by
             year T, counting only loans old enough to reach year T (hover for how much of the cohort that is). &mdash; means too few
             loans have reached that age, or too few to publish on this basis.
             * = non-accrual status partly unknown. Basis: <b>{basisLabel}</b>.

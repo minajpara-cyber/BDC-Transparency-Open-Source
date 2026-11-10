@@ -1062,7 +1062,8 @@ export default async function BDCDetailPage({ params }: PageProps) {
               </span>
             </div>
             <p className="text-xs mb-4" style={{ color: "#8b8ba8" }}>
-              Cumulative <span className="text-white">cost-weighted % ever defaulted</span>{" "}(on-book non-accrual, or left in distress or restructured)
+              Cumulative <span className="text-white">cost-weighted % ever defaulted</span>{" "}(on-book non-accrual, a Chapter 11 filing shown by a debtor-in-possession loan,
+              or left in distress or restructured)
               at standard ages for each vintage, next to the industry at the same age. A cell appears only once <span className="text-white">every
               loan</span> in {bdc.ticker}&apos;s cohort is old enough to have reached that age. Cells tagged{" "}
               <span className="px-1 py-0 rounded text-[10px]" style={{ background: "rgba(34,197,94,0.12)", color: "#22c55e" }}>HC</span>{" "}
