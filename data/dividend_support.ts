@@ -25,7 +25,7 @@ export const dividendSupport: DividendSupportRow[] = [
   {"ticker": "ARCC", "period_end": "2026-09-30", "nii_cov": 1.054, "cov_ex_pik": 0.707, "pik_pct_nii": 32.92, "pik_collected_pct": 31.1, "spillover_m": 988.0, "spillover_fy": "2025-12-31", "spillover_q": 2.86, "nav_ps": 19.31, "nav_chg_1y": -3.5, "nav_chg_3y": 1.69, "div_yield_nav": 9.59, "nav_tr_1y": 6.09, "shadow_default": 3.92, "hard_default": 2.73, "default_window_status": "fully_observed", "switched_pik_pct_nii": 1.13, "switched_pct_book": 0.46, "n_flags": 1, "flags": ["NII ex-PIK below 80% of the dividend"], "pressure": "low"},
   {"ticker": "ASIF", "period_end": "2026-09-30", "nii_cov": 0.946, "cov_ex_pik": 0.807, "pik_pct_nii": 14.73, "pik_collected_pct": 0.8, "spillover_m": 3.3, "spillover_fy": "2025-12-31", "spillover_q": 0.01, "nav_ps": 26.69, "nav_chg_1y": -3.23, "nav_chg_3y": -1.4, "div_yield_nav": 9.36, "nav_tr_1y": 6.13, "shadow_default": 1.38, "hard_default": 0.93, "default_window_status": "fully_observed", "switched_pik_pct_nii": 0.18, "switched_pct_book": 0.03, "n_flags": 2, "flags": ["reported NII below 95% of the dividend", "under-covered with under a quarter of spillover"], "pressure": "elevated"},
   {"ticker": "BBDC", "period_end": "2026-09-30", "nii_cov": 1.01, "cov_ex_pik": 0.792, "pik_pct_nii": 21.62, "pik_collected_pct": null, "spillover_m": 86.9, "spillover_fy": "2025-12-31", "spillover_q": 3.19, "nav_ps": 10.92, "nav_chg_1y": -1.62, "nav_chg_3y": -2.93, "div_yield_nav": 9.38, "nav_tr_1y": 7.76, "shadow_default": 9.86, "hard_default": 2.48, "default_window_status": "fully_observed", "switched_pik_pct_nii": 2.53, "switched_pct_book": 3.4, "n_flags": 2, "flags": ["NII ex-PIK below 80% of the dividend", "shadow default rate above 7%"], "pressure": "elevated"},
-  {"ticker": "BCRED", "period_end": "2026-06-30", "nii_cov": 0.913, "cov_ex_pik": 0.811, "pik_pct_nii": 11.18, "pik_collected_pct": null, "spillover_m": 470.5, "spillover_fy": "2025-12-31", "spillover_q": 0.43, "nav_ps": 23.65, "nav_chg_1y": -6.04, "nav_chg_3y": -4.87, "div_yield_nav": 9.79, "nav_tr_1y": 3.75, "shadow_default": 6.36, "hard_default": 3.38, "default_window_status": "fully_observed", "switched_pik_pct_nii": 2.71, "switched_pct_book": 2.49, "n_flags": 3, "flags": ["reported NII below 95% of the dividend", "under-covered with under a quarter of spillover", "NAV per share down more than 5% in a year"], "pressure": "elevated"},
+  {"ticker": "BCRED", "period_end": "2026-09-30", "nii_cov": 0.921, "cov_ex_pik": 0.818, "pik_pct_nii": 11.16, "pik_collected_pct": null, "spillover_m": 470.5, "spillover_fy": "2025-12-31", "spillover_q": 0.49, "nav_ps": 23.51, "nav_chg_1y": -5.85, "nav_chg_3y": -6.82, "div_yield_nav": 9.52, "nav_tr_1y": 3.67, "shadow_default": 8.26, "hard_default": 5.1, "default_window_status": "fully_observed", "switched_pik_pct_nii": 2.93, "switched_pct_book": 3.41, "n_flags": 4, "flags": ["reported NII below 95% of the dividend", "under-covered with under a quarter of spillover", "NAV per share down more than 5% in a year", "shadow default rate above 7%"], "pressure": "high"},
   {"ticker": "BXSL", "period_end": "2026-09-30", "nii_cov": 0.973, "cov_ex_pik": 0.848, "pik_pct_nii": 12.8, "pik_collected_pct": null, "spillover_m": 415.8, "spillover_fy": "2025-12-31", "spillover_q": 2.32, "nav_ps": 25.25, "nav_chg_1y": -7.0, "nav_chg_3y": -4.86, "div_yield_nav": 11.34, "nav_tr_1y": 4.35, "shadow_default": 8.62, "hard_default": 6.73, "default_window_status": "fully_observed", "switched_pik_pct_nii": 4.37, "switched_pct_book": 3.82, "n_flags": 3, "flags": ["NAV per share down more than 5% in a year", "shadow default rate above 7%", "severe PIK on debt that switched from cash is over 4% of NII"], "pressure": "elevated"},
   {"ticker": "CCAP", "period_end": "2026-09-30", "nii_cov": 1.008, "cov_ex_pik": 0.86, "pik_pct_nii": 14.64, "pik_collected_pct": null, "spillover_m": 67.8, "spillover_fy": "2025-12-31", "spillover_q": 4.97, "nav_ps": 17.72, "nav_chg_1y": -8.09, "nav_chg_3y": -10.05, "div_yield_nav": 8.2, "nav_tr_1y": 0.11, "shadow_default": 10.6, "hard_default": 5.58, "default_window_status": "fully_observed", "switched_pik_pct_nii": 3.97, "switched_pct_book": 0.91, "n_flags": 2, "flags": ["NAV per share down more than 5% in a year", "shadow default rate above 7%"], "pressure": "elevated"},
   {"ticker": "CGBD", "period_end": "2026-09-30", "nii_cov": 0.935, "cov_ex_pik": 0.68, "pik_pct_nii": 27.24, "pik_collected_pct": null, "spillover_m": 53.4, "spillover_fy": "2025-12-31", "spillover_q": 2.23, "nav_ps": 15.65, "nav_chg_1y": -4.34, "nav_chg_3y": -7.18, "div_yield_nav": 9.17, "nav_tr_1y": 4.83, "shadow_default": 10.45, "hard_default": 3.9, "default_window_status": "fully_observed", "switched_pik_pct_nii": 4.89, "switched_pct_book": 1.95, "n_flags": 4, "flags": ["reported NII below 95% of the dividend", "NII ex-PIK below 80% of the dividend", "shadow default rate above 7%", "severe PIK on debt that switched from cash is over 4% of NII"], "pressure": "high"},
@@ -146,6 +146,7 @@ export const navPerShare: NavPoint[] = [
   {"ticker": "BCRED", "period_end": "2025-12-31", "nav_ps": 24.79},
   {"ticker": "BCRED", "period_end": "2026-03-31", "nav_ps": 24.19},
   {"ticker": "BCRED", "period_end": "2026-06-30", "nav_ps": 23.65},
+  {"ticker": "BCRED", "period_end": "2026-09-30", "nav_ps": 23.51},
   {"ticker": "BXSL", "period_end": "2019-12-31", "nav_ps": 26.02},
   {"ticker": "BXSL", "period_end": "2020-12-31", "nav_ps": 25.2},
   {"ticker": "BXSL", "period_end": "2021-09-30", "nav_ps": 26.15},
@@ -474,7 +475,7 @@ export const navPerShare: NavPoint[] = [
 ];
 
 export const dividendSupportMeta = {
-  "generated": "2026-11-09",
+  "generated": "2026-11-13",
   "latest_period": "2026-09-30",
   "n_bdcs": 19,
   "switched_pik_flag_pct_nii": 4.0,
@@ -483,10 +484,10 @@ export const dividendSupportMeta = {
     "from": "2019-12-31",
     "to": "2026-09-30",
     "outcome_to": "2025-09-30",
-    "n_bdc_quarters": 473,
+    "n_bdc_quarters": 474,
     "n_bdcs": 19,
-    "median_pct_nii": 1.39,
-    "pct_bdc_quarters_flagged": 16.3,
+    "median_pct_nii": 1.4,
+    "pct_bdc_quarters_flagged": 16.2,
     "flagged": {
       "n": 59,
       "n_bdcs": 7,
@@ -497,13 +498,13 @@ export const dividendSupportMeta = {
       "n_hard": 57
     },
     "rest": {
-      "n": 327,
+      "n": 328,
       "n_bdcs": 19,
-      "fwd_nav_mean": -0.34,
-      "fwd_nav_median": -0.67,
-      "n_nav": 287,
-      "fwd_hard_mean": 2.16,
-      "n_hard": 316
+      "fwd_nav_mean": -0.36,
+      "fwd_nav_median": -0.68,
+      "n_nav": 288,
+      "fwd_hard_mean": 2.17,
+      "n_hard": 317
     },
     "old_flagged": {
       "n": 78,
@@ -515,13 +516,13 @@ export const dividendSupportMeta = {
       "n_hard": 77
     },
     "old_rest": {
-      "n": 308,
+      "n": 309,
       "n_bdcs": 19,
-      "fwd_nav_mean": -0.71,
-      "fwd_nav_median": -1.07,
-      "n_nav": 268,
-      "fwd_hard_mean": 2.36,
-      "n_hard": 296
+      "fwd_nav_mean": -0.73,
+      "fwd_nav_median": -1.1,
+      "n_nav": 269,
+      "fwd_hard_mean": 2.37,
+      "n_hard": 297
     },
     "weakest_leave_one_out": {
       "without": "FSK",
@@ -535,13 +536,13 @@ export const dividendSupportMeta = {
         "n_hard": 53
       },
       "rest": {
-        "n": 307,
+        "n": 308,
         "n_bdcs": 18,
-        "fwd_nav_mean": -0.16,
-        "fwd_nav_median": -0.42,
-        "n_nav": 275,
-        "fwd_hard_mean": 1.98,
-        "n_hard": 296
+        "fwd_nav_mean": -0.18,
+        "fwd_nav_median": -0.45,
+        "n_nav": 276,
+        "fwd_hard_mean": 1.99,
+        "n_hard": 297
       }
     },
     "scan": [
@@ -551,12 +552,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 10,
         "fwd_nav_mean": -2.88,
         "fwd_nav_median": -1.75,
-        "rest_nav_mean": -0.37,
-        "rest_nav_median": -0.79,
-        "gap_mean": 2.51,
-        "gap_median": 0.96,
+        "rest_nav_mean": -0.39,
+        "rest_nav_median": -0.8,
+        "gap_mean": 2.49,
+        "gap_median": 0.95,
         "fwd_hard_mean": 3.66,
-        "rest_hard_mean": 2.12
+        "rest_hard_mean": 2.13
       },
       {
         "threshold": 3.5,
@@ -564,12 +565,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 9,
         "fwd_nav_mean": -3.34,
         "fwd_nav_median": -2.5,
-        "rest_nav_mean": -0.38,
-        "rest_nav_median": -0.68,
-        "gap_mean": 2.96,
-        "gap_median": 1.82,
+        "rest_nav_mean": -0.4,
+        "rest_nav_median": -0.69,
+        "gap_mean": 2.94,
+        "gap_median": 1.81,
         "fwd_hard_mean": 3.72,
-        "rest_hard_mean": 2.17
+        "rest_hard_mean": 2.18
       },
       {
         "threshold": 4.0,
@@ -577,12 +578,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 7,
         "fwd_nav_mean": -3.87,
         "fwd_nav_median": -2.88,
-        "rest_nav_mean": -0.34,
-        "rest_nav_median": -0.67,
-        "gap_mean": 3.53,
-        "gap_median": 2.21,
+        "rest_nav_mean": -0.36,
+        "rest_nav_median": -0.68,
+        "gap_mean": 3.51,
+        "gap_median": 2.2,
         "fwd_hard_mean": 4.04,
-        "rest_hard_mean": 2.16
+        "rest_hard_mean": 2.17
       },
       {
         "threshold": 4.5,
@@ -590,12 +591,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 6,
         "fwd_nav_mean": -3.65,
         "fwd_nav_median": -2.66,
-        "rest_nav_mean": -0.47,
-        "rest_nav_median": -0.76,
-        "gap_mean": 3.18,
-        "gap_median": 1.9,
+        "rest_nav_mean": -0.49,
+        "rest_nav_median": -0.77,
+        "gap_mean": 3.16,
+        "gap_median": 1.89,
         "fwd_hard_mean": 3.88,
-        "rest_hard_mean": 2.23
+        "rest_hard_mean": 2.24
       },
       {
         "threshold": 5.0,
@@ -603,12 +604,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 5,
         "fwd_nav_mean": -4.4,
         "fwd_nav_median": -3.07,
-        "rest_nav_mean": -0.45,
-        "rest_nav_median": -0.67,
-        "gap_mean": 3.95,
-        "gap_median": 2.4,
+        "rest_nav_mean": -0.47,
+        "rest_nav_median": -0.68,
+        "gap_mean": 3.93,
+        "gap_median": 2.39,
         "fwd_hard_mean": 4.31,
-        "rest_hard_mean": 2.22
+        "rest_hard_mean": 2.23
       },
       {
         "threshold": 5.5,
@@ -616,10 +617,10 @@ export const dividendSupportMeta = {
         "n_bdcs": 5,
         "fwd_nav_mean": -3.91,
         "fwd_nav_median": -3.0,
-        "rest_nav_mean": -0.55,
-        "rest_nav_median": -0.76,
-        "gap_mean": 3.36,
-        "gap_median": 2.24,
+        "rest_nav_mean": -0.57,
+        "rest_nav_median": -0.77,
+        "gap_mean": 3.34,
+        "gap_median": 2.23,
         "fwd_hard_mean": 4.17,
         "rest_hard_mean": 2.27
       },
@@ -629,12 +630,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 5,
         "fwd_nav_mean": -3.63,
         "fwd_nav_median": -2.95,
-        "rest_nav_mean": -0.62,
-        "rest_nav_median": -0.79,
-        "gap_mean": 3.01,
-        "gap_median": 2.16,
+        "rest_nav_mean": -0.64,
+        "rest_nav_median": -0.8,
+        "gap_mean": 2.99,
+        "gap_median": 2.15,
         "fwd_hard_mean": 4.18,
-        "rest_hard_mean": 2.3
+        "rest_hard_mean": 2.31
       }
     ],
     "scan_best_mean_gap": 5.0,
@@ -648,12 +649,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 5,
         "fwd_nav_mean": -2.52,
         "fwd_nav_median": -2.23,
-        "rest_nav_mean": -0.49,
-        "rest_nav_median": -0.69,
-        "gap_mean": 2.03,
-        "gap_median": 1.54,
+        "rest_nav_mean": -0.51,
+        "rest_nav_median": -0.72,
+        "gap_mean": 2.01,
+        "gap_median": 1.51,
         "fwd_hard_mean": 2.76,
-        "rest_hard_mean": 2.39
+        "rest_hard_mean": 2.4
       },
       "best": {
         "threshold": 34.0,
@@ -661,12 +662,12 @@ export const dividendSupportMeta = {
         "n_bdcs": 4,
         "fwd_nav_mean": -3.53,
         "fwd_nav_median": -2.79,
-        "rest_nav_mean": -0.54,
-        "rest_nav_median": -0.76,
-        "gap_mean": 2.99,
-        "gap_median": 2.03,
+        "rest_nav_mean": -0.56,
+        "rest_nav_median": -0.77,
+        "gap_mean": 2.97,
+        "gap_median": 2.02,
         "fwd_hard_mean": 2.65,
-        "rest_hard_mean": 2.43
+        "rest_hard_mean": 2.44
       }
     },
     "spearman": {

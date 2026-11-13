@@ -3,7 +3,7 @@ export const siteMeta = {
   "latest_period": "2026-09-30",
   "latest_quarter": "2026 Q3",
   "n_bdcs": 19,
-  "n_filings": 639,
+  "n_filings": 640,
   "dataset_periods": {
     "core": {
       "first_period": "2014-09-30",
@@ -19,7 +19,7 @@ export const siteMeta = {
     "ARCC": "2026-09-30",
     "ASIF": "2026-09-30",
     "BBDC": "2026-09-30",
-    "BCRED": "2026-06-30",
+    "BCRED": "2026-09-30",
     "BXSL": "2026-09-30",
     "CCAP": "2026-09-30",
     "CGBD": "2026-09-30",
@@ -35,8 +35,8 @@ export const siteMeta = {
     "OTF": "2026-09-30",
     "TSLX": "2026-09-30"
   },
-  "release_id": "bdc-a253d065456aa7014f3b54bf",
-  "generated_at": "2026-11-09",
-  "checked_at": "2026-11-09T22:22:01-05:00",
+  "release_id": "bdc-0e3f215da21cc8cc79b7330d",
+  "generated_at": "2026-11-13",
+  "checked_at": "2026-11-13T15:43:17-05:00",
   "validation_scope": "Automated consistency checks: data files well-formed and consistent, database invariants, and each BDC's latest book against the filing's reported total investments. Not an independent audit of every loan or event."
 };

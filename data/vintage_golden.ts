@@ -10,7 +10,7 @@ export interface HoldoutScore { n: number; cost_b?: number; exact_pct?: number;
   mean_err_years?: number; mae_years?: number; }
 
 export const vintageGolden = {
-  "scored_on": "2026-11-09",
+  "scored_on": "2026-11-13",
   "caveat": "Small reference set, not a representative accuracy benchmark: hand-picked public financings matched to our loans by borrower name.",
   "n_reference_rows": 87,
   "n_reference_financings_matched": 81,
@@ -339,9 +339,9 @@ export const vintageGolden = {
     },
     "by_tier": {
       "HIGH": {
-        "n": 105,
-        "exact": 99,
-        "within_1y": 105,
+        "n": 104,
+        "exact": 98,
+        "within_1y": 104,
         "pct_within_1y": 100.0,
         "mean_err_years": 0.06,
         "mae_years": 0.06
@@ -355,9 +355,9 @@ export const vintageGolden = {
         "mae_years": 0.5
       },
       "MED": {
-        "n": 114,
-        "exact": 99,
-        "within_1y": 111,
+        "n": 115,
+        "exact": 100,
+        "within_1y": 112,
         "pct_within_1y": 97.4,
         "mean_err_years": 0.08,
         "mae_years": 0.17
@@ -366,32 +366,32 @@ export const vintageGolden = {
   },
   "holdout": {
     "truth": "the holder's own disclosed date, hidden from the waterfall with the dates its adviser family printed",
-    "n_scored": 5411,
+    "n_scored": 5430,
     "undated_pct": 0.0,
     "overall": {
-      "n": 5410,
-      "cost_b": 155.0,
+      "n": 5429,
+      "cost_b": 155.8,
       "exact_pct": 83.2,
       "within_1y_pct": 91.9,
-      "exact_cost_pct": 88.8,
+      "exact_cost_pct": 88.9,
       "within_1y_cost_pct": 94.7,
       "mean_err_years": -0.04,
-      "mae_years": 0.34
+      "mae_years": 0.35
     },
     "by_source": {
       "first_obs_elsewhere": {
         "n": 242,
         "cost_b": 1.8,
-        "exact_pct": 45.5,
+        "exact_pct": 45.0,
         "within_1y_pct": 75.6,
-        "exact_cost_pct": 37.9,
+        "exact_cost_pct": 37.8,
         "within_1y_cost_pct": 78.6,
         "mean_err_years": -0.63,
         "mae_years": 0.96
       },
       "first_obs_reliable": {
-        "n": 3418,
-        "cost_b": 107.8,
+        "n": 3433,
+        "cost_b": 108.6,
         "exact_pct": 92.5,
         "within_1y_pct": 95.7,
         "exact_cost_pct": 94.2,
@@ -400,14 +400,14 @@ export const vintageGolden = {
         "mae_years": 0.18
       },
       "holder_first": {
-        "n": 348,
+        "n": 350,
         "cost_b": 2.5,
-        "exact_pct": 64.4,
-        "within_1y_pct": 79.3,
-        "exact_cost_pct": 46.1,
-        "within_1y_cost_pct": 63.5,
-        "mean_err_years": -0.72,
-        "mae_years": 0.9
+        "exact_pct": 64.3,
+        "within_1y_pct": 79.1,
+        "exact_cost_pct": 45.8,
+        "within_1y_cost_pct": 63.2,
+        "mean_err_years": -0.73,
+        "mae_years": 0.91
       },
       "ltail_enriched": {
         "n": 7,
@@ -430,8 +430,8 @@ export const vintageGolden = {
         "mae_years": 0.8
       },
       "xbdc_borrow": {
-        "n": 726,
-        "cost_b": 29.2,
+        "n": 728,
+        "cost_b": 29.3,
         "exact_pct": 89.7,
         "within_1y_pct": 93.5,
         "exact_cost_pct": 93.5,
@@ -451,24 +451,24 @@ export const vintageGolden = {
       }
     },
     "order": {
-      "n": 716,
+      "n": 718,
       "first_sighting": {
-        "n": 716,
+        "n": 718,
         "cost_b": 28.6,
-        "exact_pct": 87.4,
-        "within_1y_pct": 92.7,
+        "exact_pct": 87.5,
+        "within_1y_pct": 92.8,
         "exact_cost_pct": 92.7,
         "within_1y_cost_pct": 96.0,
         "mean_err_years": -0.11,
         "mae_years": 0.26
       },
       "peer_date": {
-        "n": 716,
+        "n": 718,
         "cost_b": 28.6,
-        "exact_pct": 85.3,
-        "within_1y_pct": 89.9,
-        "exact_cost_pct": 91.4,
-        "within_1y_cost_pct": 95.9,
+        "exact_pct": 85.4,
+        "within_1y_pct": 90.0,
+        "exact_cost_pct": 91.5,
+        "within_1y_cost_pct": 96.0,
         "mean_err_years": -0.26,
         "mae_years": 0.35
       }
